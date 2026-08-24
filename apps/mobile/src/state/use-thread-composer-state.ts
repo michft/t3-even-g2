@@ -486,6 +486,41 @@ export function useThreadComposerState() {
     uploadThreadFeedback,
   ]);
 
+  const onSendTextMessage = useCallback(
+    async (textInput: string) => {
+      const text = textInput.trim();
+      if (!selectedThreadShell || text.length === 0) {
+        return null;
+      }
+
+      const threadKey = scopedThreadKey(selectedThreadShell.environmentId, selectedThreadShell.id);
+      const draft = getComposerDraftSnapshot(threadKey);
+      const thread = selectedThreadDetail ?? selectedThreadShell;
+      const metadata = makeQueuedMessageMetadata();
+      const messageId = MessageId.make(metadata.messageId);
+      const enqueuePromise = enqueueThreadOutboxMessage({
+        environmentId: selectedThreadShell.environmentId,
+        threadId: selectedThreadShell.id,
+        messageId,
+        commandId: CommandId.make(metadata.commandId),
+        text,
+        attachments: [],
+        modelSelection: draft.modelSelection ?? thread.modelSelection,
+        runtimeMode: draft.runtimeMode ?? thread.runtimeMode,
+        interactionMode: draft.interactionMode ?? thread.interactionMode,
+        createdAt: metadata.createdAt,
+      });
+      enqueuePromise.catch((error: unknown) => {
+        void mergeComposerDraftContent(threadKey, { text, attachments: [] });
+        setPendingConnectionError(
+          error instanceof Error ? error.message : "Failed to save the dictated message.",
+        );
+      });
+      return messageId;
+    },
+    [selectedThreadDetail, selectedThreadShell],
+  );
+
   const onChangeDraftMessage = useCallback(
     (value: string) => {
       if (!selectedThreadShell) {
@@ -817,6 +852,7 @@ export function useThreadComposerState() {
     onNativePasteText,
     onRemoveDraftImage,
     onSendMessage,
+    onSendTextMessage,
     onUpdateModelSelection,
     onUpdateRuntimeMode,
     onUpdateInteractionMode,
