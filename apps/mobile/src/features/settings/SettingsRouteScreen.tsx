@@ -9,6 +9,7 @@ import { hasCloudPublicConfig } from "../cloud/publicConfig";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
 import { NativeHeaderToolbar } from "../../native/StackHeader";
 import { useSavedRemoteConnections } from "../../state/use-remote-environment-registry";
+import { EvenG2SettingsSection } from "../even-g2/EvenG2SettingsSection";
 import { SettingsRow } from "./components/SettingsRow";
 import { SettingsSection } from "./components/SettingsSection";
 import { SettingsScreen } from "./components/SettingsScreen";
@@ -89,6 +90,8 @@ function ConfiguredSettingsRouteScreen() {
           <SettingsRow icon="bell.badge" label="Notifications" target="SettingsNotifications" />
         </SettingsSection>
 
+        <EvenG2SettingsSection />
+
         <SettingsIndexSections />
       </ScrollView>
     </View>
@@ -120,6 +123,8 @@ function LocalSettingsRouteScreen() {
             target="SettingsEnvironments"
           />
         </SettingsSection>
+
+        <EvenG2SettingsSection />
 
         <SettingsIndexSections />
       </ScrollView>

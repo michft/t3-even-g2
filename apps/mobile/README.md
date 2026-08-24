@@ -90,6 +90,42 @@ T3CODE_IOS_PERSONAL_TEAM_BUNDLE_ID=com.example.t3code \
 vp run ios:release
 ```
 
+### Even G2 + R1 direct mode
+
+The iOS 26 build can connect directly to both Even G2 arms. It uses the G2 microphone for
+on-device dictation, the R1 ring for start/send/cancel gestures, and the G2 display for the latest
+assistant response. This is an experimental, unofficial protocol integration and may need updates
+after glasses firmware changes.
+
+Before connecting, quit the Even app so it releases the glasses. In T3 Code, open Settings and tap
+**G2 + R1**, then return to a thread. Tap R1 once to start dictation, once again to send, or
+double-tap to cancel. Swipe up or down to page through a long assistant response on the glasses.
+Existing typed composer text is preserved.
+
+A paid Apple Developer Program membership is not required for local testing on your own iPhone.
+Add your Apple Account to Xcode, connect and trust the iPhone, enable Developer Mode when prompted,
+then use the Personal Team build with a bundle identifier you control:
+
+```bash
+T3CODE_IOS_PERSONAL_TEAM=1 \
+T3CODE_IOS_PERSONAL_TEAM_BUNDLE_ID=com.example.t3code.g2 \
+pnpm run ios:dev -- --device
+```
+
+Free Personal Team provisioning expires after seven days, so Xcode must rebuild/reinstall the app
+periodically. Expo Go cannot load this native G2 module. A physical iPhone is required for G2 BLE
+testing; the iOS Simulator can only exercise the non-hardware UI.
+
+Hardware acceptance checks:
+
+1. Quit the Even app, connect from **Settings → G2 + R1**, and confirm both arms reach **Connected**.
+2. In a thread, tap R1 once, speak, and confirm live text appears in the composer and on the G2.
+3. Tap R1 again and confirm the transcript is sent while any pre-existing typed draft is preserved.
+4. Start another dictation, double-tap R1, and confirm it cancels without sending.
+5. Confirm the next assistant response appears on the G2; for a multi-page response, swipe up and
+   down to move between lens-sized text windows.
+6. Power-cycle one arm and confirm the app reconnects both arms and returns to **Connected**.
+
 Build and run the local iOS preview app:
 
 ```bash
@@ -115,6 +151,12 @@ Run static checks for mobile native code:
 
 ```bash
 node ../../scripts/mobile-native-static-check.ts
+```
+
+Run the hardware-independent G2 protocol fixtures on macOS:
+
+```bash
+pnpm run test:g2-native
 ```
 
 The native lint task runs SwiftLint for Swift plus ktlint and detekt for Kotlin. Missing native tools are reported as warnings and skipped locally. CI installs the default toolset from `apps/mobile/Brewfile` before running the native checks.

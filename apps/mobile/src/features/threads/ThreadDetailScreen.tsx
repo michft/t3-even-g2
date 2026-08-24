@@ -13,7 +13,7 @@ import { useKeyboardChatComposerInset, useKeyboardScrollToEnd } from "@legendapp
 import { resolveProviderSkillsForCwd } from "@t3tools/client-runtime/providerSkills";
 import type { LegendListRef } from "@legendapp/list/react-native";
 import { HeaderHeightContext } from "@react-navigation/elements";
-import { useNavigation } from "@react-navigation/native";
+import { useIsFocused, useNavigation } from "@react-navigation/native";
 import type {
   ApprovalRequestId,
   EnvironmentId,
@@ -67,6 +67,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useWorkspaceContentWidth } from "../layout/workspace-content-width";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { collectProviderUsageLimits } from "@t3tools/shared/usageLimits";
+import { useEvenG2ThreadBridge } from "../even-g2/useEvenG2ThreadBridge";
 import type { ComposerEditorHandle } from "../../components/ComposerEditor";
 import type { StatusTone } from "../../components/StatusPill";
 import type { DraftComposerAttachment } from "../../lib/composerImages";
@@ -164,6 +165,7 @@ export interface ThreadDetailScreenProps {
   readonly onRemoveDraftImage: (imageId: string) => void;
   readonly onStopThread: () => void;
   readonly onSendMessage: () => Promise<MessageId | null>;
+  readonly onSendTextMessage: (text: string) => Promise<MessageId | null>;
   readonly onReconnectEnvironment: () => void;
   readonly onUpdateThreadModelSelection: (modelSelection: ModelSelection) => void;
   readonly onUpdateThreadRuntimeMode: (runtimeMode: RuntimeMode) => void;
@@ -263,6 +265,7 @@ const USER_INPUT_TOGGLE_TIMING = {
 };
 
 export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: ThreadDetailScreenProps) {
+  const isFocused = useIsFocused();
   const navigation = useNavigation();
   const deviceState = useEnvironmentQuery(
     deviceEnvironment.state({ environmentId: props.environmentId, input: {} }),
@@ -762,40 +765,65 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
     selectedThreadKey,
   ]);
 
+  const recordSubmittedMessage = useCallback(
+    (messageId: MessageId, targetThreadKey: string) => {
+      if (selectedThreadKeyRef.current !== targetThreadKey) {
+        return;
+      }
+      const hasUserMessage = selectedThreadFeed.some(
+        (entry) => entry.type === "message" && entry.message.role === "user",
+      );
+      setSubmittedMessageId(messageId);
+      setAnchorMessageId(
+        resolveThreadFeedSubmissionAnchor({
+          currentAnchorMessageId: anchorMessageId,
+          submittedMessageId: messageId,
+          hasStartedTurn: props.selectedThread.latestTurn !== null,
+          hasUserMessage,
+          queuedMessageCount: props.selectedThreadQueueCount,
+        }),
+      );
+    },
+    [
+      anchorMessageId,
+      props.selectedThread.latestTurn,
+      props.selectedThreadQueueCount,
+      selectedThreadFeed,
+    ],
+  );
+
   const handleSendMessage = useCallback(async () => {
     const targetThreadKey = selectedThreadKey;
-    const hasUserMessage = selectedThreadFeed.some(
-      (entry) => entry.type === "message" && entry.message.role === "user",
-    );
     const messageId = await props.onSendMessage();
-    if (messageId === null || selectedThreadKeyRef.current !== targetThreadKey) {
+    if (messageId === null) {
       return messageId;
     }
-
-    // A sent message makes the snapshot stale; a refused send leaves it in place.
     clearUsageLimitsFor(targetThreadKey);
-
-    setSubmittedMessageId(messageId);
-    setAnchorMessageId(
-      resolveThreadFeedSubmissionAnchor({
-        currentAnchorMessageId: anchorMessageId,
-        submittedMessageId: messageId,
-        hasStartedTurn: props.selectedThread.latestTurn !== null,
-        hasUserMessage,
-        queuedMessageCount: props.selectedThreadQueueCount,
-      }),
-    );
+    recordSubmittedMessage(messageId, targetThreadKey);
     composerEditorRef.current?.blur();
     return messageId;
-  }, [
-    anchorMessageId,
-    clearUsageLimitsFor,
-    props.onSendMessage,
-    props.selectedThread.latestTurn,
-    props.selectedThreadQueueCount,
-    selectedThreadFeed,
-    selectedThreadKey,
-  ]);
+  }, [clearUsageLimitsFor, props.onSendMessage, recordSubmittedMessage, selectedThreadKey]);
+
+  const handleSendDictatedMessage = useCallback(
+    async (text: string) => {
+      const targetThreadKey = selectedThreadKey;
+      const messageId = await props.onSendTextMessage(text);
+      if (messageId !== null) {
+        clearUsageLimitsFor(targetThreadKey);
+        recordSubmittedMessage(messageId, targetThreadKey);
+      }
+      return messageId;
+    },
+    [clearUsageLimitsFor, props.onSendTextMessage, recordSubmittedMessage, selectedThreadKey],
+  );
+
+  useEvenG2ThreadBridge({
+    enabled: isFocused,
+    feed: props.selectedThreadFeed,
+    draftMessage: props.draftMessage,
+    onChangeDraftMessage: props.onChangeDraftMessage,
+    onSendTextMessage: handleSendDictatedMessage,
+  });
 
   const handleEditPendingMessage = useCallback(async (message: QueuedThreadMessage) => {
     try {
