@@ -198,18 +198,18 @@ enum T3EvenG2Protocol {
       }
     }
 
-    if wrappedLines.isEmpty {
-      return [""]
+    let singlePage = wrappedLines.joined(separator: "\n")
+    if wrappedLines.count <= safeRows, singlePage.utf8.count <= safeMaxBytes {
+      return [singlePage]
     }
-
+    let contentRows = max(1, safeRows - 1)
     var pageLines: [[String]] = []
     var currentLines: [String] = []
     var currentBytes = 0
     for line in wrappedLines {
       let addedBytes = line.utf8.count + (currentLines.isEmpty ? 0 : 1)
       if !currentLines.isEmpty,
-        currentLines.count >= safeRows || currentBytes + addedBytes > safeMaxBytes
-      {
+        currentLines.count >= contentRows || currentBytes + addedBytes > safeMaxBytes {
         pageLines.append(currentLines)
         currentLines = []
         currentBytes = 0
@@ -268,8 +268,8 @@ enum T3EvenG2Protocol {
         index = end
       } else if wire == 2, let (length, lengthEnd) = readVarint(bytes, from: index) {
         index = lengthEnd
+        guard length >= 0, length <= bytes.count - index else { break }
         let end = index + length
-        guard end >= index, end <= bytes.count else { break }
         result.append(Field(number: number, uintValue: nil, dataValue: Array(bytes[index..<end])))
         index = end
       } else {

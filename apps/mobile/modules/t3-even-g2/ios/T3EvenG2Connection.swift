@@ -426,7 +426,8 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     heartbeatTask = Task { @MainActor [weak self] in
       while !Task.isCancelled {
         try? await Task.sleep(for: .seconds(5))
-        guard let self, self.status == .ready, !self.transportBusy else { continue }
+        guard let self, !Task.isCancelled else { return }
+        guard self.status == .ready, !self.transportBusy else { continue }
         await self.sendEvenHub(T3EvenG2Protocol.heartbeat(magic: self.nextMagic()))
       }
     }
