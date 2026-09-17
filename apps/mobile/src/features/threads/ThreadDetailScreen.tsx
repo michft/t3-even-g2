@@ -818,6 +818,7 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
   );
 
   useEvenG2ThreadBridge({
+    threadKey: selectedThreadKey,
     enabled: isFocused,
     feed: props.selectedThreadFeed,
     draftMessage: props.draftMessage,

@@ -155,6 +155,15 @@ private struct T3EvenG2ProtocolSmoke {
       "list gesture not decoded"
     )
     try check(T3EvenG2Protocol.gesture(from: Data([0x00])) == nil, "bad frame accepted")
+    let oversizedLength = Array(repeating: UInt8(0xFF), count: 8) + [0x7F]
+    try check(
+      T3EvenG2Protocol.gesture(from: packet(payload: [0x08, 0x02, 0x6A] + oversizedLength)) == nil,
+      "overflowing field length accepted"
+    )
+    try check(
+      T3EvenG2Protocol.gesture(from: packet(payload: [0x08, 0x02, 0x6A, 0x01])) == nil,
+      "field extending beyond remaining bytes accepted"
+    )
 
     let acknowledgement = Data([
       0xAA, 0x12, 0x09, 0x04, 0x01, 0x01, 0xE0, 0x20, 0x10, 0x2A, 0x00, 0x00,
@@ -182,6 +191,19 @@ private struct T3EvenG2ProtocolSmoke {
 
     let shortPages = T3EvenG2Protocol.lensTextPages("Short response")
     try check(shortPages == ["Short response"], "short response should stay on one lens page")
+    let fullPage = (1...9).map { "Line \($0)" }.joined(separator: "\n")
+    try check(
+      T3EvenG2Protocol.lensTextPages(fullPage) == [fullPage],
+      "single page must retain all nine content rows without a footer"
+    )
+    let overflowPages = T3EvenG2Protocol.lensTextPages(fullPage + "\nLine 10")
+    try check(
+      overflowPages == [
+        (1...8).map { "Line \($0)" }.joined(separator: "\n") + "\n1/2 · swipe ↑↓",
+        "Line 9\nLine 10\n2/2 · swipe ↑↓",
+      ],
+      "multi-page text must reserve its ninth row for the footer"
+    )
     let pagedText = (1...30).map { "Line \($0): window scrolling response text" }.joined(separator: "\n")
     let pages = T3EvenG2Protocol.lensTextPages(pagedText)
     try check(pages.count > 1, "long response should create multiple lens pages")
@@ -192,6 +214,18 @@ private struct T3EvenG2ProtocolSmoke {
       "paged lens text needs position and swipe guidance"
     )
     try check(pages.allSatisfy { $0.utf8.count <= 900 }, "lens page exceeds protocol cap")
+    try check(
+      pages.allSatisfy { $0.components(separatedBy: "\n").count <= 9 },
+      "lens page footer exceeds available rows"
+    )
+    let byteLimitedPages = T3EvenG2Protocol.lensTextPages(
+      String(repeating: "🙂", count: 40), columns: 8, rows: 4, maxBytes: 64
+    )
+    try check(byteLimitedPages.count > 1, "byte limit should split lens pages")
+    try check(
+      byteLimitedPages.allSatisfy { $0.components(separatedBy: "\n").count <= 4 },
+      "byte-limited pages must also reserve a footer row"
+    )
 
     print("T3EvenG2Protocol smoke checks passed")
   }
