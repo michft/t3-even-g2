@@ -55,6 +55,7 @@ import {
   runAppUpdateCheck,
 } from "../updates/app-updates";
 import { useSavedRemoteConnections } from "../../state/use-remote-environment-registry";
+import { EvenG2SettingsSection } from "../even-g2/EvenG2SettingsSection";
 import { SettingsRow } from "./components/SettingsRow";
 import { SettingsSection } from "./components/SettingsSection";
 import { SettingsSwitchRow } from "./components/SettingsSwitchRow";
@@ -137,6 +138,8 @@ function LocalSettingsRouteScreen() {
             target="SettingsEnvironments"
           />
         </SettingsSection>
+
+        <EvenG2SettingsSection />
 
         <GeneralSettingsSection />
 
@@ -577,6 +580,8 @@ function ConfiguredSettingsRouteScreen() {
             />
           ) : null}
         </SettingsSection>
+
+        <EvenG2SettingsSection />
 
         <GeneralSettingsSection />
 
