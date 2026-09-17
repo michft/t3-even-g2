@@ -489,7 +489,7 @@ export function useThreadComposerState() {
   const onSendTextMessage = useCallback(
     async (textInput: string) => {
       const text = textInput.trim();
-      if (!selectedThreadShell || text.length === 0) {
+      if (!selectedThreadShell || selectedThreadCreation !== null || text.length === 0) {
         return null;
       }
 
@@ -518,7 +518,7 @@ export function useThreadComposerState() {
       });
       return messageId;
     },
-    [selectedThreadDetail, selectedThreadShell],
+    [selectedThreadCreation, selectedThreadDetail, selectedThreadShell],
   );
 
   const onChangeDraftMessage = useCallback(

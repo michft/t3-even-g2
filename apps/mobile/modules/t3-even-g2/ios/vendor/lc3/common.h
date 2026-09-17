@@ -116,8 +116,9 @@
 #define LC3_MAX_NE \
     LC3_NE(LC3_DT_10M, LC3_SRATE_48K)
 
+/* Local fix: use the supplied PCM sample rate rather than an ambient `sr`. */
 #define LC3_NT(sr_hz) \
-    ( (5 * LC3_SRATE_KHZ(sr)) / 4 )
+    ( (5 * LC3_SRATE_KHZ(sr_hz)) / 4 )
 
 #define LC3_NH(dt, sr) \
     ( ((3 - dt) + 1) * LC3_NS(dt, sr) )
