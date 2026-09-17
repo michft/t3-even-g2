@@ -573,12 +573,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     guard gesture.kind == "click" || gesture.kind == "doubleClick" else { return }
     Task { @MainActor [weak self] in
       guard let self else { return }
-      let sourceLabel = switch gesture.source {
-      case "ring": "R1"
-      case "rightTemple": "right temple"
-      case "leftTemple": "left temple"
-      default: gesture.source
-      }
+      let sourceLabel = self.gestureSourceLabel(gesture.source)
       let inputAccepted = T3EvenG2Protocol.isDictationSource(gesture.source)
       let feedback = inputAccepted ? "Tap received" : "Input detected"
       await self.sendEvenHub(
@@ -595,6 +590,15 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       } else if gesture.kind == "doubleClick", self.listening {
         await self.cancelDictation()
       }
+    }
+  }
+
+  private func gestureSourceLabel(_ source: String) -> String {
+    switch source {
+    case "ring": "R1"
+    case "rightTemple": "right temple"
+    case "leftTemple": "left temple"
+    default: source
     }
   }
 
