@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useEffectEvent } from "react";
 
 import type { MessageId } from "@t3tools/contracts";
 
@@ -13,61 +13,78 @@ import {
 } from "./evenG2Native";
 import { latestAssistantText, mergeDraftWithTranscript } from "./evenG2ThreadBridge.logic";
 
-export function useEvenG2ThreadBridge(input: {
-  readonly enabled: boolean;
-  readonly feed: ReadonlyArray<ThreadFeedEntry>;
+interface EvenG2DictationInput {
+  readonly threadKey: string;
   readonly draftMessage: string;
   readonly onChangeDraftMessage: (value: string) => void;
   readonly onSendTextMessage: (text: string) => Promise<MessageId | null>;
-}): void {
-  const currentDraftRef = useRef(input.draftMessage);
-  const originalDraftRef = useRef<string | null>(null);
-  const latestInputRef = useRef(input);
-  currentDraftRef.current = input.draftMessage;
-  latestInputRef.current = input;
+}
 
-  useEffect(() => {
-    if (!input.enabled) {
+/** Keep a native dictation session attached to the thread where it began. */
+export function subscribeEvenG2Dictation(getInput: () => EvenG2DictationInput): () => void {
+  let session: EvenG2DictationInput | null = null;
+  const captureSession = () => {
+    const { threadKey, draftMessage, onChangeDraftMessage, onSendTextMessage } = getInput();
+    if (session === null) {
+      session = { threadKey, draftMessage, onChangeDraftMessage, onSendTextMessage };
+    } else if (session.threadKey === threadKey) {
+      // Creation/model state can change mid-dictation, but another route's
+      // callbacks must never take ownership of this session.
+      session = { ...session, onChangeDraftMessage, onSendTextMessage };
+    }
+    return session;
+  };
+
+  ensureEvenG2AutoConnect();
+  setEvenG2InputEnabled(true);
+  const unsubscribeStatus = subscribeEvenG2Status(() => {
+    if (getEvenG2Status().listening) {
+      captureSession();
+    }
+  });
+  const unsubscribeTranscripts = subscribeEvenG2Transcripts((event) => {
+    const origin = captureSession();
+    if (!event.isFinal) {
+      origin.onChangeDraftMessage(mergeDraftWithTranscript(origin.draftMessage, event.text));
       return;
     }
-    ensureEvenG2AutoConnect();
-    setEvenG2InputEnabled(true);
-    const unsubscribeStatus = subscribeEvenG2Status(() => {
-      if (getEvenG2Status().listening && originalDraftRef.current === null) {
-        originalDraftRef.current = currentDraftRef.current;
-      }
-    });
-    const unsubscribeTranscripts = subscribeEvenG2Transcripts((event) => {
-      const handlers = latestInputRef.current;
-      if (originalDraftRef.current === null) {
-        originalDraftRef.current = currentDraftRef.current;
-      }
-      const originalDraft = originalDraftRef.current;
-      if (!event.isFinal) {
-        handlers.onChangeDraftMessage(mergeDraftWithTranscript(originalDraft, event.text));
-        return;
-      }
 
-      handlers.onChangeDraftMessage(originalDraft);
-      originalDraftRef.current = null;
-      const command = event.text.trim();
-      if (!event.cancelled && command.length > 0) {
-        void handlers.onSendTextMessage(command);
-      }
-    });
-    if (getEvenG2Status().listening) {
-      originalDraftRef.current = currentDraftRef.current;
+    origin.onChangeDraftMessage(origin.draftMessage);
+    session = null;
+    const command = event.text.trim();
+    if (!event.cancelled && command.length > 0) {
+      void origin.onSendTextMessage(command).catch((error: unknown) => {
+        console.error("[even-g2] Failed to send dictated message", origin.threadKey, error);
+      });
     }
+  });
+  if (getEvenG2Status().listening) {
+    captureSession();
+  }
 
-    return () => {
-      unsubscribeStatus();
-      unsubscribeTranscripts();
-      if (originalDraftRef.current !== null) {
-        latestInputRef.current.onChangeDraftMessage(originalDraftRef.current);
-        originalDraftRef.current = null;
-      }
-      setEvenG2InputEnabled(false);
-    };
+  return () => {
+    unsubscribeStatus();
+    unsubscribeTranscripts();
+    if (session !== null) {
+      session.onChangeDraftMessage(session.draftMessage);
+      session = null;
+    }
+    setEvenG2InputEnabled(false);
+  };
+}
+
+export function useEvenG2ThreadBridge(
+  input: EvenG2DictationInput & {
+    readonly enabled: boolean;
+    readonly feed: ReadonlyArray<ThreadFeedEntry>;
+  },
+): void {
+  const getInput = useEffectEvent(() => input);
+
+  useEffect(() => {
+    if (input.enabled) {
+      return subscribeEvenG2Dictation(getInput);
+    }
   }, [input.enabled]);
 
   const assistantText = latestAssistantText(input.feed);
