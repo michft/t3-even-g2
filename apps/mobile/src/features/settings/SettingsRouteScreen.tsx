@@ -92,16 +92,6 @@ function ConfiguredSettingsRouteScreen() {
 
         <EvenG2SettingsSection />
 
-        <GeneralSettingsSection />
-
-        <SettingsSection title="Appearance">
-          <SettingsRow icon="paintbrush" label="Appearance" target="SettingsAppearance" />
-        </SettingsSection>
-
-        <LegacySettingsSection />
-
-        <ArchivedThreadsSettingsSection />
-
         <SettingsIndexSections />
       </ScrollView>
     </View>
@@ -135,8 +125,6 @@ function LocalSettingsRouteScreen() {
         </SettingsSection>
 
         <EvenG2SettingsSection />
-
-        <GeneralSettingsSection />
 
         <SettingsIndexSections />
       </ScrollView>
