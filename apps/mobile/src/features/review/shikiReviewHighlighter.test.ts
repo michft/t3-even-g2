@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vite-plus/test";
+import { describe, expect, it, onTestFinished, vi } from "vite-plus/test";
 
 import type { ReviewRenderableLineRow } from "./reviewModel";
 import {
@@ -48,6 +48,9 @@ describe("highlightSourceFile", () => {
   });
 
   it("initializes source and snippet highlighting without a warmup", async () => {
+    // Exercise cold initialization independently of Shiki's 500 ms tokenization budget.
+    const clock = vi.spyOn(Date, "now").mockReturnValue(0);
+    onTestFinished(() => clock.mockRestore());
     vi.resetModules();
     const highlighter = await import("./shikiReviewHighlighter");
     const source = "const answer: number = 42;";
