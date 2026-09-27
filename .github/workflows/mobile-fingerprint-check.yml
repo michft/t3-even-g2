@@ -39,6 +39,7 @@ jobs:
           # The merge ref can advance after the event is queued. Pin its commit
           # and compare against its first parent, rather than the event's base.
           ref: ${{ github.sha }}
+          persist-credentials: false
           fetch-depth: 2
 
       - id: changes
