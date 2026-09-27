@@ -48,7 +48,7 @@ export function EvenG2SettingsSection() {
     <View className="gap-3">
       <SettingsSection title="Even G2">
         <SettingsRow
-          icon="eyeglasses"
+          icon="eye"
           label="G2 + R1"
           value={statusLabels[status.status]}
           disabled={status.status === "unsupported"}
