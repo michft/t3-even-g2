@@ -125,6 +125,25 @@ describe("Even G2 dictation sessions", () => {
     expect(sent).toEqual([]);
   });
 
+  it("starts a fresh dictation after a page-exit cancellation without sending the abandoned partial", () => {
+    let input = thread("a", "original draft");
+    unsubscribe = subscribeEvenG2Dictation(() => input);
+    startListening();
+    transcript({ text: "abandoned partial", isFinal: false });
+    native.listening = false;
+    transcript({ text: "", isFinal: true, cancelled: true });
+
+    expect(drafts.get("a")).toBe("original draft");
+    expect(sent).toEqual([]);
+
+    input = thread("a", "edited after recovery");
+    startListening();
+    transcript({ text: "new dictation", isFinal: true });
+
+    expect(drafts.get("a")).toBe("edited after recovery");
+    expect(sent).toEqual([{ threadKey: "a", text: "new dictation" }]);
+  });
+
   it("handles send rejection without blocking the next dictation session", async () => {
     const pending = Promise.withResolvers<MessageId | null>();
     const log = vi.spyOn(console, "error").mockImplementation(() => {});

@@ -8,6 +8,7 @@ export type EvenG2ConnectionStatus =
   | "connecting"
   | "starting"
   | "ready"
+  | "paused"
   | "error"
   | "unsupported";
 
@@ -35,6 +36,7 @@ interface EvenG2NativeModule {
   setAutoConnect(enabled: boolean): void;
   connect(): void;
   disconnect(): void;
+  resumeDisplay(): void;
   displayText(text: string): void;
   clearDisplay(): void;
   setInputEnabled(enabled: boolean): void;
@@ -129,6 +131,10 @@ export function connectEvenG2(): void {
 
 export function disconnectEvenG2(): void {
   nativeModule()?.disconnect();
+}
+
+export function resumeEvenG2Display(): void {
+  nativeModule()?.resumeDisplay();
 }
 
 export function displayEvenG2Text(text: string): void {

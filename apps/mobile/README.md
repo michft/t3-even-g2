@@ -99,7 +99,10 @@ after glasses firmware changes.
 
 Before connecting, quit the Even app so it releases the glasses. In T3 Code, open Settings and tap
 **G2 + R1**, then return to a thread. Tap R1 once to start dictation, once again to send, or
-double-tap to cancel. Swipe up or down to page through a long assistant response on the glasses.
+double-tap to leave the T3 display and cancel dictation. Swipe up or down to page through a long
+assistant response on the glasses. After an accidental double-tap, open **Settings → Even G2 →
+Resume T3 display** to restore T3 without disconnecting Bluetooth. Dictation stays stopped until
+you start it again; returning to Even does not send your partial transcript.
 Existing typed composer text is preserved.
 
 A paid Apple Developer Program membership is not required for local testing on your own iPhone.
@@ -121,7 +124,9 @@ Hardware acceptance checks:
 1. Quit the Even app, connect from **Settings → G2 + R1**, and confirm both arms reach **Connected**.
 2. In a thread, tap R1 once, speak, and confirm live text appears in the composer and on the G2.
 3. Tap R1 again and confirm the transcript is sent while any pre-existing typed draft is preserved.
-4. Start another dictation, double-tap R1, and confirm it cancels without sending.
+4. Start another dictation, double-tap R1, and confirm it cancels without sending and Settings shows
+   **Display paused**. Tap **Resume T3 display**, return to the thread, and confirm dictation can
+   start again without reconnecting the arms.
 5. Confirm the next assistant response appears on the G2; for a multi-page response, swipe up and
    down to move between lens-sized text windows.
 6. Power-cycle one arm and confirm the app reconnects both arms and returns to **Connected**.

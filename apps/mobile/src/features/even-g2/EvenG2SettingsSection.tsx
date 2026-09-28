@@ -8,6 +8,7 @@ import {
   connectEvenG2,
   disconnectEvenG2,
   ensureEvenG2AutoConnect,
+  resumeEvenG2Display,
   setEvenG2AutoConnect,
   useEvenG2Status,
 } from "./evenG2Native";
@@ -18,6 +19,7 @@ const statusLabels = {
   connecting: "Connecting",
   starting: "Starting",
   ready: "Connected",
+  paused: "Display paused",
   error: "Retry",
   unsupported: "Unavailable",
 } as const;
@@ -54,10 +56,13 @@ export function EvenG2SettingsSection() {
           disabled={status.status === "unsupported"}
           onPress={toggleConnection}
         />
+        {status.status === "paused" && (
+          <SettingsRow icon="eye" label="Resume T3 display" onPress={resumeEvenG2Display} />
+        )}
       </SettingsSection>
       <Text className="px-2 text-sm text-foreground-muted">
         {status.detail ||
-          "Quit the Even app first. In a thread, tap R1 once to start or send; double-tap to cancel."}
+          "Quit the Even app first. In a thread, tap R1 once to start or send. Double-tap leaves T3; resume the display here."}
       </Text>
     </View>
   );

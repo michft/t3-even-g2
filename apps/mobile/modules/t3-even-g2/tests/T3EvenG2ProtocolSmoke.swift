@@ -146,6 +146,20 @@ private struct T3EvenG2ProtocolSmoke {
       T3EvenG2Protocol.gesture(from: doubleClick)?.kind == "doubleClick",
       "ring double-click not decoded"
     )
+    for (event, needsRecovery) in [(3, true), (4, false), (5, false), (6, true), (7, true)] {
+      let data = packet(payload: [0x08, 0x02] + nested(13, nested(3, [0x08, UInt8(event)])))
+      guard let gesture = T3EvenG2Protocol.gesture(from: data) else {
+        throw CheckFailure(description: "page lifecycle event was not decoded")
+      }
+      try check(
+        T3EvenG2Protocol.requiresDisplayRecovery(for: gesture.kind) == needsRecovery,
+        "page exits must need recovery, but opening or closing a system overlay must not"
+      )
+    }
+    try check(
+      !T3EvenG2Protocol.requiresDisplayRecovery(for: "click"),
+      "single tap must retain the T3 page"
+    )
     try check(
       T3EvenG2Protocol.gesture(from: textScroll)?.kind == "scrollUp",
       "text gesture not decoded"

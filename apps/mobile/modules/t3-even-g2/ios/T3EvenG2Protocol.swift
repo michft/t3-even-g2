@@ -153,6 +153,11 @@ enum T3EvenG2Protocol {
     source == "ring" || source == "rightTemple" || source == "leftTemple"
   }
 
+  static func requiresDisplayRecovery(for gestureKind: String) -> Bool {
+    // Foreground events also describe system menu overlays, not page teardown.
+    ["doubleClick", "systemExit", "abnormalExit"].contains(gestureKind)
+  }
+
   static func lensPageOffset(for gestureKind: String) -> Int? {
     switch gestureKind {
     case "scrollDown": 1

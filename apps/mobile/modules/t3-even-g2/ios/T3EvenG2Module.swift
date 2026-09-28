@@ -44,6 +44,13 @@ public final class T3EvenG2Module: Module {
       }
     }
 
+    Function("resumeDisplay") {
+      self.performOnMain {
+        guard #available(iOS 26.0, *) else { return }
+        self.connection()?.resumeDisplay()
+      }
+    }
+
     Function("displayText") { (text: String) in
       self.performOnMain {
         self.displayTextIfAvailable(text)
