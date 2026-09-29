@@ -1,5 +1,12 @@
 # T3 Code
 
+## Fork / upstream split
+
+- **Upstream** means T3 Code **Nightly**, but can also mean JJ upstream bookmarks of local changes. When the intended base is unclear, **ask before acting**. Do not assume `t3/main`.
+- **GitHub** means code pushed to the user's fork, `michft/t3-even-g2` (`origin`). It is distinct from T3 upstream (`t3`).
+- Keep local G2 code and documentation changes separate. Leave T3 updates for later unless explicitly requested; an ambiguous mention of upstream does not authorize a fetch, merge, rebase, or push.
+- **Ponytail means the smallest change that meets the requirements. When in doubt, ask.**
+
 T3 Code is a minimal GUI for coding agents. A Node WebSocket server wraps provider CLIs and agents (Codex, Claude Code, Cursor, Grok, OpenCode, Antigravity) and serves web, desktop, and mobile clients.
 
 You can think of T3 Code as an open source "bring-your-own-subscription" alternative to apps like Claude Desktop, Codex App, Cursor Glass and Conductor.
