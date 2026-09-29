@@ -1,22 +1,25 @@
-# T3 Code · Even G2 fork
+# T3 Even G2
 
-This is [michft/t3-even-g2](https://github.com/michft/t3-even-g2), an experimental fork of
-[T3 Code](https://github.com/pingdotgg/t3code) for Even G2 glasses and the R1 ring.
-The glasses connect through a custom iPhone build to browse assistant replies, choose threads,
-and dictate messages to the same environments used by the phone and desktop clients.
+This fork adds direct Bluetooth integration with Even G2 glasses and the R1 ring
+through a custom iPhone app on iOS 26 or later. It adds a glasses thread picker,
+paginated assistant reply history, and on-device dictation from the glasses
+microphone. R1 taps select threads, start dictation, and send speech. Right-arm
+taps select threads in the picker or jump to the current thread's latest reply;
+they do nothing during dictation. Left-arm taps go back or cancel. The display
+blanks after 15 seconds without input, including during dictation while speech
+capture continues; the first tap wakes it without performing an action. The fork
+also adds configurable scroll direction, Bluetooth reconnection and display
+recovery, and exportable native diagnostics.
 
-Glasses support requires the fork's G2 native changes and iOS 26 or later. An upstream-only
-checkout, Expo Go, and the upstream installation commands below do not provide this integration.
+Everything else should track upstream that is **T3 Code**
 
-- [Glasses setup, controls, and limitations](./docs/user/even-g2.md)
-- [Native build, focused checks, and diagnostics](./docs/operations/even-g2.md)
-- [Report a G2 issue in this fork](https://github.com/michft/t3-even-g2/issues)
+To help investigate fork issues, see the
+[Even G2 triage guide](docs/operations/even-g2-triage.md), including reporting
+from the phone and collecting diagnostics.
+See [glasses setup and controls](docs/user/even-g2.md) and
+[native builds and diagnostics](docs/operations/even-g2.md) for G2 examples.
 
-Current controls: R1/right-arm tap opens, dictates, or sends; left-arm tap goes Back or cancels
-dictation. After sending, **Sending to T3 Code…** changes to **Thinking…** as phone state updates.
-Swipe up returns to replies while work continues; left-arm tap opens the thread picker.
-
-## About upstream T3 Code
+# T3 Code
 
 T3 Code is an "agent harness control surface". It enables control of the agents on your machine with a best-in-class mobile app ([iOS](https://apps.apple.com/us/app/t3-code-remote-claude-more/id6787819824), [Android](https://play.google.com/store/apps/details?id=com.t3tools.t3code)), [web app](https://app.t3.codes) and [Electron-based desktop app](https://t3.codes).
 
@@ -106,7 +109,6 @@ We are (mostly) not accepting contributions yet. Small fixes may be considered. 
 
 Full docs live in [docs/](./docs). There's no docs site yet.
 
-- [Even G2 glasses and R1 ring](./docs/user/even-g2.md)
 - [Install and first run](./docs/user/install.md)
 - [Permission modes](./docs/user/permission-modes.md)
 - [Keyboard shortcuts](./docs/user/keybindings.md)
@@ -147,7 +149,9 @@ vp i
 
 Read [CONTRIBUTING.md](./CONTRIBUTING.md) before reporting a bug or opening a PR.
 
-For G2-specific bugs, use [this fork's issue tracker](https://github.com/michft/t3-even-g2/issues).
-For upstream feature requests, start an [Ideas discussion](https://github.com/pingdotgg/t3code/discussions/categories/ideas).
+Have a fork feature request? Use the
+[G2 feature-request form](https://github.com/michft/t3-even-g2/issues/new?template=feature_request.yml).
+Upstream-only proposals belong in T3 Code's
+[Ideas discussions](https://github.com/pingdotgg/t3code/discussions/categories/ideas).
 
 Need support? Join the [Discord](https://discord.gg/jn4EGJjrvv).

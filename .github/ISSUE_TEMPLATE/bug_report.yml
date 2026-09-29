@@ -1,4 +1,4 @@
-name: Bug report
+name: G2 bug report
 description: Report broken behavior, regressions, crashes, or reliability issues.
 title: "[Bug]: "
 labels:
@@ -9,8 +9,9 @@ body:
     attributes:
       value: |
         Use this form for broken behavior, regressions, crashes, or reliability problems.
-        G2 integration bugs belong in this fork. Upstream feature requests belong in
-        [Discussions](https://github.com/pingdotgg/t3code/discussions/categories/ideas).
+        File fork issues in [michft/t3-even-g2](https://github.com/michft/t3-even-g2/issues).
+        Use this repository's G2 feature request form for improvements.
+        Escalate to T3 upstream only when evidence identifies a problem in upstream code.
         Search existing issues first and keep the report focused on one problem.
 
   - type: checkboxes
@@ -47,10 +48,10 @@ body:
       label: Steps to reproduce
       description: Provide a minimal, deterministic repro.
       placeholder: |
-        1. Start the app with ...
-        2. Open ...
-        3. Disconnect the network
-        4. Reconnect and send another prompt
+        1. Connect G2 + R1 and open a thread on the glasses.
+        2. Wait at least 15 seconds for the display to go blank.
+        3. Tap R1 once, then note the screen and whether dictation starts.
+        4. Repeat with the left arm and right arm separately.
     validations:
       required: true
 
@@ -58,7 +59,7 @@ body:
     id: expected
     attributes:
       label: Expected behavior
-      placeholder: The thread should resume normally and accept the new message.
+      placeholder: The first R1 tap should only wake the display; the next tap should start dictation.
     validations:
       required: true
 
@@ -66,7 +67,7 @@ body:
     id: actual
     attributes:
       label: Actual behavior
-      placeholder: The composer clears, no new turn starts, and the session stays in a pending state.
+      placeholder: For example, the first tap wakes the lenses and starts Listening immediately.
     validations:
       required: true
 
@@ -101,14 +102,17 @@ body:
     id: glasses
     attributes:
       label: Even G2 details (if applicable)
-      description: Include iOS version, G2/R1 firmware, native build commit, input source, Natural scrolling setting, and whether the phone was locked. Describe the page before and after each gesture.
+      description: >-
+        Include device versions, installed native build, input source, scrolling,
+        and phone state. Describe the page before and after each gesture.
       placeholder: |
         iOS / G2 firmware / R1 firmware:
-        Native build commit:
+        Installed native build commit:
         Input: R1 ring / left arm / right arm
         Natural scrolling: on / off
         Phone: unlocked / locked / app backgrounded
-        Page and gesture: Thinking -> swipe up -> ...
+        Page and gesture: display asleep -> one R1 tap -> Listening
+        Expected: wake only; no dictation until the next tap
         Logs: export with scripts/g2-diagnostics.ts from a G2-enabled checkout.
 
   - type: textarea

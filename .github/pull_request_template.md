@@ -1,35 +1,34 @@
 <!--
-This is the Even G2 fork of T3 Code. Keep one concern per PR.
-Read CONTRIBUTING.md for fork reporting and upstream contribution guidance.
+PR creation is limited to repository collaborators. Public contributions start
+with an issue in michft/t3-even-g2. This PR must implement accepted fork work.
+See CONTRIBUTING.md and docs/operations/even-g2-triage.md.
 -->
 
-## What Changed
+## Issue
 
-<!-- Describe the change clearly and keep scope tight. -->
+<!-- Replace with the accepted fork issue number. Use "Refs" for a partial fix. -->
 
-## Why
+Closes #<issue-number>
 
-<!-- Explain the problem being solved and why this approach is the right one. -->
+## What changed and why
 
-## UI Changes
-
-<!-- If this PR changes UI, include clear before/after screenshots.
-     If the change involves motion or interaction, include a short video.
-     Delete this section if not applicable. -->
+<!-- Describe the problem, resulting behavior, and scope. One concern per PR. -->
 
 ## Validation
 
-<!-- List focused commands and their results. For G2 changes, distinguish simulated
-     Bluetooth tests from physical glasses checks. If hardware was tested, include
-     the native build commit, iOS/G2/R1 versions, input source, Natural scrolling,
-     and phone lock state. State explicitly when hardware was not tested.
-     See docs/operations/even-g2.md. -->
+<!-- List commands and results. State failures and remaining verification gaps.
+     For G2 changes, distinguish simulated checks from physical hardware tests. -->
+
+## UI evidence
+
+<!-- Include before/after images for UI changes and video for motion or timing.
+     Upload evidence to GitHub; do not commit PR-only assets. Delete if unused. -->
 
 ## Checklist
 
-- [ ] This PR is small and focused
-- [ ] I explained what changed and why
-- [ ] I included before/after screenshots for any UI changes
-- [ ] I included a video for animation/interaction changes
+- [ ] Linked an accepted issue in michft/t3-even-g2
+- [ ] Kept changes within its acceptance criteria
+- [ ] Recorded relevant validation and remaining gaps
+- [ ] Updated affected user or contributor guides
 
-<!-- End the description with the model and harness used, if agent-assisted. -->
+<!-- For agent-assisted changes, end with the model and harness used. -->

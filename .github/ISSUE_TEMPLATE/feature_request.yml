@@ -1,0 +1,34 @@
+name: G2 feature request
+description: Suggest an improvement or new capability for the Even G2 fork.
+title: "[Feature]: "
+labels:
+  - enhancement
+  - needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Keep fork requests in [michft/t3-even-g2](https://github.com/michft/t3-even-g2/issues).
+        Search existing issues first and keep each request focused on one problem.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or need
+      description: What are you trying to accomplish, and what gets in the way?
+      placeholder: >-
+        While reading a long reply on G2, I want to mark a passage to revisit
+        after switching threads without finding it again on the phone.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed improvement
+      description: Describe the behavior you want and any alternatives considered.
+      placeholder: >-
+        Add a saved reading bookmark for a G2 reply/page, with an explicit way
+        to return to it. Preserve the separate R1, left-arm, and right-arm controls.
+    validations:
+      required: true

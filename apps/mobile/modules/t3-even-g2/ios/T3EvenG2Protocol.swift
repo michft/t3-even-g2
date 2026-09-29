@@ -168,9 +168,14 @@ enum T3EvenG2Protocol {
     gestureNames.indices.contains(value) ? gestureNames[value] : "unknown"
   }
 
-  /// Reports whether a gesture source can start dictation.
-  static func isDictationSource(_ source: String) -> Bool {
+  /// Reports whether a gesture source can select threads, scroll, or wake the display.
+  static func isControlSource(_ source: String) -> Bool {
     ["ring", "rightTemple", "textContainer", "listContainer"].contains(source)
+  }
+
+  /// Reserves right-arm taps for navigation while retaining captured ring input.
+  static func isDictationSource(_ source: String) -> Bool {
+    source != "rightTemple" && isControlSource(source)
   }
 
   /// Reports whether this gesture can dismiss the active display page.

@@ -1,6 +1,8 @@
 name: Issue Labels
 
 on:
+  issues:
+    types: [opened]
   push:
     branches:
       - main
@@ -37,6 +39,31 @@ jobs:
                 color: "fbca04",
                 description: "Issue needs maintainer review and initial categorization.",
               },
+              {
+                name: "needs-info",
+                color: "d876e3",
+                description: "Waiting for information from the reporter.",
+              },
+              {
+                name: "ready-for-agent",
+                color: "0e8a16",
+                description: "Accepted and specified for an assigned agent to implement.",
+              },
+              {
+                name: "ready-for-human",
+                color: "1d76db",
+                description: "Accepted work requiring human implementation or judgment.",
+              },
+              {
+                name: "wontfix",
+                color: "ffffff",
+                description: "This will not be worked on.",
+              },
+              {
+                name: "via-triage",
+                color: "c5def5",
+                description: "Report includes an agent investigation.",
+              },
             ];
 
             for (const label of managedLabels) {
@@ -72,4 +99,24 @@ jobs:
                   description: label.description,
                 });
               }
+            }
+      - name: Queue new issues for triage
+        if: github.event_name == 'issues'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: issue } = await github.rest.issues.get({
+              ...context.repo,
+              issue_number: context.issue.number,
+            });
+            const states = new Set([
+              "needs-triage", "needs-info", "ready-for-agent",
+              "ready-for-human", "wontfix",
+            ]);
+            if (issue.state === "open" && !issue.labels.some((label) => states.has(label.name))) {
+              await github.rest.issues.addLabels({
+                ...context.repo,
+                issue_number: context.issue.number,
+                labels: ["needs-triage"],
+              });
             }

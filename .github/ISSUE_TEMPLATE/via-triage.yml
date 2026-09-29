@@ -1,13 +1,17 @@
-name: Triage report
-description: Filed with `npx t3 triage`, where a coding agent investigated the machine. For hand-written reports use the bug report template instead.
+name: G2 triage report
+description: Record an agent investigation of a fork issue. For an uninvestigated problem, use G2 bug report.
 labels:
   - via-triage
+  - needs-triage
 body:
   - type: markdown
     attributes:
       value: |
-        This structure is what `t3 triage` agents follow. Keep one problem per issue
-        and redact secrets and home directory paths from anything you paste.
+        Use this form after an agent investigates a fork issue in a T3 project thread.
+        This form records findings; it does not run an investigation.
+        Keep one problem per issue and redact secrets and home directory paths.
+        File fork issues in [michft/t3-even-g2](https://github.com/michft/t3-even-g2/issues).
+        Escalate to T3 upstream only when evidence identifies a problem in upstream code.
 
   - type: textarea
     id: what-happened
@@ -30,6 +34,11 @@ body:
     attributes:
       label: Steps to reproduce
       description: Minimal, deterministic repro if one was found.
+      placeholder: |
+        1. Open an older reply on G2, with the display awake.
+        2. Tap the right arm once.
+        3. Record whether the latest reply appears and whether dictation starts.
+        Expected: latest reply in the same thread; no dictation.
     validations:
       required: true
 
@@ -50,6 +59,24 @@ body:
       placeholder: macOS 15.3, Node 22.6, claude 2.1.0
     validations:
       required: true
+
+  - type: textarea
+    id: glasses
+    attributes:
+      label: Even G2 evidence (if applicable)
+      description: >-
+        Record the installed phone build and hardware context. Distinguish
+        physical observations from simulated tests and successful Bluetooth writes.
+      placeholder: |
+        iOS / G2 firmware / R1 firmware:
+        Installed native build commit:
+        Input: R1 ring / left arm / right arm
+        Natural scrolling: on / off
+        Phone: unlocked / locked / app backgrounded
+        Starting page -> exact gestures -> actual page:
+        Relevant gesture.received / gesture.ignored log entries:
+        Physical glasses result:
+        Simulated checks and results:
 
   - type: textarea
     id: evidence
@@ -75,4 +102,4 @@ body:
     attributes:
       label: Filed by
       description: Which agent and model produced this report.
-      placeholder: claude (opus-5) via t3 triage
+      placeholder: Agent and model name, via a T3 project thread

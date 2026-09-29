@@ -26,6 +26,7 @@ if [[ $# -gt 0 ]]; then
   exit
 fi
 "$g2_test_dir/t3-g2-connection-smoke" --startup-input
+"$g2_test_dir/t3-g2-connection-smoke" --arm-controls
 "$g2_test_dir/t3-g2-connection-smoke" --display-idle
 "$g2_test_dir/t3-g2-connection-smoke" --diagnostics
 "$g2_test_dir/t3-g2-connection-smoke" --listening

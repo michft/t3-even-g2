@@ -400,7 +400,13 @@ struct Smoke {
       fatalError("G2 connection test timed out waiting for a lifecycle callback at line \(Fixture.waitingAtLine)")
     }
     defer { watchdog.cancel() }
+    if CommandLine.arguments.contains("--arm-controls") {
+      await verifyArmControls()
+      print("G2 right-arm navigation and R1 dictation separation checks passed")
+      return
+    }
     if CommandLine.arguments.contains("--display-idle") {
+      await verifyDisplayIdleWriteFailure()
       await verifyDisplayIdle()
       print("G2 display idle timeout and tap wake checks passed")
       return
@@ -563,7 +569,7 @@ struct Smoke {
     precondition(fixture.createCount == createsBeforeCancel)
     precondition(fixture.transcripts.count == 1 && fixture.transcripts[0]["cancelled"] as? Bool == true)
     try? await Task.sleep(for: .milliseconds(450))
-    fixture.gesture(0, source: 1)
+    fixture.gesture(0)
     await fixture.wait { $0["listening"] as? Bool == true }
     // Firmware exits must still stop recording safely, while dictating.
     fixture.gesture(3)
@@ -734,6 +740,98 @@ struct Smoke {
     print(
       "G2 native driver: per-arm auth, base heartbeats, occupied-page reset, readiness deadlines, stale arm replacement, late recovery, cancellation, thread picker, dictation, and reconnect passed"
     )
+  }
+
+  /// Keeps right-arm selection and Latest separate from R1 speech actions.
+  @MainActor
+  private static func verifyArmControls() async {
+    let fixture = Fixture(pageHeartbeatInterval: .milliseconds(200))
+    fixture.connection.setThreadChoices([
+      ["key": "mini:arms", "title": "Arm controls", "subtitle": "Mini"],
+    ])
+    fixture.subscribe(fixture.left)
+    fixture.subscribe(fixture.right)
+    await fixture.wait { $0["status"] as? String == "ready" }
+    let starts = T3EvenG2SpeechTranscriber.startCount
+    fixture.gesture(0, source: 1)
+    precondition(fixture.selectedKeys == ["mini:arms"])
+    precondition(T3EvenG2SpeechTranscriber.startCount == starts)
+    fixture.connection.setActiveThread("mini:arms", enabled: true)
+    fixture.connection.setReplyHistory(historyPayload([
+      ["id": "old", "text": "Older arm reply", "prompt": "Earlier"],
+      ["id": "new", "text": "Latest arm reply", "prompt": "Current"],
+    ], key: "mini:arms"))
+    await fixture.waitForDisplay("Latest arm reply")
+
+    // Wait on firmware heartbeat callbacks beyond the duplicate-input window.
+    func nextInput() async {
+      let count = fixture.pageHeartbeatAcks
+      await fixture.waitForPageHeartbeat { fixture.pageHeartbeatAcks >= count + 3 }
+    }
+    await nextInput()
+    fixture.gesture(1)
+    await fixture.waitForDisplay("Older arm reply")
+    await nextInput()
+    fixture.gesture(0, source: 1)
+    fixture.gesture(0, container: true)
+    await fixture.waitForDisplay("Latest arm reply")
+    precondition(T3EvenG2SpeechTranscriber.startCount == starts)
+    precondition(fixture.selectedKeys == ["mini:arms"], "Latest must stay in the active thread")
+
+    let (stream, gate) = AsyncStream<Void>.makeStream()
+    T3EvenG2SpeechTranscriber.beforeStart = { for await _ in stream { break } }
+    defer { T3EvenG2SpeechTranscriber.beforeStart = nil }
+    await nextInput()
+    fixture.gesture(0)
+    await fixture.waitForDisplay("Preparing dictation")
+    await nextInput()
+    fixture.gesture(0, source: 1)
+    fixture.gesture(0, container: true)
+    gate.yield()
+    gate.finish()
+    await fixture.wait { $0["listening"] as? Bool == true }
+    await nextInput()
+    fixture.gesture(0, source: 1)
+    fixture.gesture(0, container: true)
+    await nextInput()
+    precondition(fixture.connection.snapshot["listening"] as? Bool == true)
+    precondition(fixture.transcripts.isEmpty, "Right-arm tap must neither send nor cancel speech")
+    fixture.gesture(0)
+    await fixture.waitForDisplay("Sending to T3 Code")
+    precondition(fixture.transcripts.last?["isFinal"] as? Bool == true)
+    let submissions = fixture.transcripts.count
+    await nextInput()
+    fixture.gesture(0, source: 1)
+    await fixture.waitForDisplay("Latest arm reply")
+    precondition(fixture.transcripts.count == submissions)
+    precondition(T3EvenG2SpeechTranscriber.startCount == starts + 1)
+    fixture.connection.disconnect()
+  }
+
+  /// Restores visible content automatically when the idle blank cannot reach the glasses.
+  @MainActor
+  private static func verifyDisplayIdleWriteFailure() async {
+    let clock = DisplayIdleTimer()
+    let fixture = Fixture(displayIdleTimer: clock)
+    fixture.subscribe(fixture.left)
+    fixture.subscribe(fixture.right)
+    await fixture.wait { $0["status"] as? String == "ready" }
+    fixture.connection.setActiveThread("mini:idle-write-failure", enabled: true)
+    fixture.connection.displayText("Reply after failed blank")
+    await fixture.waitForDisplay("Reply after failed blank")
+    let creates = fixture.createCount
+    let timer = await clock.timer(0)
+    // A transport loss can be visible before CoreBluetooth reports the disconnect.
+    fixture.right.state = .disconnected
+    timer.yield()
+    timer.finish()
+    await fixture.wait { $0["status"] as? String == "paused" }
+    fixture.right.state = .connected
+    await fixture.wait { $0["status"] as? String == "ready" }
+    precondition(fixture.createCount > creates, "Failed blank must recreate the page without a tap")
+    await fixture.waitForDisplay("Reply after failed blank")
+    _ = await clock.timer(1)
+    fixture.connection.disconnect()
   }
 
   /// Exercises idle blanking, all tap sources, input resets, and speech through real BLE routing.

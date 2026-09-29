@@ -1,88 +1,65 @@
-# Contributing
+# Contributing to the Even G2 fork
 
-## Even G2 fork
+Public contributions start with an issue in
+[michft/t3-even-g2](https://github.com/michft/t3-even-g2/issues). Bugs, feature
+requests, reproduction details, and diagnostic evidence are welcome.
 
-G2-specific bugs belong in [michft/t3-even-g2](https://github.com/michft/t3-even-g2/issues).
-Include the fork commit, iOS version, glasses/ring firmware, input source (R1, left arm, or right
-arm), Natural scrolling setting, and whether the phone was locked. See the
-[G2 runbook](docs/operations/even-g2.md) for focused checks and diagnostic export.
+**Pull request creation is limited to repository collaborators.** External
+contributors should open or update an issue rather than submit a PR. A
+maintainer reviews the issue, accepts its scope, and assigns implementation to
+a collaborator or an agent operating through an authorized collaborator.
+Opening an issue does not automatically start an agent or promise a fix.
 
-Keep fork changes separate from unrelated upstream work. State whether validation used simulated
-Bluetooth or physical glasses; passing native smoke tests is not hardware verification.
-The upstream contribution guidance below applies when proposing changes to
-[pingdotgg/t3code](https://github.com/pingdotgg/t3code).
+## Report or investigate an issue
 
-## Developer Setup
+Search open and closed fork issues first. Use **G2 bug report**, **G2 feature
+request**, or **G2 triage report** as appropriate. Keep one problem per issue.
 
-See the [development runbook](docs/operations/development.md#first-checkout) for the initial checkout,
-development commands, tests, and platform-specific desktop packaging prerequisites.
+Follow the [triage guide](docs/operations/even-g2-triage.md) to investigate from
+a phone or desktop, collect G2 diagnostics, and prepare a report. Keep reports
+here when ownership is uncertain. Escalate upstream only when evidence
+identifies a defect in upstream code.
 
-## Read This First
+## From an accepted issue to a PR
 
-We are not actively accepting contributions right now.
+1. A maintainer checks evidence, duplicates, impact, and scope. Missing details
+   get `needs-info`; accepted work gets `ready-for-agent` or `ready-for-human`.
+2. The maintainer records acceptance criteria and verification expectations,
+   assigns an owner, and explicitly requests implementation. A ready label is
+   a queue state, not permission for an unattended agent to publish changes.
+3. The owner implements the agreed scope on a separate branch or JJ bookmark
+   and runs relevant checks. For native G2 changes, distinguish local tests,
+   phone build/install results, and physical glasses verification.
+4. When authorized to publish, the collaborator opens a PR against this fork.
+   Link the accepted issue with `Closes #123` for a complete fix or `Refs #123`
+   for partial work. Do not target T3 upstream by default.
+5. Review checks and findings, verify the acceptance criteria, then merge.
+   Record any remaining hardware verification before closing the issue.
 
-You can still report a bug or open a PR, but please do so knowing there is a high chance we close it, defer it forever, or never look at it.
+See the [maintainer workflow](docs/operations/even-g2-triage.md#maintainer-workflow)
+for labels and a phone-friendly handoff prompt.
 
-Feature requests and proposals belong in [Ideas discussions](https://github.com/pingdotgg/t3code/discussions/categories/ideas), not issues.
+## PR requirements
 
-If that sounds annoying, that is because it is. This project is still early and we are trying to keep scope, quality, and direction under control.
+- One concern per PR; keep unrelated work separate.
+- Use a conventional title, such as `fix(mobile): recover G2 display after idle`.
+- Explain the problem and resulting behavior, then list validation results.
+- Include before/after images for UI changes; include video for motion or
+  timing. Upload evidence to GitHub instead of committing PR-only assets.
+- Update relevant tracked guides when behavior or setup changes.
+- End agent-assisted descriptions with the model and harness used.
 
-PRs are automatically labeled with a `vouch:*` trust status and a `size:*` diff size based on changed lines.
+PR size and trust labels provide context; they do not grant permission to open
+PRs. Repository collaborator access controls that permission.
 
-If you are an external contributor, expect `vouch:unvouched` until we explicitly add you to [.github/VOUCHED.td](.github/VOUCHED.td).
+## Development setup
 
-## What We Are Most Likely To Accept
+Use the [development runbook](docs/operations/development.md#first-checkout)
+and [mobile setup](apps/mobile/README.md#development). Follow the repository
+[agent instructions](AGENTS.md) and [documentation rules](AGENTS.md#documentation).
+For this fork, use the [G2 build and diagnostics runbook](docs/operations/even-g2.md)
+and [glasses controls](docs/user/even-g2.md) for device-specific examples.
 
-Small, focused bug fixes.
-
-Small reliability fixes.
-
-Small performance improvements.
-
-Tightly scoped maintenance work that clearly improves the project without changing its direction.
-
-## What We Are Least Likely To Accept
-
-Large PRs.
-
-Drive-by feature work.
-
-Opinionated rewrites.
-
-Anything that expands product scope without us asking for it first.
-
-If you open a 1,000+ line PR full of new features, we will probably close it quickly and remember that you ignored the clearly written instructions.
-
-## If You Still Want To Open A PR
-
-Keep it small.
-
-Explain exactly what changed.
-
-Explain exactly why the change should exist.
-
-Follow the [documentation rules](AGENTS.md#documentation). Keep internal docs for decisions and
-hard-to-discover constraints. Update user guides when how to use a feature changes; skip descriptions
-of obvious controls and cosmetic changes.
-
-Do not mix unrelated fixes together.
-
-If the PR makes anything resembling a UI change, include clear before/after images.
-
-If the change depends on motion, timing, transitions, or interaction details, include a short video.
-
-If we have to guess what changed, we are much less likely to review it.
-
-## Discuss Changes First
-
-If you are thinking about a non-trivial change, start a discussion first. Issues are reserved for bug reports.
-
-That still does not mean we will want the PR, but it gives you a chance to avoid wasting your time.
-
-## Be Realistic
-
-Opening a PR does not create an obligation on our side.
-
-We may close it. We may ignore it. We may ask you to shrink it. We may reimplement the idea ourselves later.
-
-If you are fine with that, proceed.
+Building, deployment, issues, debugging, and contributor guides belong in
+tracked public `docs/`, with G2 examples and placeholders for personal device
+or signing values. `.plans/` is for planning only.

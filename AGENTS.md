@@ -1,16 +1,14 @@
 # T3 Code
 
-## Fork / upstream split
+## Fork instructions and documentation
 
-- **Upstream** means T3 Code **Nightly**.
-- JJ **Upstream** can also mean JJ bookmarks of local changes earlier in commits. Most changes will be here.
-- When the intended base is unclear, **ask before acting**. Do not assume `t3/main`.
-- **GitHub** means code pushed to the user's fork, `michft/t3-even-g2` (`origin`). It is distinct from T3 upstream (`t3`).
-- Never create PR for t3/main unless explicitly instructed to do so. Keep local G2 code and documentation changes separate.
-- Leave T3 updates for later unless explicitly requested; an ambiguous mention of upstream does not authorize a fetch, merge, rebase, or push.
-- **Ponytail** means the smallest change that meets the requirements. When in doubt, ask. It is a local skill.
-
-## needs heading
+Before working in this fork, read
+[fork instructions](docs/agents/fork-instructions.md).
+`.plans/` is for planning only. Building, deployment, issues, debugging, and
+contributor guidance belong in tracked public `docs/`, with explicit G2 examples.
+Link guides from the README, docs index, or contribution guide. Use placeholders
+for personal device and signing values so guides work in a fresh clone.
+Preserve unrelated upstream documentation.
 
 T3 Code is a minimal GUI for coding agents. A Node WebSocket server wraps provider CLIs and agents (Codex, Claude Code, Cursor, Grok, OpenCode, Antigravity) and serves web, desktop, and mobile clients.
 
@@ -126,6 +124,9 @@ For authorized mobile verification, a missing or outdated native client is a bui
 
 ## Pull requests
 
+- This fork accepts public issues; only repository collaborators may open PRs.
+  PRs implement accepted issues in `michft/t3-even-g2`. Follow
+  [the maintainer workflow](docs/operations/even-g2-triage.md#maintainer-workflow).
 - Never make a PR unless the developer explicitly asks you to do so.
 - Conventional commit titles, plain language: `fix(web): new threads no longer spike CPU`.
 - Body: the problem in a sentence or two, then how you fixed it. End with the model and harness that did the work.
@@ -133,6 +134,23 @@ For authorized mobile verification, a missing or outdated native client is a bui
 - Upload PR evidence to GitHub. Never commit PR-only screenshots or assets such as `.github/pr-assets/`.
 - One concern per PR. If the description says "also", split it.
 - When babysitting: poll checks and comments newer than the last push, verify each bot finding against the source, fix real ones, dismiss false positives with a written reason. Stay quiet when nothing is new. Stop when the bots are green on the latest commit.
+
+## Agent skills
+
+### Issue tracker
+
+Use GitHub issues in `michft/t3-even-g2`, always selecting the repository
+explicitly. See [issue tracker instructions](docs/agents/issue-tracker.md).
+
+### Triage labels
+
+Use the five canonical state labels, with one state per triaged issue. See
+[triage labels](docs/agents/triage-labels.md).
+
+### Domain docs
+
+Use the existing T3 glossary and relevant architecture docs. See
+[domain documentation](docs/agents/domain.md).
 
 ## Documentation
 
@@ -148,8 +166,12 @@ Most code changes do not need an internal documentation change. Agents can read 
 
 ## Plans and work artifacts
 
-- Do not commit implementation plans, research notes, or agent scratch files. Keep temporary working material outside the worktree. `.plans/` is gitignored only as a safety net for legacy tooling.
-- Track active maintainer work in the GitHub issue or project item that owns it. External proposals follow `CONTRIBUTING.md` and belong in Ideas discussions.
+- Do not commit implementation plans, research notes, or agent scratch files.
+  Keep temporary scratch files outside the worktree. The gitignored `.plans/`
+  directory is reserved for planning; operational documentation belongs in `docs/`.
+- Track active maintainer work in the GitHub issue or project item that owns it.
+  External proposals follow `CONTRIBUTING.md` and belong in the
+  [fork issue tracker](https://github.com/michft/t3-even-g2/issues).
 - A merged PR is the implementation record. Close or update its tracking item when the work lands; do not preserve a second checklist in the repository.
 
 ## How it works

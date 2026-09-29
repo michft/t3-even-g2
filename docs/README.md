@@ -28,6 +28,7 @@
 
 Start with the [development runbook](./operations/development.md) and
 [contribution policy](../CONTRIBUTING.md).
+For this fork, also read [G2 workflow instructions](./agents/fork-instructions.md).
 
 Internal notes preserve architectural decisions, constraints, and implementation traps that the
 source alone does not explain. Most code changes do not need an internal documentation update. Follow the
@@ -56,6 +57,7 @@ source alone does not explain. Most code changes do not need an internal documen
 
 - [Development and local builds](./operations/development.md)
 - [Even G2 native builds and diagnostics](./operations/even-g2.md)
+- [Even G2 issue triage and maintainer workflow](./operations/even-g2-triage.md)
 - [T3 Connect setup](./operations/connect-setup.md)
 - [Release](./operations/release.md)
 - [Observability](./operations/observability.md)
