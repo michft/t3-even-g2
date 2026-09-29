@@ -13,6 +13,10 @@ recovery, and exportable native diagnostics.
 
 Everything else should track upstream that is **T3 Code**
 
+To help investigate fork issues, see the
+[Even G2 triage guide](docs/operations/even-g2-triage.md), including reporting
+from the phone and collecting diagnostics.
+
 # T3 Code
 
 T3 Code is an "agent harness control surface". It enables control of the agents on your machine with a best-in-class mobile app ([iOS](https://apps.apple.com/us/app/t3-code-remote-claude-more/id6787819824), [Android](https://play.google.com/store/apps/details?id=com.t3tools.t3code)), [web app](https://app.t3.codes) and [Electron-based desktop app](https://t3.codes).

@@ -1,5 +1,16 @@
 # Contributing
 
+## Even G2 fork issues
+
+For this fork, keep bugs and feature requests in
+[michft/t3-even-g2](https://github.com/michft/t3-even-g2/issues). Follow the
+[Even G2 triage guide](docs/operations/even-g2-triage.md) to investigate from a
+phone or desktop, collect diagnostics, and prepare a report. Escalate upstream
+only when evidence identifies a defect in upstream code.
+
+The guidance below comes from T3 upstream. Its upstream discussion routing does
+not apply to fork issues and feature requests.
+
 ## Developer Setup
 
 See the [development runbook](docs/operations/development.md#first-checkout) for the initial checkout,
