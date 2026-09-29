@@ -273,7 +273,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       decoder = T3EvenG2LC3Decoder()
       let displayMagic = nextMagic()
       await sendEvenHub(
-        textPayload("Listening…\n\nTap R1 again to send", magic: displayMagic)
+        textPayload(listeningDisplayText(), magic: displayMagic)
       )
       guard speechSession === speech, status == .ready, !Task.isCancelled else { return }
       let audioMagic = nextMagic()
@@ -765,13 +765,18 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   }
 
   private func scheduleListeningDisplay(_ transcript: String) {
-    let text = transcript.isEmpty ? "Listening…" : "Listening…\n\n\(transcript)"
+    let text = listeningDisplayText(transcript)
     displayTask?.cancel()
     displayTask = Task { @MainActor [weak self] in
       try? await Task.sleep(for: .milliseconds(450))
       guard let self, !Task.isCancelled, self.listening, self.status == .ready else { return }
       await self.sendEvenHub(self.textPayload(text, magic: self.nextMagic()))
     }
+  }
+
+  private func listeningDisplayText(_ transcript: String = "") -> String {
+    let instructions = "Listening…\n\nTap R1: send\nDouble-tap R1: cancel"
+    return transcript.isEmpty ? instructions : "\(instructions)\n\n\(transcript)"
   }
 
   @MainActor
