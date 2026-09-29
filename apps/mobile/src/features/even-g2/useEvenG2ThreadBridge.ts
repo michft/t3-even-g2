@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 
 import type { MessageId, OrchestrationMessage } from "@t3tools/contracts";
 
@@ -88,13 +88,18 @@ export function useEvenG2ThreadBridge(
     readonly onLoadEarlierMessages?: (() => boolean | void) | null;
   },
 ): void {
-  /** Reads current thread input without restarting native subscriptions on every render. */
-  const getInput = useEffectEvent(() => input);
+  // React 19.2's useEffectEvent retains first-render input inside the memoized
+  // ThreadDetailScreen: https://github.com/facebook/react/issues/34818.
+  // Refresh committed input before native events without restarting subscriptions.
+  const inputRef = useRef(input);
+  useLayoutEffect(() => {
+    inputRef.current = input;
+  }, [input]);
   const historyBridgeRef = useRef<ReturnType<typeof createEvenG2HistoryBridge> | null>(null);
 
   useEffect(() => {
     if (input.enabled) {
-      return subscribeEvenG2Dictation(getInput);
+      return subscribeEvenG2Dictation(() => inputRef.current);
     }
   }, [input.enabled]);
 

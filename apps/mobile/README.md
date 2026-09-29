@@ -207,7 +207,8 @@ app; reloading JavaScript alone does not install them.
 19. Type an unsent draft on the phone. Start and cancel dictation, then separately dictate and
     send. The typed draft should survive both operations; only the dictated text should send.
 20. While idle, double-tap R1. T3 should recover its display if firmware exits to Even, then show
-    the picker. Select a different thread and verify a test dictation reaches only that thread.
+    the picker. Select a different thread and start dictation. Before sending, confirm live text
+    appears in that thread's phone composer. Send once and verify it reaches only that thread.
 21. While listening, double-tap. Dictation should cancel without sending and T3 should recover.
     Test long-press separately as an alternate Back; note firmware that does not deliver it.
 22. Start dictation but remain silent, then tap to finish. If recognition reports no speech,

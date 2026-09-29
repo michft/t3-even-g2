@@ -1,8 +1,12 @@
+// @vitest-environment jsdom
+
+import { act, createElement, memo } from "react";
+import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import type { MessageId } from "@t3tools/contracts";
 
 import type { EvenG2TranscriptEvent } from "./evenG2Native";
-import { subscribeEvenG2Dictation } from "./useEvenG2ThreadBridge";
+import { subscribeEvenG2Dictation, useEvenG2ThreadBridge } from "./useEvenG2ThreadBridge";
 
 const native = vi.hoisted(() => ({
   listening: false,
@@ -79,6 +83,45 @@ afterEach(() => {
 });
 
 describe("Even G2 dictation sessions", () => {
+  it("updates dictation's target when a memoized thread screen changes threads", async () => {
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    const root = createRoot(document.createElement("div"));
+    const Screen = memo(function Screen(input: Parameters<typeof useEvenG2ThreadBridge>[0]) {
+      useEvenG2ThreadBridge(input);
+      return null;
+    });
+    try {
+      await act(() => {
+        root.render(createElement(Screen, { ...thread("a", "draft A"), enabled: true }));
+      });
+      startListening();
+      native.listening = false;
+      native.statusListeners.forEach((listener) => listener());
+      transcript({ text: "fresh draft check", isFinal: true });
+
+      await act(() => {
+        root.render(createElement(Screen, { ...thread("b", "draft B"), enabled: true }));
+      });
+      startListening();
+      transcript({ text: "Moorbeef draft check", isFinal: false });
+      const firstThreadDraft = drafts.get("a");
+      const secondThreadDraft = drafts.get("b");
+      native.listening = false;
+      native.statusListeners.forEach((listener) => listener());
+      transcript({ text: "Moorbeef draft check", isFinal: true });
+      expect(sent).toEqual([
+        { threadKey: "a", text: "fresh draft check" },
+        { threadKey: "b", text: "Moorbeef draft check" },
+      ]);
+      expect(firstThreadDraft).toBe("draft A");
+      expect(secondThreadDraft).toBe("draft B\n\nMoorbeef draft check");
+      expect(drafts.get("b")).toBe("draft B");
+    } finally {
+      await act(() => root.unmount());
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("uses an established thread's send handler while preserving the session's original draft", () => {
     let input: ReturnType<typeof thread> = {
       ...thread("a", "draft A"),
