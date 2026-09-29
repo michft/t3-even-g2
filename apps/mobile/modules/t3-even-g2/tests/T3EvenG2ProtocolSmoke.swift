@@ -167,7 +167,13 @@ private struct T3EvenG2ProtocolSmoke {
     try check(T3EvenG2Protocol.gesture(from: click)?.source == "ring", "ring source not decoded")
     try check(T3EvenG2Protocol.isDictationSource("ring"), "ring input source rejected")
     try check(T3EvenG2Protocol.isDictationSource("rightTemple"), "right temple input rejected")
-    try check(T3EvenG2Protocol.isDictationSource("leftTemple"), "left temple input rejected")
+    try check(!T3EvenG2Protocol.isDictationSource("leftTemple"), "left temple must be reserved for Back")
+    for (source, name): (UInt8, String) in [(1, "rightTemple"), (2, "ring"), (3, "leftTemple")] {
+      let data = packet(payload: [0x08, 0x02] + nested(13, nested(3, [0x10, source])))
+      let gesture = T3EvenG2Protocol.gesture(from: data)
+      try check(gesture?.source == name, "tap source not decoded")
+      try check(gesture?.isBack == (source == 3), "only left-arm tap should navigate Back")
+    }
     try check(!T3EvenG2Protocol.isDictationSource("unknown"), "unknown input source accepted")
     for field: UInt8 in [1, 2] {
       // Proto3 omits eventType for a single tap (zero). Captured-container

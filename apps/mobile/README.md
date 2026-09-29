@@ -108,15 +108,16 @@ Once a thread is open, tap R1 to start dictation and tap again to send. Recogniz
 on the glasses so the newest line stays at the bottom; the complete transcript is retained for
 sending. After sending, the glasses show **Sending to T3 Code…**, then **Thinking…** when the
 phone reports work underway. While waiting, swipe up to return to the current thread's replies,
-or hold Back to open the thread picker. These actions leave the submitted message running.
+or tap the left G2 arm to open the thread picker. These actions leave the submitted message running.
 Offline, approval, and input waits point to the connection or phone instead of claiming the agent
 is thinking. Swipe up leaves the waiting screen regardless of the Natural scrolling setting.
 Swipes scroll while reading. Up→down is no longer a Back or Cancel gesture anywhere,
 and swipes do nothing during dictation. Starting dictation has no tap-confirmation screen.
 
-Hold (long-press) goes Back when the glasses firmware delivers that event. During dictation it
-explicitly cancels; from thread output it opens the picker; from the picker it restores the last
+Tap the left G2 arm to go Back: during dictation it explicitly cancels; from thread output it
+opens the picker; from the picker it restores the last
 open thread. Error notices return to the current reply and reading position.
+R1 and right-arm taps still open, dictate, or send. Long-press no longer triggers Back.
 Tap-then-hold remains the firmware menu gesture.
 In **Settings → Even G2**, **Natural scrolling** makes swipe up advance through content; turn it
 off for swipe down to advance instead. While idle, double-tap also returns to the thread picker.
@@ -128,8 +129,9 @@ swipe again to retry. Reading older output does not change which thread receives
 New text preserves your reading position. New replies appear automatically while you are on the
 first page of the latest reply; while you are reading older output or dictating, a new-reply marker
 appears instead. Back opens the thread picker with **Latest output** highlighted; tap to jump to
-the newest reply. Older replies show **Back,tap: Latest** as a reminder. The picker labels this
-as a quick action, separate from its thread count. Back again returns to the previous reading
+the newest reply using R1 or the right arm. Older replies show **L arm tap, R1 tap: Latest** as a
+reminder. The picker labels this as a quick action, separate from its thread count.
+Back again returns to the previous reading
 position; explicitly opening a thread starts at latest. Cached output remains available during
 this app session, including while the phone is locked; uncached
 history needs a live environment connection. Restarting T3 requires loading the thread again.
@@ -217,9 +219,10 @@ at a time. Changes to this native driver require an updated native app.
 11. With recognized words still unsent, disconnect/reconnect the glasses. Verify the draft survives.
 12. After interruption, start another dictation. New words should append after the retained draft,
     without duplicating the older words. Explicitly review/send retained text from the phone.
-13. Test long-press separately. If firmware reports it, it should cancel active dictation or go Back.
-    Record missing long-press events rather than substituting an up→down gesture.
-14. From an older reply, use supported Back to reach the picker, then tap **Latest output**.
+13. Tap the left G2 arm to cancel dictation, dismiss an error, open the picker from a reply or
+    waiting screen, and return from the picker. R1/right-arm taps still open, dictate, and send.
+    Long-press must not trigger Back. Confirm logs identify the left tap as `leftTemple`.
+14. From an older reply, tap the left G2 arm to reach the picker, then tap **Latest output**.
     Confirm newest reply, page one. Open another thread and confirm its latest reply too.
 15. Send while a reply is delayed. Confirm Sending changes to Thinking when work starts;
     swipe up returns to replies, then Back opens the picker. Repeat with Natural scrolling off.

@@ -16,6 +16,9 @@ enum T3EvenG2Protocol {
   struct Gesture {
     let kind: String
     let source: String
+
+    /// Only an identified left-arm tap navigates Back.
+    var isBack: Bool { kind == "click" && source == "leftTemple" }
   }
 
   /// Encodes the initial T3 Code page, using the supplied session magic and app name.
@@ -167,7 +170,7 @@ enum T3EvenG2Protocol {
 
   /// Reports whether a gesture source can start dictation.
   static func isDictationSource(_ source: String) -> Bool {
-    ["ring", "rightTemple", "leftTemple", "textContainer", "listContainer"].contains(source)
+    ["ring", "rightTemple", "textContainer", "listContainer"].contains(source)
   }
 
   /// Reports whether this gesture can dismiss the active display page.

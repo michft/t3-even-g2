@@ -528,7 +528,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       decoder = nil
       listening = false
       setStatus(.ready, detail: error.localizedDescription)
-      showDictationNotice("Dictation unavailable\n\n\(error.localizedDescription)\n\nHold: back")
+      showDictationNotice("Dictation unavailable\n\n\(error.localizedDescription)\n\nL arm tap: back")
     }
   }
 
@@ -540,7 +540,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     speechSession = nil
     decoder = nil
     setStatus(.ready, detail: "G2 microphone did not start")
-    showDictationNotice("G2 microphone did not start\n\nTap R1 to retry\nHold: back")
+    showDictationNotice("G2 microphone did not start\n\nTap R1 to retry\nL arm tap: back")
   }
 
   /// Stops microphone capture and finalizes the current transcript.
@@ -1036,7 +1036,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     }
     if isWaitingForReply {
       let activity = threadActivityText.isEmpty ? "Sending to T3 Code…" : threadActivityText
-      return "\(activity)\n\nSwipe up: replies\nHold: threads"
+      return "\(activity)\n\nSwipe up: replies\nL arm tap: threads"
     }
     if let dictationNotice { return dictationNotice }
     if let key = activeThreadKey, let history = historyByThread[key] {
@@ -1218,11 +1218,11 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       trace("gesture.ignored", ["reason": "not-ready", "kind": gesture.kind])
       return
     }
-    guard ["click", "scrollUp", "scrollDown", "longPress"].contains(gesture.kind) else { return }
+    guard ["click", "scrollUp", "scrollDown"].contains(gesture.kind) else { return }
     let now = Date()
-    let cancelsDictation = gesture.kind == "longPress" && (startingDictation || listening || speechSession != nil)
+    let cancelsDictation = gesture.isBack && (startingDictation || listening || speechSession != nil)
     guard now.timeIntervalSince(lastGestureAt) > 0.4 || cancelsDictation
-      || (threadPicker.isPresented && gesture.kind == "click") else {
+      || (threadPicker.isPresented && gesture.kind == "click" && !gesture.isBack) else {
       trace("gesture.ignored", ["reason": "debounce", "kind": gesture.kind])
       return
     }
@@ -1238,10 +1238,10 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   /// Restarts display bootstrap for valid input received while paused or errored.
   private func handleRecoveryInput(_ gesture: T3EvenG2Protocol.Gesture) -> Bool {
     guard status == .paused || status == .error, left.ready, right.ready,
-      ["click", "longPress"].contains(gesture.kind),
-      T3EvenG2Protocol.isDictationSource(gesture.source)
+      gesture.kind == "click",
+      gesture.isBack || T3EvenG2Protocol.isDictationSource(gesture.source)
     else { return false }
-    if gesture.kind != "click" { _ = handleBackGesture(gesture) }
+    _ = handleBackGesture(gesture)
     bootstrap(resuming: true)
     return true
   }
@@ -1271,11 +1271,9 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     }
   }
 
-  /// Handles long-press back across dictation, picker, notice, and thread states.
+  /// Handles left-arm tap Back across dictation, picker, notice, and thread states.
   private func handleBackGesture(_ gesture: T3EvenG2Protocol.Gesture) -> Bool {
-    guard gesture.kind == "longPress",
-      T3EvenG2Protocol.isDictationSource(gesture.source)
-    else { return false }
+    guard gesture.isBack else { return false }
     cancelHistoryRequest()
     publishHistoryPosition()
     // Dictation is modal: Back cancels even when the underlying reply scrolls.
@@ -1310,7 +1308,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       scheduleDisplay(restingDisplayText)
       return true
     }
-    guard inputEnabled else { return false }
+    guard inputEnabled else { return true }
     showThreadPicker()
     return true
   }
@@ -1445,7 +1443,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       dictationNotice = nil
       scheduleDisplay(restingDisplayText)
     } else if latestTranscript.isEmpty {
-      showDictationNotice("No speech recognized\n\nTap R1 to try again\nHold: back")
+      showDictationNotice("No speech recognized\n\nTap R1 to try again\nL arm tap: back")
     } else {
       scheduleDisplay(restingDisplayText)
     }
