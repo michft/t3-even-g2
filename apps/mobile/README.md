@@ -1,7 +1,9 @@
 # T3 Code Mobile
 
-> [!WARNING]
-> T3 Code Mobile is currently in development and is not distributed yet. If you want to try it out, you can build it from source.
+For this fork's Even G2 integration, use a custom iOS 26-or-later native build containing the
+G2 changes. See [glasses controls and setup](../../docs/user/even-g2.md) and the
+[G2 build and diagnostics runbook](../../docs/operations/even-g2.md).
+An upstream-only checkout does not contain the G2 module.
 
 ## Quickstart
 
