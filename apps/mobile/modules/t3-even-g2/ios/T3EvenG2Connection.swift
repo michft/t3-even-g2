@@ -1053,7 +1053,12 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       if written {
         self.setStatus(.ready, detail: "Display asleep; tap either arm or R1 to wake")
       } else {
-        self.pauseDisplay()
+        self.displayIsSleeping = false
+        if self.status == .paused {
+          self.resumeDisplay()
+        } else {
+          self.pauseDisplay()
+        }
       }
     }
   }
