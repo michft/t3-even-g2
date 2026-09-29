@@ -1,4 +1,4 @@
-name: Bug report
+name: G2 bug report
 description: Report broken behavior, regressions, crashes, or reliability issues.
 title: "[Bug]: "
 labels:
@@ -10,7 +10,7 @@ body:
       value: |
         Use this form for broken behavior, regressions, crashes, or reliability problems.
         File fork issues in [michft/t3-even-g2](https://github.com/michft/t3-even-g2/issues).
-        Use this repository's Feature request form for improvements.
+        Use this repository's G2 feature request form for improvements.
         Escalate to T3 upstream only when evidence identifies a problem in upstream code.
         Search existing issues first and keep the report focused on one problem.
 

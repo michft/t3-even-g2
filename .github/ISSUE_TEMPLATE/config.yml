@@ -1,9 +1,9 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Even G2 fork bug report
+  - name: G2 bug report
     url: https://github.com/michft/t3-even-g2/issues/new?template=bug_report.yml
     about: Report fork bugs here. Keep reports here when upstream ownership is unclear.
-  - name: Even G2 fork feature request
+  - name: G2 feature request
     url: https://github.com/michft/t3-even-g2/issues/new?template=feature_request.yml
     about: Suggest an improvement or new capability for this fork.
   - name: T3 upstream bug report
