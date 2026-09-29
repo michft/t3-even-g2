@@ -21,6 +21,7 @@ xcrun swiftc -module-cache-path "$g2_test_dir/cache" \
   "$g2_module_dir/tests/T3EvenG2ConnectionSmoke.swift" \
   -o "$g2_test_dir/t3-g2-connection-smoke"
 # Keep real firmware deadlines bounded independently for each regression group.
+"$g2_test_dir/t3-g2-connection-smoke" --swipe-back
 "$g2_test_dir/t3-g2-connection-smoke" --heartbeats
 "$g2_test_dir/t3-g2-connection-smoke" --history
 "$g2_test_dir/t3-g2-connection-smoke"

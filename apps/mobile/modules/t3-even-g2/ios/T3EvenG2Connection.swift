@@ -1199,7 +1199,9 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       return false
     }
     let now = Date()
-    guard now.timeIntervalSince(lastGestureAt) > 0.4 else { return true }
+    // Swipes cannot scroll during dictation, so a recent input must not swallow
+    // the start of Cancel. Keep the debounce after cancellation to avoid two Backs.
+    guard listening || speechSession != nil || now.timeIntervalSince(lastGestureAt) > 0.4 else { return true }
     lastGestureAt = now
     flushPendingSwipe()
     pendingSwipeUp = gesture

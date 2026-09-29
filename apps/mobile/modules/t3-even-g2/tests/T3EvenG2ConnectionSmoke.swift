@@ -341,6 +341,11 @@ struct Smoke {
       print("G2 history paging, modal return, Latest shortcut, and stale-window checks passed")
       return
     }
+    if CommandLine.arguments.contains("--swipe-back") {
+      await verifyDictationSwipeBack()
+      print("G2 dictation swipe cancellation and duplicate Back checks passed")
+      return
+    }
     var picker = T3EvenG2ThreadPicker()
     let first = T3EvenG2ThreadPicker.Choice(key: "mini:a", title: "First", subtitle: "Mini")
     let second = T3EvenG2ThreadPicker.Choice(key: "moorbeef:a", title: "Second", subtitle: "Moorbeef")
@@ -636,6 +641,38 @@ struct Smoke {
     print(
       "G2 native driver: per-arm auth, base heartbeats, occupied-page reset, readiness deadlines, stale arm replacement, late recovery, cancellation, thread picker, dictation, and reconnect passed"
     )
+  }
+
+  /// Cancels dictation even when a preceding swipe falls inside the input debounce.
+  @MainActor
+  private static func verifyDictationSwipeBack() async {
+    for fastBack in [false, true] {
+      for container in [false, true] {
+        let fixture = Fixture()
+        fixture.pageOccupied = false
+        fixture.subscribe(fixture.left)
+        fixture.subscribe(fixture.right)
+        await fixture.wait { $0["status"] as? String == "ready" }
+        fixture.connection.setFastBackGesture(fastBack)
+        fixture.connection.setActiveThread("mini:a", enabled: true)
+        fixture.connection.displayText("Current reply")
+        await fixture.connection.beginDictation()
+        precondition(fixture.connection.snapshot["listening"] as? Bool == true)
+        fixture.gesture(2, container: container)
+        fixture.gesture(1, container: container)
+        fixture.gesture(2, container: container)
+        precondition(
+          fixture.connection.snapshot["listening"] as? Bool == false,
+          "A preceding down swipe must not suppress up-then-down cancellation")
+        precondition(fixture.transcripts.count == 1)
+        precondition(fixture.transcripts[0]["cancelled"] as? Bool == true)
+        fixture.gesture(1, container: container)
+        fixture.gesture(2, container: container)
+        await fixture.waitForDisplay("Current reply")
+        precondition(fixture.transcripts.count == 1)
+        fixture.connection.disconnect()
+      }
+    }
   }
 
   /// Exercises history through real ring events and firmware display writes.

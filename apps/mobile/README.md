@@ -102,8 +102,9 @@ Even on any other phone or tablet using the glasses. In T3 Code, open Settings a
 **G2 + R1**. On the glasses, swipe R1 up/down to choose a thread and tap to open it in T3. The picker
 shows non-archived threads in recent-activity order, with their environment and project labels.
 You can also open a thread directly on the iPhone. Once a thread is open, tap R1 to start dictation,
-tap again to send, or quickly swipe R1 up then down (within 650 ms) to cancel. The same sequence
-goes back one level: dictation or its error/sending screen returns to the current thread output,
+tap again to send, or quickly swipe R1 up then down (within 650 ms) to cancel. You can retry the
+sequence immediately while dictation is starting or listening. Back goes one level up:
+dictation or its error/sending screen returns to the current thread output,
 preserving its reading position. Back from thread output opens the thread picker; Back there returns
 to the last open thread. Dismissing Sending does not retract a submitted message.
 A lone up swipe waits briefly for the
@@ -158,20 +159,73 @@ testing; the iOS Simulator can only exercise the non-hardware UI.
 Run `vp run test:g2-native` for protocol/codec checks and `vp run test:g2-connection` for the
 native driver's recovery and repeated-dictation checks with simulated Bluetooth callbacks.
 
-Hardware acceptance checks:
+Hardware test/debug run:
 
-1. Quit the Even app, connect from **Settings → G2 + R1**, and confirm both arms reach **Connected**.
-2. From Home or Settings, use R1 to swipe to a thread and tap it. Confirm T3 opens the same thread.
-   Tap R1 again, speak, and confirm live text appears in the composer and on the G2.
-3. Tap R1 again and confirm the transcript is sent while any pre-existing typed draft is preserved.
-4. Start another dictation, quickly swipe R1 up then down, and confirm it cancels without sending. Confirm the T3
-   display returns automatically and another tap starts a fresh dictation without reconnecting.
-5. Confirm the next assistant response appears on the G2; for a multi-page response, swipe up and
-   down to move between lens-sized text windows. Double-tap while idle, choose a different thread,
-   and verify the next dictation goes there, preserving the previous thread's draft.
-6. Power-cycle one arm and confirm the app reconnects both arms and returns to **Connected**.
-7. Leave the thread open, lock the iPhone for five minutes, then dictate using R1. Confirm the
-   message reaches that thread once, the reply appears, and a second dictation works.
+Use a disposable thread for send tests and a thread with several multi-page replies for history
+tests. Record the T3 build, iOS version, glasses/R1 firmware, and both scrolling settings. Start
+with **Fast Back gesture** off and **Natural scrolling** on. Except for explicit timing tests,
+pause a second between separate actions. Changes to this native driver require an updated native
+app; reloading JavaScript alone does not install them.
+
+1. Quit Even on every paired phone/tablet. Connect from **Settings → G2 + R1**. Both arms should
+   connect and show the T3 thread picker.
+2. From Home or Settings, swipe R1 through the picker and tap a thread. The glasses and iPhone
+   should select the same thread.
+3. Tap R1, say “ring input test,” and tap again. Live text should appear on both surfaces and
+   send exactly once. Confirm the assistant reply appears on the glasses.
+4. Start dictation with a single right-arm tap, then cancel with R1 up→down. Repeat with the
+   left arm. Both arm taps should start the same action as R1; note any missing or different input.
+5. Start with R1, say “arm send test,” then send with a right-arm tap. Repeat with the left arm.
+   Each run should send once, without requiring another ring tap.
+6. Start dictation, speak, then swipe R1 up→down quickly. Listening should stop, nothing should
+   send, and the previous reply and reading position should return.
+7. Repeat step 6 using only right-arm swipes, then only left-arm swipes. Record whether each
+   arm delivers both swipe directions on this firmware.
+8. Start dictation and cancel as soon as Preparing or Listening appears. It should stay
+   cancelled even if microphone startup completes late.
+9. While listening, swipe down, then immediately up→down without a pause. This is the debounce
+   regression: it must cancel despite the preceding down swipe. Repeat five times.
+10. After cancellation, immediately repeat up→down. Duplicate input inside 400 ms should not
+    jump another level to the picker. After a one-second pause, a fresh pair should open it.
+11. While listening, try up→down roughly 200 ms apart, then 500 ms apart. With Fast Back off,
+    both should cancel. Restart dictation between attempts.
+12. While listening, leave roughly one second between up and down. It should remain listening;
+    use a fresh quick pair to cancel. Record perceived timing rather than treating hand timing
+    as an exact measurement.
+13. Enable **Fast Back gesture**. Repeat the 200 ms and 500 ms pairs: only the faster pair should
+    cancel. Repeat step 9, then turn Fast Back off for the remaining tests.
+14. In a multi-page reply, swipe once in each direction, pausing a second between swipes.
+    With Natural scrolling on, up advances and down goes backward. A lone up has a brief delay.
+15. Turn Natural scrolling off and repeat step 14: directions should reverse. Start dictation
+    and confirm physical up→down still cancels. Restore Natural scrolling afterward.
+16. Read an older reply on page two or later, start dictation, then cancel. The same reply/page
+    should return. Back once more, pause, then Back from the picker: reading position stays intact.
+17. From older output, Back to the picker and tap **Latest output**. The newest reply should open.
+    Scroll across reply boundaries and confirm prompt labels and reply/page positions match.
+18. Dictate while reading older output. The message should go to the currently selected thread.
+    A new reply should mark new output without pulling you away from the older reading position.
+19. Type an unsent draft on the phone. Start and cancel dictation, then separately dictate and
+    send. The typed draft should survive both operations; only the dictated text should send.
+20. While idle, double-tap R1. T3 should recover its display if firmware exits to Even, then show
+    the picker. Select a different thread and verify a test dictation reaches only that thread.
+21. While listening, double-tap. Dictation should cancel without sending and T3 should recover.
+    Test long-press separately as an alternate Back; note firmware that does not deliver it.
+22. Start dictation but remain silent, then tap to finish. If recognition reports no speech,
+    Back should dismiss the notice and return to the same reply/page. A new tap should retry.
+23. Disconnect/reconnect G2, then test loss of range or a normal glasses power cycle. Both arms
+    should reconnect, and two consecutive dictations should work. If automatic display recovery
+    fails, test **Settings → Even G2 → Resume T3 display** and record that separately.
+24. Select a thread, lock the iPhone for five minutes, then dictate/send twice using R1. Each
+    message should reach that thread once, with replies on the glasses. Unlock and verify history.
+
+For each failure, record `step | input device | starting screen/reply/page | exact gesture order |
+approximate gaps | expected | actual | recovery needed`. Capture whether Listening remained on,
+whether any message sent, and whether one or both displays changed. If native event logs are being
+captured, include gesture `kind` and `source`: system events distinguish `ring`, `rightTemple`, and
+`leftTemple`; container events may only identify `textContainer` or `listContainer`.
+
+Head nods/tilts are not acceptance inputs yet: this direct driver does not enable or decode IMU
+motion data. Test them separately only after motion support is implemented.
 
 Build and run the local iOS preview app:
 
