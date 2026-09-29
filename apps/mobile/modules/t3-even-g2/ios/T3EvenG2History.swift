@@ -251,7 +251,7 @@ struct T3EvenG2History {
     let atFirstPage = pageIndex == 0
     let atLastPage = pageIndex + 1 >= pageCount
     var markers: [String] = []
-    if isNewReplyAvailable { markers.append(" · L arm tap, R1 tap: Latest") }
+    if isNewReplyAvailable { markers.append(" · R arm tap: Latest") }
     if index == 0, atFirstPage { markers.append(hasOlder ? " · Older" : " · Oldest") }
     if index == replies.count - 1, atLastPage { markers.append(hasNewer ? " · Newer" : " · Latest") }
     if isNewReplyAvailable { markers.append(" · New") }

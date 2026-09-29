@@ -1070,7 +1070,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       if Date().timeIntervalSince(lastWakeAt) <= 0.4,
         ["click", "doubleClick", "scrollUp", "scrollDown"].contains(gesture.kind) { return true }
       if status == .ready, ["click", "scrollUp", "scrollDown"].contains(gesture.kind),
-        gesture.isBack || T3EvenG2Protocol.isDictationSource(gesture.source) {
+        gesture.isBack || T3EvenG2Protocol.isControlSource(gesture.source) {
         restartDisplayIdleTimer()
       }
       return false
@@ -1078,7 +1078,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     guard gesture.kind == "click" else {
       return !["systemExit", "abnormalExit"].contains(gesture.kind)
     }
-    guard gesture.isBack || T3EvenG2Protocol.isDictationSource(gesture.source),
+    guard gesture.isBack || T3EvenG2Protocol.isControlSource(gesture.source),
       left.ready, right.ready, [.ready, .paused, .error].contains(status) else { return true }
     displayIsSleeping = false
     lastWakeAt = Date()
@@ -1329,7 +1329,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   private func handleRecoveryInput(_ gesture: T3EvenG2Protocol.Gesture) -> Bool {
     guard status == .paused || status == .error, left.ready, right.ready,
       gesture.kind == "click",
-      gesture.isBack || T3EvenG2Protocol.isDictationSource(gesture.source)
+      gesture.isBack || T3EvenG2Protocol.isControlSource(gesture.source)
     else { return false }
     _ = handleBackGesture(gesture)
     bootstrap(resuming: true)
@@ -1351,6 +1351,11 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     guard gesture.kind == "click" else { return }
     guard gestureTask == nil else {
       trace("gesture.ignored", ["reason": "input-pending", "kind": gesture.kind])
+      return
+    }
+    if gesture.source == "rightTemple" {
+      guard !startingDictation, !listening, speechSession == nil else { return }
+      showLatestOutput()
       return
     }
     inputAttempt += 1
@@ -1405,7 +1410,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
 
   /// Moves the picker selection or emits the selected thread key on click.
   private func handlePickerGesture(_ gesture: T3EvenG2Protocol.Gesture) {
-    guard T3EvenG2Protocol.isDictationSource(gesture.source), threadPicker.openingKey == nil else { return }
+    guard T3EvenG2Protocol.isControlSource(gesture.source), threadPicker.openingKey == nil else { return }
     if let offset = T3EvenG2Protocol.lensPageOffset(for: gesture.kind, naturalScrolling: naturalScrolling) {
       threadPicker.move(offset)
       scheduleDisplay(restingDisplayText)

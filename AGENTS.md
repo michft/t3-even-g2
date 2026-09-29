@@ -5,7 +5,8 @@
 Before working in this checkout, read [.plans/README.md](.plans/README.md) when
 present. The gitignored `.plans/` folder contains local changes, fork-specific
 guidance, and build/deploy notes for this repository. Keep that documentation
-there; preserve shared T3 documentation.
+there; preserve shared T3 documentation. Fork specific AGENTS.md resides in
+that folder.
 
 T3 Code is a minimal GUI for coding agents. A Node WebSocket server wraps provider CLIs and agents (Codex, Claude Code, Cursor, Grok, OpenCode, Antigravity) and serves web, desktop, and mobile clients.
 

@@ -3,12 +3,13 @@
 This fork adds direct Bluetooth integration with Even G2 glasses and the R1 ring
 through a custom iPhone app on iOS 26 or later. It adds a glasses thread picker,
 paginated assistant reply history, and on-device dictation from the glasses
-microphone. R1 and right-arm taps select threads, start dictation, and send
-speech; left-arm taps go back or cancel. The display blanks after 15 seconds
-without input, including during dictation while speech capture continues; the
-first tap wakes it without performing an action. The fork also adds configurable
-scroll direction, Bluetooth reconnection and display recovery, and exportable
-native diagnostics.
+microphone. R1 taps select threads, start dictation, and send speech. Right-arm
+taps select threads in the picker or jump to the current thread's latest reply;
+they do nothing during dictation. Left-arm taps go back or cancel. The display
+blanks after 15 seconds without input, including during dictation while speech
+capture continues; the first tap wakes it without performing an action. The fork
+also adds configurable scroll direction, Bluetooth reconnection and display
+recovery, and exportable native diagnostics.
 
 Everything else should track upstream that is **T3 Code**
 

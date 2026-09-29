@@ -166,7 +166,8 @@ private struct T3EvenG2ProtocolSmoke {
     try check(T3EvenG2Protocol.gesture(from: click)?.kind == "click", "ring click not decoded")
     try check(T3EvenG2Protocol.gesture(from: click)?.source == "ring", "ring source not decoded")
     try check(T3EvenG2Protocol.isDictationSource("ring"), "ring input source rejected")
-    try check(T3EvenG2Protocol.isDictationSource("rightTemple"), "right temple input rejected")
+    try check(T3EvenG2Protocol.isControlSource("rightTemple"), "right temple navigation rejected")
+    try check(!T3EvenG2Protocol.isDictationSource("rightTemple"), "right temple must not dictate")
     try check(!T3EvenG2Protocol.isDictationSource("leftTemple"), "left temple must be reserved for Back")
     for (source, name): (UInt8, String) in [(1, "rightTemple"), (2, "ring"), (3, "leftTemple")] {
       let data = packet(payload: [0x08, 0x02] + nested(13, nested(3, [0x10, source])))
