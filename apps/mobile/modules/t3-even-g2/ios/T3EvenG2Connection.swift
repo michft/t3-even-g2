@@ -1559,11 +1559,19 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
 }
 
 /// Keeps the current and previous JSONL segment locally, independent of Metro or a console attachment.
-final class T3EvenG2Diagnostics: Sendable {
+/// Formatter access is locked; directoryPrepared is accessed only on the write queue.
+final class T3EvenG2Diagnostics: @unchecked Sendable {
   let directory: URL
   private let maxBytes: Int
   private let queue = DispatchQueue(label: "com.t3code.even-g2.diagnostics", qos: .utility)
   private let run = UUID().uuidString
+  private let formatterLock = NSLock()
+  private let formatter: ISO8601DateFormatter = {
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    return formatter
+  }()
+  private var directoryPrepared = false
 
   /// Allows fixtures to use temporary storage and a smaller rotation limit.
   init(directory: URL? = nil, maxBytes: Int = 512 * 1_024) {
@@ -1578,9 +1586,8 @@ final class T3EvenG2Diagnostics: Sendable {
     entry["schema"] = 1
     entry["run"] = run
     entry["event"] = event
-    let formatter = ISO8601DateFormatter()
-    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    entry["time"] = formatter.string(from: Date())
+    let time = Date()
+    entry["time"] = formatterLock.withLock { formatter.string(from: time) }
     entry["uptimeMs"] = ProcessInfo.processInfo.systemUptime * 1_000
     entry["version"] = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "test"
     guard var data = try? JSONSerialization.data(withJSONObject: entry, options: [.sortedKeys]) else { return }
@@ -1589,11 +1596,14 @@ final class T3EvenG2Diagnostics: Sendable {
     queue.async { [self] in
       do {
         let files = FileManager.default
-        try files.createDirectory(at: directory, withIntermediateDirectories: true)
-        var localDirectory = directory
-        var values = URLResourceValues()
-        values.isExcludedFromBackup = true
-        try localDirectory.setResourceValues(values)
+        if !directoryPrepared {
+          try files.createDirectory(at: directory, withIntermediateDirectories: true)
+          var localDirectory = directory
+          var values = URLResourceValues()
+          values.isExcludedFromBackup = true
+          try localDirectory.setResourceValues(values)
+          directoryPrepared = true
+        }
         let current = directory.appendingPathComponent("current.jsonl")
         let previous = directory.appendingPathComponent("previous.jsonl")
         let size = (try? files.attributesOfItem(atPath: current.path)[.size] as? Int) ?? 0

@@ -863,6 +863,33 @@ struct Smoke {
     let indices = entries.compactMap { $0["index"] as? Int }
     precondition(indices == indices.sorted() && indices.last == 19)
     precondition(entries.allSatisfy { $0["uptimeMs"] is Double && $0["schema"] as? Int == 1 })
+
+    // A failed first setup must not prevent the next write from preparing storage.
+    let retryDirectory = directory.appendingPathComponent("retry")
+    try Data().write(to: retryDirectory)
+    let retryLogger = T3EvenG2Diagnostics(directory: retryDirectory)
+    retryLogger.record("blocked")
+    retryLogger.flush()
+    try FileManager.default.removeItem(at: retryDirectory)
+    DispatchQueue.concurrentPerform(iterations: 32) { index in
+      retryLogger.record("retry", fields: ["index": index])
+    }
+    retryLogger.flush()
+    let recovered = try Data(contentsOf: retryDirectory.appendingPathComponent("current.jsonl"))
+      .split(separator: 0x0A).map {
+        guard let entry = try JSONSerialization.jsonObject(with: Data($0)) as? [String: Any] else {
+          fatalError("Invalid recovered diagnostic record")
+        }
+        return entry
+      }
+    precondition(recovered.count == 32)
+    precondition(Set(recovered.compactMap { $0["index"] as? Int }) == Set(0..<32))
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    precondition(recovered.allSatisfy {
+      guard let timestamp = $0["time"] as? String else { return false }
+      return formatter.date(from: timestamp) != nil
+    })
   }
 
   /// Reopening selects latest, while duplicate active-thread updates preserve browsing.
