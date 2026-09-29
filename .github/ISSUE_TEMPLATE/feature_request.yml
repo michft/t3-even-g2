@@ -16,6 +16,9 @@ body:
     attributes:
       label: Problem or need
       description: What are you trying to accomplish, and what gets in the way?
+      placeholder: >-
+        While reading a long reply on G2, I want to mark a passage to revisit
+        after switching threads without finding it again on the phone.
     validations:
       required: true
 
@@ -24,5 +27,8 @@ body:
     attributes:
       label: Proposed improvement
       description: Describe the behavior you want and any alternatives considered.
+      placeholder: >-
+        Add a saved reading bookmark for a G2 reply/page, with an explicit way
+        to return to it. Preserve the separate R1, left-arm, and right-arm controls.
     validations:
       required: true

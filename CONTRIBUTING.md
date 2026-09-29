@@ -57,6 +57,9 @@ PRs. Repository collaborator access controls that permission.
 Use the [development runbook](docs/operations/development.md#first-checkout)
 and [mobile setup](apps/mobile/README.md#development). Follow the repository
 [agent instructions](AGENTS.md) and [documentation rules](AGENTS.md#documentation).
+For this fork, use the [G2 build and diagnostics runbook](docs/operations/even-g2.md)
+and [glasses controls](docs/user/even-g2.md) for device-specific examples.
 
-User and contributor guides belong in tracked `docs/`. Private machine details
-and checkout notes belong in gitignored `.plans/`.
+Building, deployment, issues, debugging, and contributor guides belong in
+tracked public `docs/`, with G2 examples and placeholders for personal device
+or signing values. `.plans/` is for planning only.

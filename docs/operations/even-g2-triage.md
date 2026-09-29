@@ -59,6 +59,10 @@ working environment connection; the Release app does not need Metro.
 
 ## Collect phone evidence
 
+For controls and expected gesture behavior, see the
+[G2 user guide](../user/even-g2.md). Build and hardware-check examples live in
+the [native runbook](even-g2.md).
+
 Server logs do not capture all phone Bluetooth, microphone, or display failures.
 Ask the agent on the paired Mac to collect G2 diagnostics soon after the fault.
 From the fork repository root, the existing commands are:

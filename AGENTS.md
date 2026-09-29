@@ -1,13 +1,14 @@
 # T3 Code
 
-## Local repository notes
+## Fork instructions and documentation
 
-Before working in this checkout, read [.plans/README.md](.plans/README.md) when
-present. The gitignored `.plans/` folder contains checkout-specific notes and
-local agent instructions in `.plans/AGENTS.md`. Keep private deployment details
-and local work notes there. Guides for users and contributors belong in tracked
-`docs/`, linked from the README or contribution guide so fresh clones can use
-them. Preserve unrelated upstream documentation.
+Before working in this fork, read
+[fork instructions](docs/agents/fork-instructions.md).
+`.plans/` is for planning only. Building, deployment, issues, debugging, and
+contributor guidance belong in tracked public `docs/`, with explicit G2 examples.
+Link guides from the README, docs index, or contribution guide. Use placeholders
+for personal device and signing values so guides work in a fresh clone.
+Preserve unrelated upstream documentation.
 
 T3 Code is a minimal GUI for coding agents. A Node WebSocket server wraps provider CLIs and agents (Codex, Claude Code, Cursor, Grok, OpenCode, Antigravity) and serves web, desktop, and mobile clients.
 
@@ -165,7 +166,9 @@ Most code changes do not need an internal documentation change. Agents can read 
 
 ## Plans and work artifacts
 
-- Do not commit implementation plans, research notes, or agent scratch files. Keep temporary working material outside the worktree. `.plans/` is gitignored only as a safety net for legacy tooling.
+- Do not commit implementation plans, research notes, or agent scratch files.
+  Keep temporary scratch files outside the worktree. The gitignored `.plans/`
+  directory is reserved for planning; operational documentation belongs in `docs/`.
 - Track active maintainer work in the GitHub issue or project item that owns it. External proposals follow `CONTRIBUTING.md` and belong in Ideas discussions.
 - A merged PR is the implementation record. Close or update its tracking item when the work lands; do not preserve a second checklist in the repository.
 

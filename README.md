@@ -16,6 +16,8 @@ Everything else should track upstream that is **T3 Code**
 To help investigate fork issues, see the
 [Even G2 triage guide](docs/operations/even-g2-triage.md), including reporting
 from the phone and collecting diagnostics.
+See [glasses setup and controls](docs/user/even-g2.md) and
+[native builds and diagnostics](docs/operations/even-g2.md) for G2 examples.
 
 # T3 Code
 

@@ -34,6 +34,11 @@ body:
     attributes:
       label: Steps to reproduce
       description: Minimal, deterministic repro if one was found.
+      placeholder: |
+        1. Open an older reply on G2, with the display awake.
+        2. Tap the right arm once.
+        3. Record whether the latest reply appears and whether dictation starts.
+        Expected: latest reply in the same thread; no dictation.
     validations:
       required: true
 
@@ -54,6 +59,24 @@ body:
       placeholder: macOS 15.3, Node 22.6, claude 2.1.0
     validations:
       required: true
+
+  - type: textarea
+    id: glasses
+    attributes:
+      label: Even G2 evidence (if applicable)
+      description: >-
+        Record the installed phone build and hardware context. Distinguish
+        physical observations from simulated tests and successful Bluetooth writes.
+      placeholder: |
+        iOS / G2 firmware / R1 firmware:
+        Installed native build commit:
+        Input: R1 ring / left arm / right arm
+        Natural scrolling: on / off
+        Phone: unlocked / locked / app backgrounded
+        Starting page -> exact gestures -> actual page:
+        Relevant gesture.received / gesture.ignored log entries:
+        Physical glasses result:
+        Simulated checks and results:
 
   - type: textarea
     id: evidence
