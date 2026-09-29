@@ -4,6 +4,7 @@ private struct CheckFailure: Error, CustomStringConvertible {
   let description: String
 }
 
+/// Throws a labeled failure when a smoke-check condition is false.
 private func check(
   _ condition: @autoclosure () -> Bool,
   _ message: String
@@ -11,15 +12,18 @@ private func check(
   if !condition() { throw CheckFailure(description: message) }
 }
 
+/// Wraps payload bytes in the transport frame used by the protocol checks.
 private func packet(payload: [UInt8]) -> Data {
   Data([0xAA, 0x21, 0x01, UInt8(payload.count + 2), 0x01, 0x01, 0xE0, 0x20]
     + payload + [0x00, 0x00])
 }
 
+/// Encodes a length-delimited protobuf field for test packet construction.
 private func nested(_ field: UInt8, _ value: [UInt8]) -> [UInt8] {
   [(field << 3) | 2, UInt8(value.count)] + value
 }
 
+/// Decodes a bounded test varint and returns its value and ending offset.
 private func readVarint(_ bytes: [UInt8], from start: Int) -> (value: Int, end: Int)? {
   var value = 0
   var shift = 0
@@ -34,6 +38,7 @@ private func readVarint(_ bytes: [UInt8], from start: Int) -> (value: Int, end: 
   return nil
 }
 
+/// Finds and returns a length-delimited field while walking a protobuf message.
 private func lengthDelimitedField(_ number: Int, in bytes: [UInt8]) -> [UInt8]? {
   var index = 0
   while index < bytes.count {
@@ -60,6 +65,7 @@ private func lengthDelimitedField(_ number: Int, in bytes: [UInt8]) -> [UInt8]? 
 
 @main
 private struct T3EvenG2ProtocolSmoke {
+  /// Runs protocol encoding, decoding, malformed-input, and pagination smoke checks.
   static func main() throws {
     try check(T3EvenG2Protocol.writeUUID.hasSuffix("5401"), "write UUID changed")
     try check(T3EvenG2Protocol.notifyUUID.hasSuffix("5402"), "notify UUID changed")

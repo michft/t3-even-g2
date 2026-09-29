@@ -513,12 +513,14 @@ describe("EnvironmentRegistry", () => {
         ],
       };
       const harness = yield* makeHarness([TARGET, SECOND_TARGET], [], [], {
+        /** Holds the target environment at socket startup until the route mounts. */
         beforeSessionConnect: (environmentId) =>
           environmentId === TARGET.environmentId
             ? Deferred.succeed(opening, undefined).pipe(
                 Effect.andThen(Deferred.await(releaseOpening)),
               )
             : Effect.void,
+        /** Supplies independently gated target and secondary environment sessions. */
         session: (environmentId) => {
           const config =
             environmentId === TARGET.environmentId
@@ -527,11 +529,13 @@ describe("EnvironmentRegistry", () => {
                 )
               : Effect.void;
           const client = {
+            /** Seeds the live shell stream with the same rows that Home cached. */
             [ORCHESTRATION_WS_METHODS.subscribeShell]: () =>
               Stream.concat(
                 Stream.succeed({ kind: "snapshot" as const, snapshot: shellSnapshot }),
                 Stream.never,
               ),
+            /** Signals that the target thread's live subscription has started. */
             [ORCHESTRATION_WS_METHODS.subscribeThread]: (input: {
               readonly threadId: ThreadId;
             }) => {
@@ -547,6 +551,7 @@ describe("EnvironmentRegistry", () => {
           return {
             client,
             initialConfig: config.pipe(Effect.as({} as never)),
+            /** Keeps server configuration unchanged for this startup scenario. */
             subscribeServerConfig: () => Stream.never,
             ready: config,
             probe: Effect.void,
@@ -563,8 +568,12 @@ describe("EnvironmentRegistry", () => {
           Layer.mergeAll(
             Layer.succeed(EnvironmentRegistry.EnvironmentRegistry, environmentRegistry),
             harness.cacheLayer,
-            Layer.succeed(ShellSnapshotLoader, { load: () => Effect.succeedNone }),
+            Layer.succeed(ShellSnapshotLoader, {
+              /** Leaves shell restoration to the seeded environment cache. */
+              load: () => Effect.succeedNone,
+            }),
             Layer.succeed(ThreadSnapshotLoader, {
+              /** Delays only the target thread snapshot while the other environment loads. */
               load: (prepared, threadId) =>
                 Effect.gen(function* () {
                   expect(threadId).toBe(thread.id);

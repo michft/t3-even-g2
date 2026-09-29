@@ -7,19 +7,24 @@ final class T3EvenG2SpeechTranscriber {
   static var startCount = 0
   static var beforeFinish: (() async -> Void)?
   private var update: ((String, Bool) -> Void)?
+  /// Captures the transcript callback and records recognition starts.
   func start(onUpdate: @escaping (String, Bool) -> Void) async throws {
     Self.startCount += 1
     update = onUpdate
   }
+  /// Accepts audio without decoding it in the speech fixture.
   func appendPCM(_ pcm: Data) throws {}
+  /// Waits for the optional test gate, then publishes the configured final transcript.
   func finish() async throws -> String {
     await Self.beforeFinish?()
     update?(Self.finalText, true)
     return Self.finalText
   }
+  /// Detaches transcript delivery for a cancelled fixture session.
   func cancel() async { update = nil }
 }
 final class T3EvenG2LC3Decoder {
+  /// Returns empty PCM because these checks exercise connection state, not codec output.
   func decodePacket(_ packet: Data) throws -> Data { Data() }
 }
 
@@ -43,13 +48,37 @@ final class Fixture {
   var baseHeartbeatCounts: [String: Int] = [:]
   var baseHeartbeatStates: Set<String> = []
   var baseHeartbeatWaiter: (() -> Void)?
+  var baseHeartbeatTaskStarts = 0
+  var baseHeartbeatTaskEnds = 0
+  var baseHeartbeatTaskWaiter: (() -> Void)?
+  var pageHeartbeatResponses: [Bool] = []
+  var pageHeartbeatAttempts = 0
+  var pageHeartbeatAcks = 0
+  var pageHeartbeatWaiter: (() -> Void)?
   var displayFrame: [UInt8] = []
   var lastDisplayPayload = Data()
   var displayWaiter: (() -> Void)?
 
-  init(connectionTimeout: Duration = .seconds(20), rememberedLeft: CBPeripheral? = nil) {
+  /// Connects simulated arms and scripts firmware acknowledgements with configurable heartbeat timing.
+  init(
+    connectionTimeout: Duration = .seconds(20),
+    baseHeartbeatInterval: Duration = .milliseconds(20),
+    pageHeartbeatInterval: Duration = .seconds(30),
+    pageHeartbeatTimeout: Duration = .seconds(20),
+    rememberedLeft: CBPeripheral? = nil
+  ) {
     connection = T3EvenG2Connection(
-      connectionTimeout: connectionTimeout, baseHeartbeatInterval: .milliseconds(20))
+      connectionTimeout: connectionTimeout,
+      baseHeartbeatInterval: baseHeartbeatInterval,
+      pageHeartbeatInterval: pageHeartbeatInterval,
+      pageHeartbeatTimeout: pageHeartbeatTimeout
+    )
+    connection.onBaseHeartbeatTaskStart = { [weak self] in self?.baseHeartbeatTaskStarts += 1 }
+    connection.onBaseHeartbeatTaskEnd = { [weak self] in
+      guard let self else { return }
+      self.baseHeartbeatTaskEnds += 1
+      self.baseHeartbeatTaskWaiter?()
+    }
     connection.setNaturalScrolling(false)
     connection.onStatus = { [weak self] state in self?.waiter?(state) }
     connection.onTranscript = { [weak self] event in self?.transcripts.append(event) }
@@ -111,6 +140,14 @@ final class Fixture {
         guard bytes.count > 12, bytes[4] == 1, let offset = bytes[8...].firstIndex(of: 0x10) else {
           return
         }
+        let pageHeartbeat = bytes[6] == 0xE0 && bytes[9] == 12
+        if pageHeartbeat {
+          self.pageHeartbeatAttempts += 1
+          self.pageHeartbeatWaiter?()
+          if !self.pageHeartbeatResponses.isEmpty, !self.pageHeartbeatResponses.removeFirst() {
+            return
+          }
+        }
         if bytes[6] == 0x01 {
           guard !self.shutdownPending else { return }
           self.preludeCount += 1
@@ -146,11 +183,16 @@ final class Fixture {
         notify.value = Data(
           [0xAA, 0x12, 0, UInt8(payload.count + 2), 1, 1, bytes[6], 0x20] + payload + [0, 0])
         self.connection.peripheral(peripheral, didUpdateValueFor: notify, error: nil)
+        if pageHeartbeat {
+          self.pageHeartbeatAcks += 1
+          self.pageHeartbeatWaiter?()
+        }
       }
       discover(peripheral)
     }
   }
 
+  /// Completes connection and characteristic discovery for one simulated arm.
   func discover(_ peripheral: CBPeripheral) {
     peripheral.state = .connected
     connection.centralManager(CBCentralManager.latest, didConnect: peripheral)
@@ -164,6 +206,7 @@ final class Fixture {
     connection.peripheral(peripheral, didDiscoverCharacteristicsFor: service, error: nil)
   }
 
+  /// Confirms notification subscriptions so the driver can mark an arm ready.
   func subscribe(_ peripheral: CBPeripheral) {
     for characteristic in peripheral.services![0].characteristics!.dropFirst() {
       characteristic.isNotifying = true
@@ -171,6 +214,7 @@ final class Fixture {
     }
   }
 
+  /// Delivers a firmware gesture through the real notification parser.
   func gesture(_ event: UInt8, container: Bool = false) {
     let inner: [UInt8] = container ? [0x12, 2, 0x18, event] : [0x1A, 4, 0x08, event, 0x10, 2]
     let payload: [UInt8] = [0x08, 2, 0x6A, UInt8(inner.count)] + inner
@@ -180,6 +224,7 @@ final class Fixture {
     connection.peripheral(right, didUpdateValueFor: notify, error: nil)
   }
 
+  /// Waits for a matching status callback, recording the caller for watchdog diagnostics.
   func wait(line: Int = #line, _ predicate: @escaping ([String: Any]) -> Bool) async {
     if predicate(connection.snapshot) { return }
     Self.waitingAtLine = line
@@ -193,11 +238,13 @@ final class Fixture {
     }
   }
 
+  /// Sends the up-then-down escape gesture without a debounce delay.
   func swipeBack() {
     gesture(1)
     gesture(2)
   }
 
+  /// Waits until a completed text frame contains the expected visible text.
   func waitForDisplay(_ text: String) async {
     let expected = Data(text.utf8)
     if lastDisplayPayload.range(of: expected) != nil { return }
@@ -210,6 +257,7 @@ final class Fixture {
     }
   }
 
+  /// Waits for an arm heartbeat write that satisfies the supplied condition.
   func waitForBaseHeartbeat(_ predicate: @escaping () -> Bool) async {
     if predicate() { return }
     await withCheckedContinuation { continuation in
@@ -221,10 +269,36 @@ final class Fixture {
       }
     }
   }
+
+  /// Waits for the requested number of heartbeat tasks to finish cleanup.
+  func waitForBaseHeartbeatTaskEnd(_ count: Int) async {
+    if baseHeartbeatTaskEnds >= count { return }
+    await withCheckedContinuation { continuation in
+      baseHeartbeatTaskWaiter = { [weak self] in
+        guard let self, self.baseHeartbeatTaskEnds >= count else { return }
+        self.baseHeartbeatTaskWaiter = nil
+        continuation.resume()
+      }
+    }
+  }
+
+  /// Waits for a scripted page heartbeat attempt or acknowledgement.
+  func waitForPageHeartbeat(_ predicate: @escaping () -> Bool) async {
+    if predicate() { return }
+    await withCheckedContinuation { continuation in
+      pageHeartbeatWaiter = { [weak self] in
+        if predicate() {
+          self?.pageHeartbeatWaiter = nil
+          continuation.resume()
+        }
+      }
+    }
+  }
 }
 
 @main
 struct Smoke {
+  /// Exercises real connection, recovery, dictation, and navigation behavior with simulated firmware.
   @MainActor
   static func main() async {
     let savedScrolling = UserDefaults.standard.object(forKey: "T3EvenG2NaturalScrolling")
@@ -236,6 +310,11 @@ struct Smoke {
       fatalError("G2 connection test timed out waiting for a lifecycle callback at line \(Fixture.waitingAtLine)")
     }
     defer { watchdog.cancel() }
+    if CommandLine.arguments.contains("--heartbeats") {
+      await verifyHeartbeats()
+      print("G2 heartbeat restart, stale-task cleanup, and consecutive ACK checks passed")
+      return
+    }
     var picker = T3EvenG2ThreadPicker()
     let first = T3EvenG2ThreadPicker.Choice(key: "mini:a", title: "First", subtitle: "Mini")
     let second = T3EvenG2ThreadPicker.Choice(key: "moorbeef:a", title: "Second", subtitle: "Moorbeef")
@@ -337,6 +416,7 @@ struct Smoke {
     precondition(fixture.baseHeartbeatStates.contains("starting"))
     precondition(cancelled.connection.snapshot["status"] as? String == "disconnected")
     precondition(fixture.shutdownCount == 1 && fixture.preludeCount == 2 && fixture.createCount == 1)
+
     fixture.gesture(2, container: true)
     // Simulate deliberate, separate gestures outside the hardware debounce.
     try? await Task.sleep(for: .milliseconds(450))
@@ -530,5 +610,62 @@ struct Smoke {
     print(
       "G2 native driver: per-arm auth, base heartbeats, occupied-page reset, readiness deadlines, stale arm replacement, late recovery, cancellation, thread picker, dictation, and reconnect passed"
     )
+  }
+
+  /// Verifies task replacement and missed-ACK recovery separately from navigation timing checks.
+  @MainActor
+  private static func verifyHeartbeats() async {
+    let heartbeat = Fixture(
+      pageHeartbeatInterval: .milliseconds(60), pageHeartbeatTimeout: .milliseconds(15))
+    heartbeat.pageOccupied = false
+    heartbeat.subscribe(heartbeat.left)
+    heartbeat.subscribe(heartbeat.right)
+    await heartbeat.wait { $0["status"] as? String == "ready" }
+    heartbeat.pageHeartbeatResponses = [false, true, false, false]
+    await heartbeat.waitForPageHeartbeat { heartbeat.pageHeartbeatAttempts >= 1 }
+    await heartbeat.waitForPageHeartbeat { heartbeat.pageHeartbeatAttempts >= 2 }
+    await heartbeat.waitForPageHeartbeat { heartbeat.pageHeartbeatAttempts >= 3 }
+    precondition(heartbeat.pageHeartbeatAcks == 1)
+    precondition(heartbeat.connection.snapshot["status"] as? String == "ready")
+    await heartbeat.wait { $0["status"] as? String == "paused" }
+    precondition(heartbeat.pageHeartbeatAttempts == 4)
+    heartbeat.connection.disconnect()
+
+    let lifecycle = Fixture(pageHeartbeatInterval: .seconds(30))
+    lifecycle.pageOccupied = false
+    lifecycle.subscribe(lifecycle.left)
+    lifecycle.subscribe(lifecycle.right)
+    await lifecycle.wait { $0["status"] as? String == "ready" }
+    let lifecycleCentral = CBCentralManager.latest!
+    lifecycleCentral.state = .unknown
+    await lifecycle.waitForBaseHeartbeatTaskEnd(1)
+    lifecycleCentral.state = .poweredOn
+    lifecycle.subscribe(lifecycle.left)
+    precondition(lifecycle.baseHeartbeatTaskStarts == 2)
+    let naturalRestartCount = lifecycle.baseHeartbeatCounts["L", default: 0]
+    await lifecycle.waitForBaseHeartbeat {
+      lifecycle.baseHeartbeatCounts["L", default: 0] > naturalRestartCount
+    }
+    lifecycle.connection.disconnect()
+
+    let staleTask = Fixture(connectionTimeout: .milliseconds(60))
+    staleTask.pageOccupied = false
+    staleTask.subscribe(staleTask.left)
+    await staleTask.wait { $0["status"] as? String == "error" }
+    precondition(staleTask.baseHeartbeatTaskStarts == 1)
+    staleTask.connection.connect()
+    guard let staleCentral = CBCentralManager.latest else { fatalError("Missing stale-task central") }
+    for peripheral in [staleTask.left, staleTask.right] {
+      staleTask.connection.centralManager(
+        staleCentral, didDiscover: peripheral, advertisementData: [:], rssi: -40)
+      staleTask.discover(peripheral)
+      staleTask.subscribe(peripheral)
+    }
+    await staleTask.wait { $0["status"] as? String == "ready" }
+    precondition(staleTask.baseHeartbeatTaskStarts == 2)
+    await staleTask.waitForBaseHeartbeatTaskEnd(1)
+    staleTask.subscribe(staleTask.left)
+    precondition(staleTask.baseHeartbeatTaskStarts == 2)
+    staleTask.connection.disconnect()
   }
 }

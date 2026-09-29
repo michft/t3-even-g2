@@ -18,6 +18,7 @@ enum T3EvenG2Protocol {
     let source: String
   }
 
+  /// Encodes the initial T3 Code page, using the supplied session magic and app name.
   static func createPage(magic: Int, name: String = "t3code") -> [UInt8] {
     let item = message([
       uint(1, 1),
@@ -40,6 +41,7 @@ enum T3EvenG2Protocol {
     return message([uint(2, magic), nested(3, page)])
   }
 
+  /// Encodes a text-page rebuild, truncating content to fit the device's byte limit.
   static func rebuildText(_ text: String, magic: Int, name: String = "t3code") -> [UInt8] {
     let content = limitedUTF8(text, maxBytes: 900)
     let textObject = message([
@@ -57,30 +59,36 @@ enum T3EvenG2Protocol {
     return message([uint(1, 7), uint(2, magic), nested(7, rebuild)])
   }
 
+  /// Encodes the EvenHub page heartbeat for the current session.
   static func heartbeat(magic: Int) -> [UInt8] {
     message([uint(1, 12), uint(2, magic), nested(14, [])])
   }
 
   // Base connection liveness is separate from the EvenHub page heartbeat.
   // https://github.com/Mentra-Community/MentraOS/blob/dev/mobile/modules/bluetooth-sdk/ios/Source/sgcs/G2.swift
+  /// Encodes the base connection liveness heartbeat for the current session.
   static func baseHeartbeat(magic: Int) -> [UInt8] {
     message([uint(1, 14), uint(2, magic), nested(13, [])])
   }
 
   // Same DevSettings source above: secAuth=true, phoneType=PHONE_IOS (3).
+  /// Encodes iOS device authentication for the current session.
   static func authenticate(magic: Int) -> [UInt8] {
     message([uint(1, 4), uint(2, magic), nested(3, message([uint(1, 1), uint(2, 3)]))])
   }
 
+  /// Encodes a request to enable or disable audio capture for this session.
   static func audioControl(enabled: Bool, magic: Int) -> [UInt8] {
     let command = enabled ? message([uint(1, 1)]) : []
     return message([uint(1, 15), uint(2, magic), nested(18, command)])
   }
 
+  /// Encodes the session shutdown command.
   static func shutdown(magic: Int) -> [UInt8] {
     message([uint(1, 9), uint(2, magic), nested(11, [])])
   }
 
+  /// Adds CRC-16 and splits a payload into transport-sized packets.
   static func frames(
     payload: [UInt8],
     sequence: UInt8,
@@ -103,6 +111,7 @@ enum T3EvenG2Protocol {
     }
   }
 
+  /// Decodes a supported device-event packet, returning nil for other or malformed packets.
   static func gesture(from packet: Data) -> Gesture? {
     let bytes = [UInt8](packet)
     guard bytes.count >= 10, bytes[0] == 0xAA, bytes[6] == 0xE0 else { return nil }
@@ -128,6 +137,7 @@ enum T3EvenG2Protocol {
     return nil
   }
 
+  /// Extracts service and session magic from a valid acknowledgement packet.
   static func acknowledgement(from packet: Data) -> (service: UInt8, magic: Int)? {
     let bytes = [UInt8](packet)
     guard
@@ -150,19 +160,23 @@ enum T3EvenG2Protocol {
     "abnormalExit", "systemExit", "imu", "longPress", "longPressRelease",
   ]
 
+  /// Maps a protocol gesture number to its JavaScript-facing name.
   private static func gestureName(_ value: Int) -> String {
     gestureNames.indices.contains(value) ? gestureNames[value] : "unknown"
   }
 
+  /// Reports whether a gesture source can start dictation.
   static func isDictationSource(_ source: String) -> Bool {
     ["ring", "rightTemple", "leftTemple", "textContainer", "listContainer"].contains(source)
   }
 
+  /// Reports whether this gesture can dismiss the active display page.
   static func requiresDisplayRecovery(for gestureKind: String) -> Bool {
     // Foreground events also describe system menu overlays, not page teardown.
     ["doubleClick", "systemExit", "abnormalExit"].contains(gestureKind)
   }
 
+  /// Returns the page delta for a scroll gesture, accounting for scroll preference.
   static func lensPageOffset(for gestureKind: String, naturalScrolling: Bool = false) -> Int? {
     switch gestureKind {
     case "scrollDown": naturalScrolling ? -1 : 1
@@ -171,6 +185,7 @@ enum T3EvenG2Protocol {
     }
   }
 
+  /// Wraps and paginates text within lens row and UTF-8 byte limits.
   static func lensTextPages(
     _ text: String,
     columns: Int = 46,
@@ -239,6 +254,7 @@ enum T3EvenG2Protocol {
     }
   }
 
+  /// Maps a protocol input-source number to its JavaScript-facing name.
   private static func sourceName(_ value: Int) -> String {
     switch value {
     case 1: "rightTemple"
@@ -257,15 +273,18 @@ enum T3EvenG2Protocol {
   private struct Fields {
     let values: [Field]
 
+    /// Returns the last varint value for a field number, if present.
     func uint(_ number: Int) -> Int? {
       values.last(where: { $0.number == number })?.uintValue
     }
 
+    /// Returns the last length-delimited value for a field number, if present.
     func data(_ number: Int) -> [UInt8]? {
       values.last(where: { $0.number == number })?.dataValue
     }
   }
 
+  /// Reads supported protobuf wire types, stopping at malformed or unsupported data.
   private static func fields(_ bytes: [UInt8]) -> Fields {
     var result: [Field] = []
     var index = 0
@@ -289,6 +308,7 @@ enum T3EvenG2Protocol {
     return Fields(values: result)
   }
 
+  /// Decodes one bounded varint and returns its value and next byte offset.
   private static func readVarint(_ bytes: [UInt8], from start: Int) -> (Int, Int)? {
     var value = 0
     var shift = 0
@@ -303,27 +323,33 @@ enum T3EvenG2Protocol {
     return nil
   }
 
+  /// Joins already encoded fields into one protocol message.
   private static func message(_ fields: [[UInt8]]) -> [UInt8] {
     fields.flatMap { $0 }
   }
 
+  /// Encodes a protobuf varint field, omitting its proto3 default value of zero.
   private static func uint(_ field: Int, _ value: Int) -> [UInt8] {
     guard value != 0 else { return [] }
     return varint((field << 3) | 0) + varint(value)
   }
 
+  /// Encodes a string as a length-delimited UTF-8 field.
   private static func string(_ field: Int, _ value: String) -> [UInt8] {
     bytes(field, Array(value.utf8))
   }
 
+  /// Encodes a nested message as a length-delimited field.
   private static func nested(_ field: Int, _ value: [UInt8]) -> [UInt8] {
     bytes(field, value)
   }
 
+  /// Encodes bytes as a length-delimited field.
   private static func bytes(_ field: Int, _ value: [UInt8]) -> [UInt8] {
     varint((field << 3) | 2) + varint(value.count) + value
   }
 
+  /// Encodes a nonnegative integer using protobuf's base-128 varint format.
   private static func varint(_ input: Int) -> [UInt8] {
     var value = input
     var output: [UInt8] = []
@@ -336,6 +362,7 @@ enum T3EvenG2Protocol {
     return output
   }
 
+  /// Truncates at a character boundary and appends an ellipsis within the byte limit.
   private static func limitedUTF8(_ text: String, maxBytes: Int) -> String {
     if text.utf8.count <= maxBytes { return text }
     let suffix = "…"
@@ -349,6 +376,7 @@ enum T3EvenG2Protocol {
     return output + suffix
   }
 
+  /// Computes the CRC-16/CCITT checksum used by the packet transport.
   private static func crc16(_ bytes: [UInt8]) -> UInt16 {
     var crc: UInt16 = 0xFFFF
     for byte in bytes {

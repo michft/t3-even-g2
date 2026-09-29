@@ -167,6 +167,7 @@ export interface ThreadDetailScreenProps {
   readonly onRemoveDraftImage: (imageId: string) => void;
   readonly onStopThread: () => void;
   readonly onSendMessage: () => Promise<MessageId | null>;
+  /** Queues dictated text separately from composer attachments, or returns null if unavailable. */
   readonly onSendTextMessage: (text: string) => Promise<MessageId | null>;
   readonly onReconnectEnvironment: () => void;
   readonly onUpdateThreadModelSelection: (modelSelection: ModelSelection) => void;
@@ -772,6 +773,7 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
     selectedThreadKey,
   ]);
 
+  /** Updates submission and scroll anchors for a message sent to this thread. */
   const recordSubmittedMessage = useCallback(
     (messageId: MessageId, targetThreadKey: string) => {
       if (selectedThreadKeyRef.current !== targetThreadKey) {
@@ -811,6 +813,7 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
     return messageId;
   }, [clearUsageLimitsFor, props.onSendMessage, recordSubmittedMessage, selectedThreadKey]);
 
+  /** Sends dictated text and applies the same usage and scroll updates as a typed send. */
   const handleSendDictatedMessage = useCallback(
     async (text: string) => {
       const targetThreadKey = selectedThreadKey;

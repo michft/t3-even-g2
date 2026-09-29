@@ -11,14 +11,20 @@ const native = vi.hoisted(() => ({
 }));
 
 vi.mock("./evenG2Native", () => ({
+  /** Records display requests from the bridge under test. */
   displayEvenG2Text: vi.fn(),
+  /** Records auto-connect requests from the bridge under test. */
   ensureEvenG2AutoConnect: vi.fn(),
+  /** Records which thread the bridge marks active. */
   setEvenG2ActiveThread: vi.fn(),
+  /** Exposes the current mock listening flag to the bridge. */
   getEvenG2Status: () => ({ listening: native.listening }),
+  /** Tracks active status listeners and removes each one on cleanup. */
   subscribeEvenG2Status: (listener: () => void) => {
     native.statusListeners.add(listener);
     return () => native.statusListeners.delete(listener);
   },
+  /** Tracks transcript listeners until their subscriptions are cleaned up. */
   subscribeEvenG2Transcripts: (listener: (event: EvenG2TranscriptEvent) => void) => {
     native.transcriptListeners.add(listener);
     return () => native.transcriptListeners.delete(listener);
@@ -29,12 +35,15 @@ const drafts = new Map<string, string>();
 const sent: Array<{ threadKey: string; text: string }> = [];
 let unsubscribe: (() => void) | undefined;
 
+/** Creates a thread input whose draft and send handler are tracked by thread key. */
 function thread(threadKey: string, draftMessage: string) {
   drafts.set(threadKey, draftMessage);
   return {
     threadKey,
     draftMessage,
+    /** Stores draft changes against this fixture's originating thread. */
     onChangeDraftMessage: (text: string) => drafts.set(threadKey, text),
+    /** Records dictated messages without creating a real outbox entry. */
     onSendTextMessage: async (text: string): Promise<MessageId | null> => {
       sent.push({ threadKey, text });
       return null;
@@ -42,11 +51,13 @@ function thread(threadKey: string, draftMessage: string) {
   };
 }
 
+/** Simulates the native status event that starts a dictation session. */
 function startListening() {
   native.listening = true;
   native.statusListeners.forEach((listener) => listener());
 }
 
+/** Sends a test transcript through every active native transcript listener. */
 function transcript(event: EvenG2TranscriptEvent) {
   native.transcriptListeners.forEach((listener) => listener(event));
 }
@@ -67,6 +78,7 @@ describe("Even G2 dictation sessions", () => {
   it("uses an established thread's send handler while preserving the session's original draft", () => {
     let input: ReturnType<typeof thread> = {
       ...thread("a", "draft A"),
+      /** Models a pending thread that cannot yet accept a message. */
       onSendTextMessage: async () => null,
     };
     unsubscribe = subscribeEvenG2Dictation(() => input);
@@ -149,6 +161,7 @@ describe("Even G2 dictation sessions", () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     let input: ReturnType<typeof thread> = {
       ...thread("a", "draft A"),
+      /** Holds submission open so the test can reject it after a new session starts. */
       onSendTextMessage: () => pending.promise,
     };
     unsubscribe = subscribeEvenG2Dictation(() => input);

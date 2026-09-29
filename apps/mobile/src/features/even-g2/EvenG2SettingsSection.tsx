@@ -26,6 +26,7 @@ const statusLabels = {
   unsupported: "Unavailable",
 } as const;
 
+/** Shows Even G2 connection, display recovery, and scrolling controls on iOS. */
 export function EvenG2SettingsSection() {
   const status = useEvenG2Status();
 
@@ -38,6 +39,7 @@ export function EvenG2SettingsSection() {
   }
 
   const active = status.connected || ["scanning", "connecting", "starting"].includes(status.status);
+  /** Connects or disconnects the glasses while keeping the auto-connect choice in sync. */
   const toggleConnection = () => {
     if (active) {
       setEvenG2AutoConnect(false);

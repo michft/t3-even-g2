@@ -13,6 +13,7 @@ public final class T3EvenG2Module: Module {
     "naturalScrolling": UserDefaults.standard.object(forKey: "T3EvenG2NaturalScrolling") as? Bool ?? true,
   ]
 
+  /// Registers the native module's events, lifecycle hooks, and JavaScript methods.
   public func definition() -> ModuleDefinition {
     Name("T3EvenG2")
     Events("onStatus", "onTranscript", "onGesture", "onThreadSelected")
@@ -122,11 +123,13 @@ public final class T3EvenG2Module: Module {
     }
   }
 
+  /// Starts a connection only when the persisted auto-connect preference is enabled.
   private func ensureAutoConnect() {
     guard UserDefaults.standard.bool(forKey: "T3EvenG2AutoConnect") else { return }
     connectIfAvailable()
   }
 
+  /// Persists auto-connect and connects immediately when enabling it on supported iOS.
   private func setAutoConnect(_ enabled: Bool) {
     UserDefaults.standard.set(enabled, forKey: "T3EvenG2AutoConnect")
     guard #available(iOS 26.0, *), let connection = connection() else { return }
@@ -136,31 +139,37 @@ public final class T3EvenG2Module: Module {
     connection.onStatus?(connection.snapshot)
   }
 
+  /// Requests connection when iOS 26 and the Even G2 connection API are available.
   private func connectIfAvailable() {
     guard #available(iOS 26.0, *), let connection = connection() else { return }
     connection.connect()
   }
 
+  /// Requests disconnection when iOS 26 and the Even G2 connection API are available.
   private func disconnectIfAvailable() {
     guard #available(iOS 26.0, *), let connection = connection() else { return }
     connection.disconnect()
   }
 
+  /// Sends display text to the glasses when the supported connection is available.
   private func displayTextIfAvailable(_ text: String) {
     guard #available(iOS 26.0, *), let connection = connection() else { return }
     connection.displayText(text)
   }
 
+  /// Clears the glasses display when the supported connection is available.
   private func clearDisplayIfAvailable() {
     guard #available(iOS 26.0, *), let connection = connection() else { return }
     connection.clearDisplay()
   }
 
+  /// Enables or disables glasses input when the supported connection is available.
   private func setInputEnabledIfAvailable(_ enabled: Bool) {
     guard #available(iOS 26.0, *), let connection = connection() else { return }
     connection.setInputEnabled(enabled)
   }
 
+  /// Runs an operation immediately on main or asynchronously dispatches it there.
   private func performOnMain(_ operation: @escaping () -> Void) {
     if Thread.isMainThread {
       operation()
@@ -169,6 +178,7 @@ public final class T3EvenG2Module: Module {
     }
   }
 
+  /// Returns the connection from the main actor for async dictation operations.
   @MainActor
   @available(iOS 26.0, *)
   private func mainConnection() -> T3EvenG2Connection? {
@@ -176,6 +186,7 @@ public final class T3EvenG2Module: Module {
   }
 
   @available(iOS 26.0, *)
+  /// Lazily creates the connection and routes its callbacks into module events.
   private func connection() -> T3EvenG2Connection? {
     if let existing = connectionStorage as? T3EvenG2Connection {
       return existing
@@ -190,6 +201,7 @@ public final class T3EvenG2Module: Module {
     return connection
   }
 
+  /// Returns a live supported-iOS snapshot on main, otherwise the locked cache.
   private func statusSnapshot() -> [String: Any] {
     guard #available(iOS 26.0, *) else {
       return [
@@ -211,11 +223,13 @@ public final class T3EvenG2Module: Module {
     return cachedStatus
   }
 
+  /// Caches a connection status update before emitting it to JavaScript.
   private func publishStatus(_ status: [String: Any]) {
     cacheStatus(status)
     sendEvent("onStatus", status)
   }
 
+  /// Replaces the cached status under the lock used by off-main readers.
   private func cacheStatus(_ status: [String: Any]) {
     statusLock.lock()
     cachedStatus = status

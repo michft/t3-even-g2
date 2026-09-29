@@ -23,6 +23,7 @@ final class T3EvenG2SpeechTranscriber {
   private var volatileText = ""
   private var onUpdate: UpdateHandler?
 
+  /// Prepares on-device recognition and streams partial and final text updates.
   func start(onUpdate: @escaping UpdateHandler) async throws {
     await cancel()
     guard await requestAuthorization() else {
@@ -76,6 +77,7 @@ final class T3EvenG2SpeechTranscriber {
     try await analyzer.start(inputSequence: sequence)
   }
 
+  /// Converts mono Int16 PCM into analyzer input and queues any produced buffer.
   func appendPCM(_ pcm: Data) throws {
     guard let sourceFormat, let continuation = inputContinuation else { return }
     guard
@@ -101,6 +103,7 @@ final class T3EvenG2SpeechTranscriber {
     }
   }
 
+  /// Flushes pending audio, waits for recognition to finish, and returns its text.
   func finish() async throws -> String {
     if let continuation = inputContinuation {
       do {
@@ -128,6 +131,7 @@ final class T3EvenG2SpeechTranscriber {
     return text
   }
 
+  /// Stops analysis and clears the current utterance without returning its text.
   func cancel() async {
     inputContinuation?.finish()
     inputContinuation = nil
@@ -138,6 +142,7 @@ final class T3EvenG2SpeechTranscriber {
     reset()
   }
 
+  /// Releases analyzer state and accumulated text after finishing or cancellation.
   private func reset() {
     analyzer = nil
     sourceFormat = nil
@@ -150,6 +155,7 @@ final class T3EvenG2SpeechTranscriber {
     onUpdate = nil
   }
 
+  /// Selects the analyzer's input format and creates a converter when formats differ.
   private func compatibleAudioFormats(
     for transcriber: SpeechTranscriber
   ) async throws -> AudioFormats {
@@ -176,6 +182,7 @@ final class T3EvenG2SpeechTranscriber {
     return AudioFormats(source: sourceFormat, analyzer: analyzerFormat, converter: converter)
   }
 
+  /// Converts one source buffer, returning nil when conversion produces no samples.
   private func convert(_ input: AVAudioPCMBuffer) throws -> AVAudioPCMBuffer? {
     guard let audioConverter, let analyzerFormat, let sourceFormat else { return nil }
     let ratio = analyzerFormat.sampleRate / sourceFormat.sampleRate
@@ -200,6 +207,7 @@ final class T3EvenG2SpeechTranscriber {
     return output.frameLength > 0 ? output : nil
   }
 
+  /// Drains delayed converter output into the analyzer stream at end of input.
   private func flushConverter(into continuation: AsyncStream<AnalyzerInput>.Continuation) throws {
     guard let audioConverter, let analyzerFormat else { return }
     while true {
@@ -220,12 +228,14 @@ final class T3EvenG2SpeechTranscriber {
     }
   }
 
+  /// Joins finalized and provisional transcript text with one separating space.
   private static func join(_ lhs: String, _ rhs: String) -> String {
     if lhs.isEmpty { return rhs }
     if rhs.isEmpty { return lhs }
     return "\(lhs) \(rhs)"
   }
 
+  /// Requests speech permission if needed and reports whether it was granted.
   private func requestAuthorization() async -> Bool {
     switch SFSpeechRecognizer.authorizationStatus() {
     case .authorized:
@@ -247,6 +257,7 @@ final class T3EvenG2SpeechTranscriber {
     case unavailable
     case unsupportedLocale
 
+    /// Provides the user-facing message associated with each transcription error.
     var errorDescription: String? {
       switch self {
       case .authorizationDenied: "Speech recognition permission is required."

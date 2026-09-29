@@ -17,6 +17,7 @@ static const NSUInteger T3EvenG2FramesPerPacket = 5;
 
 @implementation T3EvenG2LC3Decoder
 
+/** Allocates the reusable LC3 decoder state for 10 ms, 16 kHz frames. */
 - (instancetype)init {
   self = [super init];
   if (self) {
@@ -34,10 +35,12 @@ static const NSUInteger T3EvenG2FramesPerPacket = 5;
   return self;
 }
 
+/** Releases the decoder memory allocated during initialization. */
 - (void)dealloc {
   free(_decoderMemory);
 }
 
+/** Decodes five 40-byte frames into 16 kHz signed 16-bit samples. */
 - (nullable NSData *)decodePacket:(NSData *)packet error:(NSError * _Nullable * _Nullable)error {
   if (_decoder == NULL || packet.length != T3EvenG2PacketBytes) {
     if (error != NULL) {

@@ -29,10 +29,12 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     var ready = false
     var didSendAuthentication = false
 
+    /// Creates the state holder for one physical glasses arm.
     init(side: String) {
       self.side = side
     }
 
+    /// Clears discovered GATT characteristics and per-arm readiness state.
     func resetCharacteristics() {
       write = nil
       notify = nil
@@ -54,7 +56,14 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   private var pageName = "t3code"
   private var heartbeatTask: Task<Void, Never>?
   private var baseHeartbeatTask: Task<Void, Never>?
+  private var baseHeartbeatTaskID: UUID?
   private let baseHeartbeatInterval: Duration
+  private let pageHeartbeatInterval: Duration
+  private let pageHeartbeatTimeout: Duration
+  /// Test hook called when the base-heartbeat task starts; not a user-facing API.
+  var onBaseHeartbeatTaskStart: (() -> Void)?
+  /// Test hook called when a base-heartbeat task exits; not a user-facing API.
+  var onBaseHeartbeatTaskEnd: (() -> Void)?
   private var displayTask: Task<Void, Never>?
   private var bootstrapTask: Task<Void, Never>?
   private var shutdownExitObserved = false
@@ -86,6 +95,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   private var pendingAckKeys: Set<String> = []
   private var receivedAckKeys: Set<String> = []
 
+  /// Returns the current connection, dictation, and scrolling state for the client.
   var snapshot: [String: Any] {
     [
       "status": status.rawValue,
@@ -99,12 +109,21 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
 
   static let autoConnectKey = "T3EvenG2AutoConnect"
 
-  init(connectionTimeout: Duration = .seconds(20), baseHeartbeatInterval: Duration = .seconds(5)) {
+  /// Creates a connection controller with configurable lifecycle timing intervals.
+  init(
+    connectionTimeout: Duration = .seconds(20),
+    baseHeartbeatInterval: Duration = .seconds(5),
+    pageHeartbeatInterval: Duration = .seconds(5),
+    pageHeartbeatTimeout: Duration = .seconds(2)
+  ) {
     self.connectionTimeout = connectionTimeout
     self.baseHeartbeatInterval = baseHeartbeatInterval
+    self.pageHeartbeatInterval = pageHeartbeatInterval
+    self.pageHeartbeatTimeout = pageHeartbeatTimeout
     super.init()
   }
 
+  /// Starts scanning or reconnects remembered arms unless already active.
   func connect() {
     guard status == .disconnected || status == .error else { return }
     if status == .error {
@@ -137,6 +156,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     }
   }
 
+  /// Stops Bluetooth work, cancels dictation, resets both arms, and reports disconnected.
   func disconnect() {
     requestedDisconnect = true
     stopBaseHeartbeat()
@@ -153,11 +173,13 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     setStatus(.disconnected)
   }
 
+  /// Restarts the display handshake when both arms are ready and the page is paused.
   func resumeDisplay() {
     guard status == .paused, left.ready, right.ready else { return }
     bootstrap(resuming: true)
   }
 
+  /// Stops active work and schedules display recovery after a page failure or exit.
   private func pauseDisplay() {
     guard status == .ready || status == .starting else { return }
     stopTasks()
@@ -175,6 +197,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     }
   }
 
+  /// Stores paginated text and displays it when the connection is ready and idle.
   func displayText(_ text: String) {
     let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !cleaned.isEmpty else { return }
@@ -185,6 +208,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     scheduleDisplay(restingDisplayText)
   }
 
+  /// Clears stored display pages and sends shutdown when the page is ready.
   func clearDisplay() {
     dictationNotice = nil
     displayPages = []
@@ -197,6 +221,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     }
   }
 
+  /// Enables thread input or cancels dictation when input is disabled.
   func setInputEnabled(_ enabled: Bool) {
     if inputEnabled != enabled { clearPendingSwipe() }
     inputEnabled = enabled
@@ -213,12 +238,14 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     scheduleDisplay(restingDisplayText)
   }
 
+  /// Persists the scrolling direction preference and publishes updated status.
   func setNaturalScrolling(_ enabled: Bool) {
     naturalScrolling = enabled
     UserDefaults.standard.set(enabled, forKey: "T3EvenG2NaturalScrolling")
     emitStatus()
   }
 
+  /// Selects or clears the active thread and updates the input picker state.
   func setActiveThread(_ key: String, enabled: Bool) {
     if activeThreadKey != key || !enabled { clearPendingSwipe() }
     if enabled {
@@ -237,6 +264,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     }
   }
 
+  /// Replaces picker choices from client dictionaries, dropping entries without keys.
   func setThreadChoices(_ choices: [[String: String]]) {
     let next = choices.compactMap { item -> T3EvenG2ThreadPicker.Choice? in
       guard let key = item["key"], !key.isEmpty else { return nil }
@@ -247,6 +275,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     if threadPicker.isPresented, status == .ready { scheduleDisplay(restingDisplayText) }
   }
 
+  /// Opens the thread picker when speech capture is not active.
   func showThreadPicker() {
     guard !listening, speechSession == nil else { return }
     dictationNotice = nil
@@ -256,6 +285,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     if status == .ready { scheduleDisplay(restingDisplayText) }
   }
 
+  /// Starts speech analysis and requires the microphone command to be acknowledged.
   @MainActor
   func beginDictation() async {
     guard
@@ -319,6 +349,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     }
   }
 
+  /// Cancels the attempted speech session and displays a retry notice.
   @MainActor
   private func handleMicrophoneStartFailure(_ speech: T3EvenG2SpeechTranscriber) async {
     await speech.cancel()
@@ -329,16 +360,19 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     showDictationNotice("G2 microphone did not start\n\nTap R1 to retry\nSwipe up then down: back")
   }
 
+  /// Stops microphone capture and finalizes the current transcript.
   @MainActor
   func finishDictation() async {
     await stopDictation(cancelled: false)
   }
 
+  /// Stops microphone capture and discards the current transcript.
   @MainActor
   func cancelDictation() async {
     await stopDictation(cancelled: true)
   }
 
+  /// Handles Bluetooth power changes by starting discovery or ending active work.
   func centralManagerDidUpdateState(_ central: CBCentralManager) {
     switch central.state {
     case .poweredOn:
@@ -359,6 +393,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     }
   }
 
+  /// Reattaches restored peripherals and waits for Bluetooth readiness before resuming.
   func centralManager(_ central: CBCentralManager, willRestoreState dict: [String: Any]) {
     guard !requestedDisconnect else { return }
     for peripheral in dict[CBCentralManagerRestoredStatePeripheralsKey] as? [CBPeripheral] ?? [] {
@@ -370,6 +405,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     setStatus(.scanning, detail: "Restoring G2 connection")
   }
 
+  /// Assigns a discovered G2 peripheral to its arm and begins connecting to it.
   func centralManager(
     _ central: CBCentralManager,
     didDiscover peripheral: CBPeripheral,
@@ -395,12 +431,14 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     setStatus(.connecting, detail: "Found G2 \(arm.side) arm")
   }
 
+  /// Clears stale arm characteristics and starts service discovery after connection.
   func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
     guard !requestedDisconnect, let arm = arm(for: peripheral) else { return }
     arm.resetCharacteristics()
     peripheral.discoverServices(nil)
   }
 
+  /// Schedules a retry when a requested G2 arm connection fails.
   func centralManager(
     _ central: CBCentralManager,
     didFailToConnect peripheral: CBPeripheral,
@@ -410,6 +448,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     retryConnection(detail: error?.localizedDescription ?? "Could not connect to G2")
   }
 
+  /// Resets a disconnected arm and either reports disconnect or resumes scanning.
   func centralManager(
     _ central: CBCentralManager,
     didDisconnectPeripheral peripheral: CBPeripheral,
@@ -431,6 +470,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     beginScan()
   }
 
+  /// Starts characteristic discovery for each service found on a known arm.
   func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
     guard let arm = arm(for: peripheral) else { return }
     if let error {
@@ -445,6 +485,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     }
   }
 
+  /// Records required G2 characteristics and updates readiness after all services arrive.
   func peripheral(
     _ peripheral: CBPeripheral,
     didDiscoverCharacteristicsFor service: CBService,
@@ -478,6 +519,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     updateReadiness(arm)
   }
 
+  /// Retries the connection if notifications fail, otherwise updates arm readiness.
   func peripheral(
     _ peripheral: CBPeripheral,
     didUpdateNotificationStateFor characteristic: CBCharacteristic,
@@ -492,6 +534,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     updateReadiness(arm)
   }
 
+  /// Marks an arm ready when its services and both notification streams are active.
   private func updateReadiness(_ arm: Arm) {
     guard arm.servicesDiscovered >= arm.servicesExpected, arm.servicesExpected > 0 else { return }
     arm.ready = arm.write != nil && arm.notify?.isNotifying == true && arm.renderNotify?.isNotifying == true
@@ -509,6 +552,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     }
   }
 
+  /// Cancels current tasks, reports the error, and reconnects after a short delay.
   private func retryConnection(detail: String) {
     stopTasks()
     cancelSpeechAfterDisconnect()
@@ -521,6 +565,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     }
   }
 
+  /// Routes render audio, acknowledgements, and decoded gestures from notifications.
   func peripheral(
     _ peripheral: CBPeripheral,
     didUpdateValueFor characteristic: CBCharacteristic,
@@ -547,6 +592,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     handleGesture(gesture)
   }
 
+  /// Reconnects remembered peripherals, scans for missing arms, and enforces a timeout.
   private func beginScan() {
     guard let central, !requestedDisconnect else { return }
     connectionTimedOut = false
@@ -595,6 +641,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     }
   }
 
+  /// Resets the previous page, creates a fresh one, and displays its resting content.
   private func bootstrap(resuming: Bool = false) {
     guard bootstrapTask == nil else { return }
     setStatus(.starting, detail: "Starting direct G2 session")
@@ -641,10 +688,12 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     }
   }
 
+  /// Builds a page-rebuild payload using this connection's current container name.
   private func textPayload(_ text: String, magic: Int) -> [UInt8] {
     T3EvenG2Protocol.rebuildText(text, magic: magic, name: pageName)
   }
 
+  /// Sends the session prelude, shuts down any prior page, and sends the prelude again.
   @MainActor
   private func resetSessionPage() async -> Bool {
     guard await sendSessionPrelude(), !Task.isCancelled else { return false }
@@ -670,6 +719,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     return await sendSessionPrelude()
   }
 
+  /// Writes the fixed session prelude to the right arm and waits for its ACK.
   @MainActor
   private func sendSessionPrelude() async -> Bool {
     guard let peripheral = right.peripheral, let write = right.write else { return false }
@@ -679,25 +729,32 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     return await waitForAck(key: key, timeout: .seconds(5))
   }
 
+  /// Sends an immediate arm heartbeat and starts the shared periodic heartbeat task.
   private func startBaseHeartbeat(for arm: Arm) {
     guard !requestedDisconnect, central?.state == .poweredOn else { return }
     sendBaseHeartbeat(to: arm)
     guard baseHeartbeatTask == nil else { return }
     let interval = baseHeartbeatInterval
+    let taskID = UUID()
+    baseHeartbeatTaskID = taskID
     baseHeartbeatTask = Task { @MainActor [weak self] in
+      defer { self?.finishBaseHeartbeat(taskID) }
       while !Task.isCancelled {
         try? await Task.sleep(for: interval)
-        guard !Task.isCancelled, let active = self?.sendBaseHeartbeats(), active else { return }
+        guard !Task.isCancelled, let active = self?.sendBaseHeartbeats(), active else { break }
       }
     }
+    onBaseHeartbeatTaskStart?()
   }
 
+  /// Sends one heartbeat to each arm and reports whether the connection remains active.
   private func sendBaseHeartbeats() -> Bool {
     guard !requestedDisconnect, central?.state == .poweredOn else { return false }
     for arm in [left, right] { sendBaseHeartbeat(to: arm) }
     return true
   }
 
+  /// Sends authentication once, then liveness heartbeats when BLE transport is available.
   private func sendBaseHeartbeat(to arm: Arm) {
     guard
       arm.ready, let peripheral = arm.peripheral, peripheral.state == .connected,
@@ -722,33 +779,53 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     peripheral.writeValue(frame, for: write, type: .withoutResponse)
   }
 
+  /// Cancels the base-heartbeat task and clears its active task identifier.
   private func stopBaseHeartbeat() {
     baseHeartbeatTask?.cancel()
     baseHeartbeatTask = nil
+    baseHeartbeatTaskID = nil
   }
 
+  /// Reports task completion and clears state only when this is still the active task.
+  private func finishBaseHeartbeat(_ taskID: UUID) {
+    onBaseHeartbeatTaskEnd?()
+    guard baseHeartbeatTaskID == taskID else { return }
+    baseHeartbeatTask = nil
+    baseHeartbeatTaskID = nil
+  }
+
+  /// Monitors page acknowledgements and pauses display after two consecutive misses.
   private func startHeartbeat() {
     heartbeatTask?.cancel()
+    let interval = pageHeartbeatInterval
+    let timeout = pageHeartbeatTimeout
     heartbeatTask = Task { @MainActor [weak self] in
+      var consecutiveMisses = 0
       while !Task.isCancelled {
-        try? await Task.sleep(for: .seconds(5))
+        try? await Task.sleep(for: interval)
         guard let self, !Task.isCancelled else { return }
         guard self.status == .ready, !self.transportBusy else { continue }
         let magic = self.nextMagic()
         let alive = await self.sendEvenHub(
           T3EvenG2Protocol.heartbeat(magic: magic),
           expectedAckMagic: magic,
-          timeout: .seconds(2)
+          timeout: timeout
         )
         guard !Task.isCancelled else { return }
         if !alive {
-          self.pauseDisplay()
-          return
+          consecutiveMisses += 1
+          if consecutiveMisses == 2 {
+            self.pauseDisplay()
+            return
+          }
+        } else {
+          consecutiveMisses = 0
         }
       }
     }
   }
 
+  /// Debounces a resting display update and sends it if the connection stays ready.
   private func scheduleDisplay(_ text: String) {
     displayTask?.cancel()
     displayTask = Task { @MainActor [weak self] in
@@ -758,6 +835,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     }
   }
 
+  /// Selects picker, empty-state, notice, paginated reply, or active-thread text.
   private var restingDisplayText: String {
     if threadPicker.isPresented { return threadPicker.text }
     if !inputEnabled {
@@ -771,11 +849,13 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     return "\(String(title.replacingOccurrences(of: "\n", with: " ").prefix(92)))\n\nTap R1 to dictate"
   }
 
+  /// Stores a notice and schedules it for display.
   private func showDictationNotice(_ text: String) {
     dictationNotice = text
     scheduleDisplay(restingDisplayText)
   }
 
+  /// Debounces transcript display updates while listening remains active.
   private func scheduleListeningDisplay(_ transcript: String) {
     let text = listeningDisplayText(transcript)
     displayTask?.cancel()
@@ -786,11 +866,13 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     }
   }
 
+  /// Formats listening controls and optional recognized transcript for the lens.
   private func listeningDisplayText(_ transcript: String = "") -> String {
     let instructions = "Listening…\n\nTap R1: send\nSwipe up then down: cancel"
     return transcript.isEmpty ? instructions : "\(instructions)\n\n\(transcript)"
   }
 
+  /// Serializes an EvenHub payload, writes its frames, and optionally waits for its ACK.
   @MainActor
   @discardableResult
   private func sendEvenHub(
@@ -829,6 +911,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     return await waitForAck(key: expectedAckKey, timeout: timeout)
   }
 
+  /// Frames a payload and writes each chunk while observing BLE readiness and deadline.
   @MainActor
   private func writeFrames(
     _ payload: [UInt8],
@@ -856,6 +939,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     }
   }
 
+  /// Waits until the keyed ACK arrives or timeout or cancellation ends the wait.
   private func waitForAck(key: String, timeout: Duration) async -> Bool {
     let deadline = ContinuousClock.now + timeout
     while ContinuousClock.now < deadline {
@@ -873,16 +957,19 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     return false
   }
 
+  /// Removes pending and received ACK entries when a key exists.
   private func clearAck(_ key: String?) {
     guard let key else { return }
     pendingAckKeys.remove(key)
     receivedAckKeys.remove(key)
   }
 
+  /// Combines a protocol service and magic value into the acknowledgement lookup key.
   private func ackKey(service: UInt8, magic: Int) -> String {
     "\(service):\(magic)"
   }
 
+  /// Decodes one audio packet and appends its PCM to the active speech session.
   private func consumeAudioPacket(_ packet: Data) {
     guard listening, packet.count == 205, let decoder else { return }
     do {
@@ -902,6 +989,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     }
   }
 
+  /// Routes gestures through recovery, back, picker, and active-thread handling.
   private func handleGesture(_ gesture: T3EvenG2Protocol.Gesture) {
     // Handle exits before input gating and debounce: a double-tap can follow
     // a click immediately, or arrive while Settings is open.
@@ -927,6 +1015,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     handleThreadGesture(gesture)
   }
 
+  /// Defers swipe-up and treats a following swipe-down as the dictation back gesture.
   private func handleSwipeEscape(_ gesture: T3EvenG2Protocol.Gesture) -> Bool {
     guard status == .ready || ((status == .paused || status == .error) && left.ready && right.ready),
       T3EvenG2Protocol.isDictationSource(gesture.source),
@@ -957,6 +1046,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     return true
   }
 
+  /// Cancels the swipe-up delay and clears its pending gesture and deadline.
   private func clearPendingSwipe() {
     swipeUpTask?.cancel()
     swipeUpTask = nil
@@ -964,6 +1054,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     pendingSwipeDeadline = nil
   }
 
+  /// Routes a deferred swipe-up to the picker or active-thread gesture handler.
   private func flushPendingSwipe() {
     guard let gesture = pendingSwipeUp else { return }
     clearPendingSwipe()
@@ -971,6 +1062,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     if threadPicker.isPresented { handlePickerGesture(gesture) } else { handleThreadGesture(gesture) }
   }
 
+  /// Restarts display bootstrap for valid input received while paused or errored.
   private func handleRecoveryInput(_ gesture: T3EvenG2Protocol.Gesture) -> Bool {
     guard status == .paused || status == .error, left.ready, right.ready,
       ["click", "longPress"].contains(gesture.kind),
@@ -981,6 +1073,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     return true
   }
 
+  /// Scrolls displayed pages or schedules handling for a click gesture.
   private func handleThreadGesture(_ gesture: T3EvenG2Protocol.Gesture) {
     guard inputEnabled else { return }
     if T3EvenG2Protocol.lensPageOffset(for: gesture.kind) != nil {
@@ -995,6 +1088,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     }
   }
 
+  /// Handles long-press back across dictation, picker, notice, and thread states.
   private func handleBackGesture(_ gesture: T3EvenG2Protocol.Gesture) -> Bool {
     guard gesture.kind == "longPress",
       T3EvenG2Protocol.isDictationSource(gesture.source)
@@ -1030,6 +1124,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     return true
   }
 
+  /// Moves the picker selection or emits the selected thread key on click.
   private func handlePickerGesture(_ gesture: T3EvenG2Protocol.Gesture) {
     guard T3EvenG2Protocol.isDictationSource(gesture.source), threadPicker.openingKey == nil else { return }
     if let offset = T3EvenG2Protocol.lensPageOffset(for: gesture.kind, naturalScrolling: naturalScrolling) {
@@ -1046,6 +1141,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     }
   }
 
+  /// Shows input feedback, then starts or finishes dictation for accepted input.
   @MainActor
   private func handleClick(_ gesture: T3EvenG2Protocol.Gesture) async {
     defer { if !Task.isCancelled { gestureTask = nil } }
@@ -1066,6 +1162,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     if listening { await finishDictation() } else { await beginDictation() }
   }
 
+  /// Converts protocol input-source names to labels shown on the glasses.
   private func gestureSourceLabel(_ source: String) -> String {
     switch source {
     case "ring": "R1"
@@ -1076,6 +1173,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     }
   }
 
+  /// Changes the visible reply page in the configured scroll direction.
   @MainActor
   private func scrollDisplay(_ gestureKind: String) {
     guard
@@ -1091,6 +1189,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     setStatus(.ready, detail: "G2 page \(displayPageIndex + 1) of \(displayPages.count)")
   }
 
+  /// Stops microphone capture and either discards speech or finalizes and reports it.
   @MainActor
   private func stopDictation(cancelled: Bool) async {
     guard listening || speechSession != nil, !stoppingDictation else { return }
@@ -1143,28 +1242,33 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     }
   }
 
+  /// Clears the stopping flag only if the finishing session remains current.
   private func clearStoppingDictation(for session: AnyObject?) {
     // A cancelled finish can return after another session has started stopping.
     if speechSession === session { stoppingDictation = false }
   }
 
+  /// Resolves an arm from a peripheral name containing its `_L_` or `_R_` marker.
   private func armForName(_ name: String) -> Arm? {
     if name.contains("_L_") { return left }
     if name.contains("_R_") { return right }
     return nil
   }
 
+  /// Finds which tracked arm owns the peripheral identifier.
   private func arm(for peripheral: CBPeripheral) -> Arm? {
     if left.peripheral?.identifier == peripheral.identifier { return left }
     if right.peripheral?.identifier == peripheral.identifier { return right }
     return nil
   }
 
+  /// Advances the session magic, wrapping from 255 back to 101.
   private func nextMagic() -> Int {
     magic = magic >= 255 ? 100 : magic + 1
     return magic
   }
 
+  /// Updates connection status and detail, then emits the resulting snapshot.
   private func setStatus(_ next: Status, detail: String = "", connectionTimedOut: Bool = false) {
     self.connectionTimedOut = connectionTimedOut
     status = next
@@ -1172,10 +1276,12 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     emitStatus()
   }
 
+  /// Sends the current status snapshot to the registered observer.
   private func emitStatus() {
     onStatus?(snapshot)
   }
 
+  /// Cancels scheduled connection, display, gesture, heartbeat, recovery, and ACK work.
   private func stopTasks() {
     clearPendingSwipe()
     connectionTimedOut = false
@@ -1200,6 +1306,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     receivedAckKeys.removeAll()
   }
 
+  /// Clears active speech state, emits cancellation, and asynchronously cancels analysis.
   private func cancelSpeechAfterDisconnect() {
     guard listening || speechSession != nil else { return }
     listening = false

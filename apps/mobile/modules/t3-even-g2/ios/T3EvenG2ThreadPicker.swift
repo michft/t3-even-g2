@@ -12,10 +12,12 @@ struct T3EvenG2ThreadPicker {
   var isPresented = true
   var openingKey: String?
 
+  /// The currently selected choice, or nil when the list is empty.
   var highlighted: Choice? {
     choices.indices.contains(index) ? choices[index] : nil
   }
 
+  /// Replaces choices while preserving the highlighted key or clamping the index.
   mutating func update(_ next: [Choice]) {
     let key = highlighted?.key
     choices = next
@@ -25,15 +27,18 @@ struct T3EvenG2ThreadPicker {
     }
   }
 
+  /// Moves the selection by an offset, clamped to available choices.
   mutating func move(_ offset: Int) {
     guard openingKey == nil else { return }
     index = min(max(0, index + offset), max(0, choices.count - 1))
   }
 
+  /// Selects a matching choice key and leaves the selection unchanged if absent.
   mutating func highlight(_ key: String) {
     if let next = choices.firstIndex(where: { $0.key == key }) { index = next }
   }
 
+  /// Builds the display text for the current selection and picker instructions.
   var text: String {
     guard let highlighted else {
       return "T3 threads\n\nNo threads available\n\nConnect an environment in T3"

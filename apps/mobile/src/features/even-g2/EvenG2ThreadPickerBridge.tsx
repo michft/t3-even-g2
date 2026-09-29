@@ -20,6 +20,7 @@ export function EvenG2ThreadPickerBridge() {
   return status.autoConnect || status.connected ? <ThreadPickerContent /> : null;
 }
 
+/** Keeps the native picker current and routes R1 selections into the workspace. */
 function ThreadPickerContent() {
   const threads = useThreadShells();
   const projects = useProjects();
@@ -47,6 +48,7 @@ function ThreadPickerContent() {
     }));
   }, [threads, projects, savedConnectionsById]);
 
+  /** Opens a current thread selection or refreshes the picker if that thread vanished. */
   const chooseThread = useEffectEvent(({ key }: { readonly key: string }) => {
     const thread = threads.find(
       (item) => scopedThreadKey(item.environmentId, item.id) === key && item.archivedAt === null,

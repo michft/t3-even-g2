@@ -5,6 +5,7 @@ import { MessageId, type OrchestrationMessageRole } from "@t3tools/contracts";
 import type { ThreadFeedEntry } from "../../lib/threadActivity";
 import { latestAssistantText, mergeDraftWithTranscript } from "./evenG2ThreadBridge.logic";
 
+/** Builds a feed message for checking which reply text reaches the bridge. */
 function messageEntry(id: string, role: OrchestrationMessageRole, text: string): ThreadFeedEntry {
   const messageId = MessageId.make(id);
   return {

@@ -16,13 +16,16 @@ import { latestAssistantText, mergeDraftWithTranscript } from "./evenG2ThreadBri
 interface EvenG2DictationInput {
   readonly threadKey: string;
   readonly draftMessage: string;
+  /** Updates the originating thread's draft during dictation and restoration. */
   readonly onChangeDraftMessage: (value: string) => void;
+  /** Queues dictated text, returning null when the thread cannot accept a message. */
   readonly onSendTextMessage: (text: string) => Promise<MessageId | null>;
 }
 
-/** Keep a native dictation session attached to the thread where it began. */
+/** Keeps dictation attached to its starting thread and sends completed speech there. */
 export function subscribeEvenG2Dictation(getInput: () => EvenG2DictationInput): () => void {
   let session: EvenG2DictationInput | null = null;
+  /** Pins first dictation input to its thread, while refreshing callbacks on that thread. */
   const captureSession = () => {
     const { threadKey, draftMessage, onChangeDraftMessage, onSendTextMessage } = getInput();
     if (session === null) {
@@ -73,12 +76,14 @@ export function subscribeEvenG2Dictation(getInput: () => EvenG2DictationInput): 
   };
 }
 
+/** Connects an active thread's draft, dictation controls, and latest reply to Even G2. */
 export function useEvenG2ThreadBridge(
   input: EvenG2DictationInput & {
     readonly enabled: boolean;
     readonly feed: ReadonlyArray<ThreadFeedEntry>;
   },
 ): void {
+  /** Reads current thread input without restarting native subscriptions on every render. */
   const getInput = useEffectEvent(() => input);
 
   useEffect(() => {
