@@ -8,6 +8,8 @@ body:
       value: |
         This structure is what `t3 triage` agents follow. Keep one problem per issue
         and redact secrets and home directory paths from anything you paste.
+        File fork issues in [michft/t3-even-g2](https://github.com/michft/t3-even-g2/issues).
+        Escalate to T3 upstream only when evidence identifies a problem in upstream code.
 
   - type: textarea
     id: what-happened
