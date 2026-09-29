@@ -2,8 +2,13 @@ import {
   type DesktopSshEnvironmentTarget,
   EnvironmentId,
   ORCHESTRATION_PROTOCOL_VERSION,
+  ORCHESTRATION_WS_METHODS,
+  ProjectId,
+  ProviderInstanceId,
+  ThreadId,
   type ExecutionEnvironmentDescriptor,
   type OrchestrationShellSnapshot,
+  type OrchestrationThread,
 } from "@t3tools/contracts";
 import { describe, expect, it } from "@effect/vitest";
 import * as Context from "effect/Context";
@@ -19,6 +24,7 @@ import * as Scheduler from "effect/Scheduler";
 import * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
 import * as SubscriptionRef from "effect/SubscriptionRef";
+import { AsyncResult, Atom, AtomRegistry } from "effect/unstable/reactivity";
 
 import * as ClientCapabilities from "../platform/capabilities.ts";
 import * as TokenStore from "../authorization/tokenStore.ts";
@@ -61,6 +67,8 @@ import { watchDiscoveredCompatibility } from "./layer.ts";
 import * as RelayEnvironmentDiscovery from "../relay/discovery.ts";
 import type { RelayEnvironmentStatusResponse } from "@t3tools/contracts/relay";
 import { runDesktopCommitWithReconnectObserver } from "../state/server.ts";
+import { createEnvironmentShellAtoms, ShellSnapshotLoader } from "../state/shell.ts";
+import { createEnvironmentThreadStateAtoms, ThreadSnapshotLoader } from "../state/threads.ts";
 
 const TARGET = new PrimaryConnectionTarget({
   environmentId: EnvironmentId.make("environment-1"),
@@ -145,6 +153,7 @@ const makeHarness = Effect.fn("TestEnvironmentRegistry.makeHarness")(function* (
   options?: {
     readonly prepareError?: ConnectionBlockedError;
     readonly beforeSessionConnect?: (environmentId: EnvironmentId) => Effect.Effect<void>;
+    readonly session?: (environmentId: EnvironmentId) => RpcSession.RpcSession;
     readonly beforeRegistrationRegister?: (
       registration: ConnectionRegistration,
     ) => Effect.Effect<void, Persistence.ConnectionPersistenceError>;
@@ -381,15 +390,18 @@ const makeHarness = Effect.fn("TestEnvironmentRegistry.makeHarness")(function* (
         const closed = yield* Deferred.make<never, ConnectionTransientError>();
         yield* Ref.update(sessions, (current) => [...current, { closed }]);
         const session = yield* Effect.acquireRelease(
-          Effect.succeed({
-            client: {} as RpcSession.RpcSession["client"],
-            initialConfig: Effect.die(new Error("Config is not used by registry tests.")),
-            subscribeServerConfig: () =>
-              Stream.die(new Error("Config is not used by registry tests.")),
-            ready: Effect.void,
-            probe: Effect.void,
-            closed: Deferred.await(closed),
-          } satisfies RpcSession.RpcSession),
+          Effect.succeed(
+            options?.session?.(target.environmentId) ??
+              ({
+                client: {} as RpcSession.RpcSession["client"],
+                initialConfig: Effect.die(new Error("Config is not used by registry tests.")),
+                subscribeServerConfig: () =>
+                  Stream.die(new Error("Config is not used by registry tests.")),
+                ready: Effect.void,
+                probe: Effect.void,
+                closed: Deferred.await(closed),
+              } satisfies RpcSession.RpcSession),
+          ),
           () => Ref.update(releasedSessions, (count) => count + 1),
         );
         yield* reportProgress({ stage: "synchronizing", prepared });
@@ -422,6 +434,7 @@ const makeHarness = Effect.fn("TestEnvironmentRegistry.makeHarness")(function* (
 
   return {
     layer,
+    cacheLayer,
     storedTargets,
     shellCache,
     cacheClears,
@@ -455,6 +468,181 @@ function awaitConnectionState(
 }
 
 describe("EnvironmentRegistry", () => {
+  it.effect("loads an early thread route after Home unmounts during environment startup", () =>
+    Effect.gen(function* () {
+      const opening = yield* Deferred.make<void>();
+      const releaseOpening = yield* Deferred.make<void>();
+      const configuring = yield* Deferred.make<void>();
+      const releaseConfig = yield* Deferred.make<void>();
+      const loadingThread = yield* Deferred.make<void>();
+      const releaseThread = yield* Deferred.make<void>();
+      const subscribed = yield* Deferred.make<void>();
+      const thread: OrchestrationThread = {
+        id: ThreadId.make("same-thread-id"),
+        projectId: ProjectId.make("project-1"),
+        title: "Selected environment thread",
+        modelSelection: { instanceId: ProviderInstanceId.make("codex"), model: "ModelA" },
+        runtimeMode: "full-access",
+        interactionMode: "default",
+        branch: "main",
+        pullRequests: [],
+        worktreePath: null,
+        latestTurn: null,
+        createdAt: "2026-04-01T00:00:00.000Z",
+        updatedAt: "2026-04-01T00:00:00.000Z",
+        archivedAt: null,
+        settledOverride: null,
+        settledAt: null,
+        deletedAt: null,
+        messages: [],
+        proposedPlans: [],
+        activities: [],
+        checkpoints: [],
+        session: null,
+      };
+      const shellSnapshot: OrchestrationShellSnapshot = {
+        ...CACHED_SNAPSHOT,
+        threads: [
+          {
+            ...thread,
+            latestUserMessageAt: null,
+            hasPendingApprovals: false,
+            hasPendingUserInput: false,
+            hasActionableProposedPlan: false,
+          },
+        ],
+      };
+      const harness = yield* makeHarness([TARGET, SECOND_TARGET], [], [], {
+        beforeSessionConnect: (environmentId) =>
+          environmentId === TARGET.environmentId
+            ? Deferred.succeed(opening, undefined).pipe(
+                Effect.andThen(Deferred.await(releaseOpening)),
+              )
+            : Effect.void,
+        session: (environmentId) => {
+          const config =
+            environmentId === TARGET.environmentId
+              ? Deferred.succeed(configuring, undefined).pipe(
+                  Effect.andThen(Deferred.await(releaseConfig)),
+                )
+              : Effect.void;
+          const client = {
+            [ORCHESTRATION_WS_METHODS.subscribeShell]: () =>
+              Stream.concat(
+                Stream.succeed({ kind: "snapshot" as const, snapshot: shellSnapshot }),
+                Stream.never,
+              ),
+            [ORCHESTRATION_WS_METHODS.subscribeThread]: (input: {
+              readonly threadId: ThreadId;
+            }) => {
+              expect(input.threadId).toBe(thread.id);
+              return environmentId === TARGET.environmentId
+                ? Stream.fromEffect(Deferred.succeed(subscribed, undefined)).pipe(
+                    Stream.drain,
+                    Stream.concat(Stream.never),
+                  )
+                : Stream.never;
+            },
+          } as unknown as RpcSession.RpcSession["client"];
+          return {
+            client,
+            initialConfig: config.pipe(Effect.as({} as never)),
+            subscribeServerConfig: () => Stream.never,
+            ready: config,
+            probe: Effect.void,
+            closed: Effect.never,
+          };
+        },
+      });
+      yield* Ref.update(harness.shellCache, (cache) =>
+        new Map(cache).set(TARGET.environmentId, shellSnapshot),
+      );
+      yield* Effect.gen(function* () {
+        const environmentRegistry = yield* EnvironmentRegistry.EnvironmentRegistry;
+        const runtime = Atom.runtime(
+          Layer.mergeAll(
+            Layer.succeed(EnvironmentRegistry.EnvironmentRegistry, environmentRegistry),
+            harness.cacheLayer,
+            Layer.succeed(ShellSnapshotLoader, { load: () => Effect.succeedNone }),
+            Layer.succeed(ThreadSnapshotLoader, {
+              load: (prepared, threadId) =>
+                Effect.gen(function* () {
+                  expect(threadId).toBe(thread.id);
+                  if (prepared.environmentId === TARGET.environmentId) {
+                    yield* Deferred.succeed(loadingThread, undefined);
+                    yield* Deferred.await(releaseThread);
+                  }
+                  return Option.some({
+                    snapshotSequence: 1,
+                    thread:
+                      prepared.environmentId === TARGET.environmentId
+                        ? thread
+                        : { ...thread, title: "Other environment thread" },
+                  });
+                }),
+            }),
+          ),
+        );
+        const registry = yield* Effect.acquireRelease(
+          Effect.sync(() => AtomRegistry.make({ defaultIdleTTL: 0 })),
+          (registry) => Effect.sync(() => registry.dispose()),
+        );
+        const shells = createEnvironmentShellAtoms(runtime);
+        const threads = createEnvironmentThreadStateAtoms(runtime);
+        const shellAtom = shells.stateAtom(TARGET.environmentId);
+        const threadAtom = threads.stateAtom(TARGET.environmentId, thread.id);
+        const otherThreadAtom = threads.stateAtom(SECOND_TARGET.environmentId, thread.id);
+        const unmountHome = registry.mount(shellAtom);
+        yield* Deferred.await(opening);
+        // Home can show cached rows while the environment still opens its socket.
+        yield* AtomRegistry.toStream(registry, shellAtom).pipe(
+          Stream.filter((result) =>
+            Option.isSome(
+              AsyncResult.value(result).pipe(Option.flatMap((state) => state.snapshot)),
+            ),
+          ),
+          Stream.runHead,
+        );
+        const unmountRouteShell = registry.mount(shellAtom);
+        const unmountRouteThread = registry.mount(threadAtom);
+        const unmountOtherThread = registry.mount(otherThreadAtom);
+        const other = yield* AtomRegistry.toStream(registry, otherThreadAtom).pipe(
+          Stream.map(AsyncResult.value),
+          Stream.filter(Option.isSome),
+          Stream.map((result) => result.value.data),
+          Stream.filter(Option.isSome),
+          Stream.map((data) => data.value),
+          Stream.runHead,
+          Effect.map(Option.getOrThrow),
+        );
+        expect(other.title).toBe("Other environment thread");
+        expect(Option.getOrThrow(AsyncResult.value(registry.get(threadAtom))).data).toEqual(
+          Option.none(),
+        );
+        unmountHome();
+        yield* Deferred.succeed(releaseOpening, undefined);
+        yield* Deferred.await(configuring);
+        yield* Deferred.succeed(releaseConfig, undefined);
+        yield* Deferred.await(loadingThread);
+        yield* Deferred.succeed(releaseThread, undefined);
+        yield* Deferred.await(subscribed);
+        const loaded = yield* AtomRegistry.toStream(registry, threadAtom).pipe(
+          Stream.map(AsyncResult.value),
+          Stream.filter(Option.isSome),
+          Stream.map((result) => result.value),
+          Stream.filter((state) => state.status === "live"),
+          Stream.runHead,
+          Effect.map(Option.getOrThrow),
+        );
+        expect(loaded.data).toEqual(Option.some(thread));
+        expect(loaded.error).toEqual(Option.none());
+        unmountRouteThread();
+        unmountRouteShell();
+        unmountOtherThread();
+      }).pipe(Effect.provide(harness.layer), Effect.scoped);
+    }),
+  );
+
   it.effect("replays connected state when arming a desktop commit observer", () =>
     Effect.gen(function* () {
       const harness = yield* makeHarness([TARGET]);

@@ -10,11 +10,20 @@ public final class T3EvenG2Module: Module {
     "connected": false,
     "listening": false,
     "autoConnect": false,
+    "naturalScrolling": UserDefaults.standard.object(forKey: "T3EvenG2NaturalScrolling") as? Bool ?? true,
   ]
 
   public func definition() -> ModuleDefinition {
     Name("T3EvenG2")
-    Events("onStatus", "onTranscript", "onGesture")
+    Events("onStatus", "onTranscript", "onGesture", "onThreadSelected")
+
+    OnCreate {
+      self.performOnMain { self.ensureAutoConnect() }
+    }
+
+    OnAppEntersForeground {
+      self.performOnMain { self.ensureAutoConnect() }
+    }
 
     Function("getStatus") { () -> [String: Any] in
       self.statusSnapshot()
@@ -32,6 +41,13 @@ public final class T3EvenG2Module: Module {
       }
     }
 
+    Function("setNaturalScrolling") { (enabled: Bool) in
+      self.performOnMain {
+        guard #available(iOS 26.0, *) else { return }
+        self.connection()?.setNaturalScrolling(enabled)
+      }
+    }
+
     Function("connect") {
       self.performOnMain {
         self.connectIfAvailable()
@@ -41,6 +57,13 @@ public final class T3EvenG2Module: Module {
     Function("disconnect") {
       self.performOnMain {
         self.disconnectIfAvailable()
+      }
+    }
+
+    Function("resumeDisplay") {
+      self.performOnMain {
+        guard #available(iOS 26.0, *) else { return }
+        self.connection()?.resumeDisplay()
       }
     }
 
@@ -59,6 +82,27 @@ public final class T3EvenG2Module: Module {
     Function("setInputEnabled") { (enabled: Bool) in
       self.performOnMain {
         self.setInputEnabledIfAvailable(enabled)
+      }
+    }
+
+    Function("setActiveThread") { (key: String, enabled: Bool) in
+      self.performOnMain {
+        guard #available(iOS 26.0, *) else { return }
+        self.connection()?.setActiveThread(key, enabled: enabled)
+      }
+    }
+
+    Function("setThreadChoices") { (choices: [[String: String]]) in
+      self.performOnMain {
+        guard #available(iOS 26.0, *) else { return }
+        self.connection()?.setThreadChoices(choices)
+      }
+    }
+
+    Function("showThreadPicker") {
+      self.performOnMain {
+        guard #available(iOS 26.0, *) else { return }
+        self.connection()?.showThreadPicker()
       }
     }
 
@@ -140,6 +184,7 @@ public final class T3EvenG2Module: Module {
     connection.onStatus = { [weak self] body in self?.publishStatus(body) }
     connection.onTranscript = { [weak self] body in self?.sendEvent("onTranscript", body) }
     connection.onGesture = { [weak self] body in self?.sendEvent("onGesture", body) }
+    connection.onThreadSelected = { [weak self] body in self?.sendEvent("onThreadSelected", body) }
     connectionStorage = connection
     cacheStatus(connection.snapshot)
     return connection
@@ -153,6 +198,7 @@ public final class T3EvenG2Module: Module {
         "connected": false,
         "listening": false,
         "autoConnect": false,
+        "naturalScrolling": true,
       ]
     }
     if Thread.isMainThread, let connection = connectionStorage as? T3EvenG2Connection {

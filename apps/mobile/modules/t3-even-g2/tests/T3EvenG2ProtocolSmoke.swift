@@ -104,6 +104,26 @@ private struct T3EvenG2ProtocolSmoke {
       "heartbeat payload changed"
     )
     try check(
+      T3EvenG2Protocol.frames(
+        payload: T3EvenG2Protocol.baseHeartbeat(magic: 42),
+        sequence: 0x44, service: 0x80, flag: 0x00
+      ) == [Data([
+        0xAA, 0x21, 0x44, 0x08, 0x01, 0x01, 0x80, 0x00,
+        0x08, 0x0E, 0x10, 0x2A, 0x6A, 0x00, 0xBB, 0x72,
+      ])],
+      "base heartbeat must use device settings command 14, empty field 13, flag 0 and valid CRC"
+    )
+    try check(
+      T3EvenG2Protocol.frames(
+        payload: T3EvenG2Protocol.authenticate(magic: 42),
+        sequence: 0x44, service: 0x80, flag: 0x00
+      ) == [Data([
+        0xAA, 0x21, 0x44, 0x0C, 0x01, 0x01, 0x80, 0x00,
+        0x08, 0x04, 0x10, 0x2A, 0x1A, 0x04, 0x08, 0x01, 0x10, 0x03, 0xF2, 0x03,
+      ])],
+      "iOS auth must use command 4, secAuth=true, phoneType=3 and valid CRC"
+    )
+    try check(
       T3EvenG2Protocol.audioControl(enabled: true, magic: 42)
         == [0x08, 0x0F, 0x10, 0x2A, 0x92, 0x01, 0x02, 0x08, 0x01],
       "audio-start payload changed"
@@ -117,6 +137,19 @@ private struct T3EvenG2ProtocolSmoke {
       T3EvenG2Protocol.shutdown(magic: 42) == [0x08, 0x09, 0x10, 0x2A, 0x5A, 0x00],
       "shutdown payload changed"
     )
+    for name in ["t3-session1", "t3-session2"] {
+      let create = T3EvenG2Protocol.createPage(magic: 42, name: name)
+      let page = lengthDelimitedField(3, in: create) ?? []
+      let list = lengthDelimitedField(2, in: page) ?? []
+      let rebuild = T3EvenG2Protocol.rebuildText("Ready again", magic: 43, name: name)
+      let rebuiltPage = lengthDelimitedField(7, in: rebuild) ?? []
+      let text = lengthDelimitedField(3, in: rebuiltPage) ?? []
+      try check(
+        lengthDelimitedField(10, in: list) == Array(name.utf8)
+          && lengthDelimitedField(10, in: text) == Array(name.utf8),
+        "recovered page creation and text must use the same fresh container name"
+      )
+    }
 
     let click = packet(payload: [0x08, 0x02] + nested(13, nested(3, [0x10, 0x02])))
     let doubleClick = packet(
@@ -130,6 +163,19 @@ private struct T3EvenG2ProtocolSmoke {
     try check(T3EvenG2Protocol.isDictationSource("rightTemple"), "right temple input rejected")
     try check(T3EvenG2Protocol.isDictationSource("leftTemple"), "left temple input rejected")
     try check(!T3EvenG2Protocol.isDictationSource("unknown"), "unknown input source accepted")
+    for field: UInt8 in [1, 2] {
+      // Proto3 omits eventType for a single tap (zero). Captured-container
+      // events omit the ring/temple source entirely, but are still user input.
+      let data = packet(payload: [0x08, 0x02] + nested(13, nested(field, [])))
+      guard let gesture = T3EvenG2Protocol.gesture(from: data) else {
+        throw CheckFailure(description: "captured-container tap not decoded")
+      }
+      try check(gesture.kind == "click", "captured-container tap not recognized")
+      try check(
+        T3EvenG2Protocol.isDictationSource(gesture.source),
+        "captured-container tap cannot start the next dictation"
+      )
+    }
     try check(
       T3EvenG2Protocol.lensPageOffset(for: "scrollDown") == 1,
       "swipe down should advance to the next lens page"
@@ -143,8 +189,33 @@ private struct T3EvenG2ProtocolSmoke {
       "tap should not move the lens page"
     )
     try check(
+      T3EvenG2Protocol.lensPageOffset(for: "scrollUp", naturalScrolling: true) == 1
+        && T3EvenG2Protocol.lensPageOffset(for: "scrollDown", naturalScrolling: true) == -1,
+      "natural scrolling should move content with the finger"
+    )
+    for (event, kind) in [(9, "longPress"), (10, "longPressRelease")] {
+      for (field, eventField): (UInt8, UInt8) in [(3, 1), (2, 3), (1, 5)] {
+        let data = packet(payload: [0x08, 0x02] + nested(13, nested(field, [eventField << 3, UInt8(event)])))
+        try check(T3EvenG2Protocol.gesture(from: data)?.kind == kind, "long-press event not decoded")
+      }
+    }
+    try check(
       T3EvenG2Protocol.gesture(from: doubleClick)?.kind == "doubleClick",
       "ring double-click not decoded"
+    )
+    for (event, needsRecovery) in [(3, true), (4, false), (5, false), (6, true), (7, true)] {
+      let data = packet(payload: [0x08, 0x02] + nested(13, nested(3, [0x08, UInt8(event)])))
+      guard let gesture = T3EvenG2Protocol.gesture(from: data) else {
+        throw CheckFailure(description: "page lifecycle event was not decoded")
+      }
+      try check(
+        T3EvenG2Protocol.requiresDisplayRecovery(for: gesture.kind) == needsRecovery,
+        "page exits must need recovery, but opening or closing a system overlay must not"
+      )
+    }
+    try check(
+      !T3EvenG2Protocol.requiresDisplayRecovery(for: "click"),
+      "single tap must retain the T3 page"
     )
     try check(
       T3EvenG2Protocol.gesture(from: textScroll)?.kind == "scrollUp",

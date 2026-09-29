@@ -97,10 +97,32 @@ on-device dictation, the R1 ring for start/send/cancel gestures, and the G2 disp
 assistant response. This is an experimental, unofficial protocol integration and may need updates
 after glasses firmware changes.
 
-Before connecting, quit the Even app so it releases the glasses. In T3 Code, open Settings and tap
-**G2 + R1**, then return to a thread. Tap R1 once to start dictation, once again to send, or
-double-tap to cancel. Swipe up or down to page through a long assistant response on the glasses.
+Before connecting, quit the Even app so it releases the glasses. Disconnect G2 from T3 and quit
+Even on any other phone or tablet using the glasses. In T3 Code, open Settings and tap
+**G2 + R1**. On the glasses, swipe R1 up/down to choose a thread and tap to open it in T3. The picker
+shows non-archived threads in recent-activity order, with their environment and project labels.
+You can also open a thread directly on the iPhone. Once a thread is open, tap R1 to start dictation,
+tap again to send, or quickly swipe R1 up then down (within 650 ms) to cancel. The same sequence
+goes back from a reply, thread picker, or dictation error. A lone up swipe waits briefly for the
+second gesture, then scrolls normally; down alone scrolls immediately. Hold (long-press) remains
+an alternative when the glasses deliver that event. In **Settings → Even G2**, **Natural
+scrolling** makes swipe up advance through content; turn it off for swipe down to advance instead.
+This preference is saved on the phone and does not reverse the physical up-then-down Back/Cancel sequence.
+Long-press requires firmware that delivers the Even Hub long-press event; tap-then-hold remains
+the firmware menu gesture.
+While idle, double-tap also returns to the thread picker; firmware exits still cancel active dictation.
+Swipe up or down to page through a long assistant response. If a double-tap returns the glasses to
+Even, T3 automatically restores its display.
+Dictation stays stopped until you tap again; returning to Even does not send your partial transcript.
+If recovery fails, tap R1 to retry or use **Settings → Even G2 → Resume T3 display**.
+To leave T3 on purpose, disconnect **G2 + R1** in Settings.
 Existing typed composer text is preserved.
+
+Select the desired thread before locking the iPhone. Bluetooth background delivery is enabled,
+and T3 remembers both arms for reconnection after sleep or loss of range. Force-quitting T3 stops
+this session; reopen T3 and its thread before using R1 again. Locked-phone dictation and automatic
+display recovery require verification on your glasses firmware; a Bluetooth connection alone does
+not confirm the glasses are still delivering taps or microphone audio.
 
 A paid Apple Developer Program membership is not required for local testing on your own iPhone.
 Add your Apple Account to Xcode, connect and trust the iPhone, enable Developer Mode when prompted,
@@ -116,15 +138,23 @@ Free Personal Team provisioning expires after seven days, so Xcode must rebuild/
 periodically. Expo Go cannot load this native G2 module. A physical iPhone is required for G2 BLE
 testing; the iOS Simulator can only exercise the non-hardware UI.
 
+Run `vp run test:g2-native` for protocol/codec checks and `vp run test:g2-connection` for the
+native driver's recovery and repeated-dictation checks with simulated Bluetooth callbacks.
+
 Hardware acceptance checks:
 
 1. Quit the Even app, connect from **Settings → G2 + R1**, and confirm both arms reach **Connected**.
-2. In a thread, tap R1 once, speak, and confirm live text appears in the composer and on the G2.
+2. From Home or Settings, use R1 to swipe to a thread and tap it. Confirm T3 opens the same thread.
+   Tap R1 again, speak, and confirm live text appears in the composer and on the G2.
 3. Tap R1 again and confirm the transcript is sent while any pre-existing typed draft is preserved.
-4. Start another dictation, double-tap R1, and confirm it cancels without sending.
+4. Start another dictation, quickly swipe R1 up then down, and confirm it cancels without sending. Confirm the T3
+   display returns automatically and another tap starts a fresh dictation without reconnecting.
 5. Confirm the next assistant response appears on the G2; for a multi-page response, swipe up and
-   down to move between lens-sized text windows.
+   down to move between lens-sized text windows. Double-tap while idle, choose a different thread,
+   and verify the next dictation goes there, preserving the previous thread's draft.
 6. Power-cycle one arm and confirm the app reconnects both arms and returns to **Connected**.
+7. Leave the thread open, lock the iPhone for five minutes, then dictate using R1. Confirm the
+   message reaches that thread once, the reply appears, and a second dictation works.
 
 Build and run the local iOS preview app:
 

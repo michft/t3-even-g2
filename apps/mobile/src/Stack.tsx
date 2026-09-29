@@ -35,6 +35,7 @@ import { useConnectOnboardingNavigation } from "./features/cloud/connectOnboardi
 import { AttachmentFileScreen } from "./features/files/AttachmentFileScreen";
 import { ThreadFilesTreeScreen, ThreadFileScreen } from "./features/files/ThreadFilesRouteScreen";
 import { AdaptiveWorkspaceLayout } from "./features/layout/AdaptiveWorkspaceLayout";
+import { EvenG2ThreadPickerBridge } from "./features/even-g2/EvenG2ThreadPickerBridge";
 import {
   HardwareKeyboardCommandOverlay,
   HardwareKeyboardCommandProvider,
@@ -550,6 +551,7 @@ function RootStackLayout(props: {
           pathname={workspaceLocation.pathname}
           workspaceRouteKey={workspaceLocation.routeKey}
         >
+          {Platform.OS === "ios" && <EvenG2ThreadPickerBridge />}
           {props.children}
           <HardwareKeyboardCommandOverlay />
         </AdaptiveWorkspaceLayout>

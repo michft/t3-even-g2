@@ -9,7 +9,7 @@ import {
   subscribeEvenG2Status,
   subscribeEvenG2Transcripts,
   getEvenG2Status,
-  setEvenG2InputEnabled,
+  setEvenG2ActiveThread,
 } from "./evenG2Native";
 import { latestAssistantText, mergeDraftWithTranscript } from "./evenG2ThreadBridge.logic";
 
@@ -36,7 +36,7 @@ export function subscribeEvenG2Dictation(getInput: () => EvenG2DictationInput): 
   };
 
   ensureEvenG2AutoConnect();
-  setEvenG2InputEnabled(true);
+  setEvenG2ActiveThread(getInput().threadKey, true);
   const unsubscribeStatus = subscribeEvenG2Status(() => {
     if (getEvenG2Status().listening) {
       captureSession();
@@ -69,7 +69,7 @@ export function subscribeEvenG2Dictation(getInput: () => EvenG2DictationInput): 
       session.onChangeDraftMessage(session.draftMessage);
       session = null;
     }
-    setEvenG2InputEnabled(false);
+    setEvenG2ActiveThread(getInput().threadKey, false);
   };
 }
 
@@ -87,10 +87,15 @@ export function useEvenG2ThreadBridge(
     }
   }, [input.enabled]);
 
+  useEffect(() => {
+    if (input.enabled) setEvenG2ActiveThread(input.threadKey, true);
+  }, [input.enabled, input.threadKey]);
+
   const assistantText = latestAssistantText(input.feed);
   useEffect(() => {
     if (input.enabled && assistantText) {
       displayEvenG2Text(assistantText);
     }
-  }, [assistantText, input.enabled]);
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Switching threads clears the native page even when both replies have identical text.
+  }, [assistantText, input.enabled, input.threadKey]);
 }
