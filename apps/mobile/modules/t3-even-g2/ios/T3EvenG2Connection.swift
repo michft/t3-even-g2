@@ -257,14 +257,13 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     else { return }
     displayTask?.cancel()
     latestTranscript = ""
+    let speech = T3EvenG2SpeechTranscriber()
+    speechSession = speech
     setStatus(.ready, detail: "Preparing on-device speech")
     await sendEvenHub(
       textPayload("Preparing dictation…", magic: nextMagic())
     )
-    guard status == .ready, !Task.isCancelled else { return }
-
-    let speech = T3EvenG2SpeechTranscriber()
-    speechSession = speech
+    guard speechSession === speech, status == .ready, !Task.isCancelled else { return }
     do {
       try await speech.start { [weak self, weak speech] text, isFinal in
         guard let self, let speech, self.speechSession === speech, self.status == .ready else { return }
@@ -309,7 +308,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       setStatus(.ready, detail: error.localizedDescription)
       await sendEvenHub(
         textPayload(
-          "Dictation unavailable\n\n\(error.localizedDescription)",
+          "Dictation unavailable\n\n\(error.localizedDescription)\n\nLong-press R1: back",
           magic: nextMagic()
         )
       )
@@ -325,7 +324,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     setStatus(.ready, detail: "G2 microphone did not start")
     await sendEvenHub(
       textPayload(
-        "G2 microphone did not start\n\nTap R1 to retry",
+        "G2 microphone did not start\n\nTap R1 to retry\nLong-press R1: back",
         magic: nextMagic()
       )
     )
@@ -783,7 +782,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   }
 
   private func listeningDisplayText(_ transcript: String = "") -> String {
-    let instructions = "Listening…\n\nTap R1: send\nSwipe up R1: cancel"
+    let instructions = "Listening…\n\nTap R1: send\nHold R1: cancel"
     return transcript.isEmpty ? instructions : "\(instructions)\n\n\(transcript)"
   }
 
@@ -908,10 +907,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       pauseDisplay()
       return
     }
-    if status == .paused, gesture.kind == "click", T3EvenG2Protocol.isDictationSource(gesture.source) {
-      resumeDisplay()
-      return
-    }
+    if handleRecoveryInput(gesture) { return }
     guard status == .ready else { return }
     guard ["click", "scrollUp", "scrollDown", "longPress"].contains(gesture.kind) else { return }
     let now = Date()
@@ -923,6 +919,16 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       return
     }
     handleThreadGesture(gesture)
+  }
+
+  private func handleRecoveryInput(_ gesture: T3EvenG2Protocol.Gesture) -> Bool {
+    guard status == .paused || status == .error, left.ready, right.ready,
+      ["click", "longPress"].contains(gesture.kind),
+      T3EvenG2Protocol.isDictationSource(gesture.source)
+    else { return false }
+    if gesture.kind != "click" { showThreadPicker() }
+    bootstrap(resuming: true)
+    return true
   }
 
   private func handleThreadGesture(_ gesture: T3EvenG2Protocol.Gesture) {
@@ -940,11 +946,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   }
 
   private func handleBackGesture(_ gesture: T3EvenG2Protocol.Gesture) -> Bool {
-    let scrolling = !listening && speechSession == nil && gestureTask == nil
-      && (threadPicker.isPresented
-        ? threadPicker.openingKey == nil && threadPicker.choices.count > 1
-        : displayPages.count > 1)
-    guard gesture.kind == (scrolling ? "longPress" : "scrollUp"),
+    guard gesture.kind == "longPress",
       T3EvenG2Protocol.isDictationSource(gesture.source)
     else { return false }
     // Dictation is modal: Back cancels even when the underlying reply scrolls.
@@ -1036,10 +1038,10 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   @MainActor
   private func stopDictation(cancelled: Bool) async {
     guard listening || speechSession != nil, !stoppingDictation else { return }
-    stoppingDictation = true
-    defer { stoppingDictation = false }
-    var finalCancelled = cancelled
     let session = speechSession
+    stoppingDictation = true
+    defer { clearStoppingDictation(for: session) }
+    var finalCancelled = cancelled
     displayTask?.cancel()
     let audioMagic = nextMagic()
     await sendEvenHub(
@@ -1067,6 +1069,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       }
     }
     guard status == .ready, speechSession === session, !Task.isCancelled else { return }
+    stoppingDictation = false
     speechSession = nil
     decoder = nil
 
@@ -1074,13 +1077,18 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       onTranscript?(["text": "", "isFinal": true, "cancelled": true])
       displayText(pendingDisplayText ?? "Dictation cancelled")
     } else if latestTranscript.isEmpty {
-      displayText("No speech recognized\n\nTap R1 to try again")
+      displayText("No speech recognized\n\nTap R1 to try again\nLong-press R1: back")
     } else {
       displayText("Sending to T3 Code…")
     }
     if status != .error, !requestedDisconnect, left.ready, right.ready {
       setStatus(.ready, detail: "G2 and R1 ready")
     }
+  }
+
+  private func clearStoppingDictation(for session: AnyObject?) {
+    // A cancelled finish can return after another session has started stopping.
+    if speechSession === session { stoppingDictation = false }
   }
 
   private func armForName(_ name: String) -> Arm? {
@@ -1137,6 +1145,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   private func cancelSpeechAfterDisconnect() {
     guard listening || speechSession != nil else { return }
     listening = false
+    stoppingDictation = false
     let speech = speechSession as? T3EvenG2SpeechTranscriber
     speechSession = nil
     decoder = nil

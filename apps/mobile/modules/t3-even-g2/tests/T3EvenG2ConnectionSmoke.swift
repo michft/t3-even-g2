@@ -3,12 +3,19 @@ import Foundation
 
 @MainActor
 final class T3EvenG2SpeechTranscriber {
+  static var finalText = "test dictation"
+  static var startCount = 0
+  static var beforeFinish: (() async -> Void)?
   private var update: ((String, Bool) -> Void)?
-  func start(onUpdate: @escaping (String, Bool) -> Void) async throws { update = onUpdate }
+  func start(onUpdate: @escaping (String, Bool) -> Void) async throws {
+    Self.startCount += 1
+    update = onUpdate
+  }
   func appendPCM(_ pcm: Data) throws {}
   func finish() async throws -> String {
-    update?("test dictation", true)
-    return "test dictation"
+    await Self.beforeFinish?()
+    update?(Self.finalText, true)
+    return Self.finalText
   }
   func cancel() async { update = nil }
 }
@@ -313,6 +320,9 @@ struct Smoke {
     await fixture.wait { $0["listening"] as? Bool == true }
     let createsBeforeCancel = fixture.createCount
     fixture.gesture(1)
+    precondition(fixture.connection.snapshot["listening"] as? Bool == true)
+    try? await Task.sleep(for: .milliseconds(450))
+    fixture.gesture(9)
     precondition(fixture.connection.snapshot["listening"] as? Bool == false)
     precondition(fixture.connection.snapshot["status"] as? String == "ready")
     precondition(fixture.createCount == createsBeforeCancel)
@@ -340,10 +350,12 @@ struct Smoke {
     fixture.gesture(0)
     precondition(fixture.selectedKeys == ["moorbeef:b", "moorbeef:b"])
     precondition(fixture.connection.snapshot["listening"] as? Bool == false)
-    // A short reply goes Back to the picker. Its multi-item list still scrolls up.
+    // Swiping a short reply stays there; holding goes Back. The picker still scrolls.
     fixture.connection.displayText("Short reply")
     try? await Task.sleep(for: .milliseconds(450))
     fixture.gesture(1)
+    try? await Task.sleep(for: .milliseconds(450))
+    fixture.gesture(9)
     try? await Task.sleep(for: .milliseconds(450))
     fixture.gesture(1)
     try? await Task.sleep(for: .milliseconds(450))
@@ -364,7 +376,7 @@ struct Smoke {
     fixture.gesture(0)
     await fixture.wait { $0["listening"] as? Bool == true }
     precondition(fixture.selectedKeys.count == 3)
-    fixture.gesture(1)
+    fixture.gesture(9)
     precondition(fixture.transcripts.count == 4 && fixture.transcripts[3]["cancelled"] as? Bool == true)
     fixture.connection.setNaturalScrolling(true)
     precondition(T3EvenG2Connection().snapshot["naturalScrolling"] as? Bool == true)
@@ -386,8 +398,53 @@ struct Smoke {
     try? await Task.sleep(for: .milliseconds(450))
     fixture.gesture(0)
     await fixture.wait { $0["listening"] as? Bool == true }
-    fixture.gesture(1) // Natural scrolling must not reverse dictation cancellation.
+    fixture.gesture(9) // Natural scrolling must not change hold-to-cancel.
     precondition(fixture.transcripts.count == 5 && fixture.transcripts[4]["cancelled"] as? Bool == true)
+    // Empty recognition shows a short retry page; long-press must escape it.
+    try? await Task.sleep(for: .milliseconds(450))
+    T3EvenG2SpeechTranscriber.finalText = ""
+    await fixture.connection.beginDictation()
+    await fixture.connection.finishDictation()
+    T3EvenG2SpeechTranscriber.finalText = "test dictation"
+    fixture.gesture(9)
+    fixture.gesture(10)
+    try? await Task.sleep(for: .milliseconds(450))
+    fixture.gesture(0)
+    precondition(fixture.selectedKeys.count == 5 && fixture.selectedKeys.last == "moorbeef:b")
+    precondition(fixture.connection.snapshot["listening"] as? Bool == false)
+    // Back must invalidate a direct start before its first display write finishes.
+    try? await Task.sleep(for: .milliseconds(450))
+    fixture.right.canSendWriteWithoutResponse = false
+    let startsBeforeBack = T3EvenG2SpeechTranscriber.startCount
+    let preparing = Task { await fixture.connection.beginDictation() }
+    await fixture.wait { $0["detail"] as? String == "Preparing on-device speech" }
+    fixture.gesture(9)
+    fixture.right.canSendWriteWithoutResponse = true
+    await preparing.value
+    precondition(T3EvenG2SpeechTranscriber.startCount == startsBeforeBack)
+    precondition(fixture.connection.snapshot["listening"] as? Bool == false)
+    // A cancelled finish may return late. It must neither block nor reset a new session.
+    try? await Task.sleep(for: .milliseconds(450))
+    await fixture.connection.beginDictation()
+    var releaseFinish: CheckedContinuation<Void, Never>?
+    var oldFinish: Task<Void, Never>?
+    await withCheckedContinuation { entered in
+      T3EvenG2SpeechTranscriber.beforeFinish = {
+        await withCheckedContinuation { continuation in
+          releaseFinish = continuation
+          entered.resume()
+        }
+      }
+      oldFinish = Task { await fixture.connection.finishDictation() }
+    }
+    fixture.gesture(9)
+    T3EvenG2SpeechTranscriber.beforeFinish = nil
+    await fixture.connection.beginDictation()
+    precondition(fixture.connection.snapshot["listening"] as? Bool == true)
+    releaseFinish?.resume()
+    await oldFinish?.value
+    precondition(fixture.connection.snapshot["listening"] as? Bool == true)
+    await fixture.connection.cancelDictation()
     fixture.right.state = .disconnected
     fixture.connection.centralManager(
       CBCentralManager.latest, didDisconnectPeripheral: fixture.right, error: nil)
@@ -403,6 +460,9 @@ struct Smoke {
       fixture.baseHeartbeatCounts["L", default: 0] > failedPageCounts["L", default: 0]
         && fixture.baseHeartbeatCounts["R", default: 0] > failedPageCounts["R", default: 0]
     }
+    fixture.rejectPageCreation = false
+    fixture.gesture(9)
+    await fixture.wait { $0["status"] as? String == "ready" }
     // The base connection timer also ends when Bluetooth powers off.
     let poweredOffCounts = fixture.baseHeartbeatCounts
     CBCentralManager.latest.state = .poweredOff

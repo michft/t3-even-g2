@@ -64,7 +64,7 @@ export function EvenG2SettingsSection() {
         <SettingsSwitchRow
           icon="eye"
           label="Natural scrolling"
-          subtitle="On: swipe up advances through content. Off: swipe down advances. Back stays swipe up."
+          subtitle="On: swipe up advances through content. Off: swipe down advances. Hold R1 to go back."
           value={status.naturalScrolling}
           disabled={status.status === "unsupported"}
           onValueChange={setEvenG2NaturalScrolling}
@@ -72,7 +72,7 @@ export function EvenG2SettingsSection() {
       </SettingsSection>
       <Text className="px-2 text-sm text-foreground-muted">
         {status.detail ||
-          "Quit the Even app first. Swipe to choose a thread; tap to open, dictate, or send. Swipe up cancels dictation or goes back on short screens. On scrolling screens, long-press goes back."}
+          "Quit the Even app first. Swipes only scroll. Tap to open a thread, dictate, or send. Hold R1 to cancel dictation or go back, including from dictation errors."}
       </Text>
     </View>
   );
