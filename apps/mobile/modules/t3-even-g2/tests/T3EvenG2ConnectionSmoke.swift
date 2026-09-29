@@ -6,6 +6,7 @@ final class T3EvenG2SpeechTranscriber {
   static weak var current: T3EvenG2SpeechTranscriber?
   static var finalText = "test dictation"
   static var startCount = 0
+  static var beforeStart: (() async -> Void)?
   static var beforeFinish: (() async -> Void)?
   private var update: ((String, Bool) -> Void)?
   /// Captures the transcript callback and records recognition starts.
@@ -13,6 +14,7 @@ final class T3EvenG2SpeechTranscriber {
     Self.current = self
     Self.startCount += 1
     update = onUpdate
+    await Self.beforeStart?()
   }
   /// Emits recognized words through the same callback as the device recognizer.
   func publish(_ text: String) { update?(text, false) }
@@ -30,6 +32,43 @@ final class T3EvenG2SpeechTranscriber {
 final class T3EvenG2LC3Decoder {
   /// Returns empty PCM because these checks exercise connection state, not codec output.
   func decodePacket(_ packet: Data) throws -> Data { Data() }
+}
+
+@MainActor
+final class DisplayIdleTimer {
+  var timers: [AsyncStream<Void>.Continuation] = []
+  private var waiter: (() -> Void)?
+
+  /// Suspends the real idle task until a test expires its fifteen-second deadline.
+  func wait(_ duration: Duration) async throws {
+    precondition(duration == .seconds(15))
+    let (stream, continuation) = AsyncStream<Void>.makeStream()
+    timers.append(continuation)
+    waiter?()
+    for await _ in stream { break }
+    try Task.checkCancellation()
+  }
+
+  /// Waits for the driver to arm the requested deadline, without wall-clock sleeps.
+  func timer(_ index: Int) async -> AsyncStream<Void>.Continuation {
+    if timers.count <= index {
+      await withCheckedContinuation { continuation in
+        waiter = { [weak self] in
+          guard let self, self.timers.count > index else { return }
+          self.waiter = nil
+          continuation.resume()
+        }
+      }
+    }
+    return timers[index]
+  }
+
+  /// Confirms that reset or disconnect cancelled a previously armed deadline.
+  func assertCancelled(_ timer: AsyncStream<Void>.Continuation) {
+    guard case .terminated = timer.yield() else {
+      preconditionFailure("Old display idle deadline was not cancelled")
+    }
+  }
 }
 
 @MainActor
@@ -74,6 +113,7 @@ final class Fixture {
     baseHeartbeatInterval: Duration = .milliseconds(20),
     pageHeartbeatInterval: Duration = .seconds(30),
     pageHeartbeatTimeout: Duration = .seconds(20),
+    displayIdleTimer: DisplayIdleTimer? = nil,
     rememberedLeft: CBPeripheral? = nil
   ) {
     connection = T3EvenG2Connection(
@@ -81,6 +121,13 @@ final class Fixture {
       baseHeartbeatInterval: baseHeartbeatInterval,
       pageHeartbeatInterval: pageHeartbeatInterval,
       pageHeartbeatTimeout: pageHeartbeatTimeout,
+      waitForDisplayIdle: { duration in
+        if let displayIdleTimer {
+          try await displayIdleTimer.wait(duration)
+        } else {
+          try await Task.sleep(for: duration)
+        }
+      },
       diagnostics: diagnostics
     )
     connection.onBaseHeartbeatTaskStart = { [weak self] in self?.baseHeartbeatTaskStarts += 1 }
@@ -353,6 +400,11 @@ struct Smoke {
       fatalError("G2 connection test timed out waiting for a lifecycle callback at line \(Fixture.waitingAtLine)")
     }
     defer { watchdog.cancel() }
+    if CommandLine.arguments.contains("--display-idle") {
+      await verifyDisplayIdle()
+      print("G2 display idle timeout and tap wake checks passed")
+      return
+    }
     if CommandLine.arguments.contains("--sending") {
       await verifySendingNavigation()
       print("G2 sending progress and navigation checks passed")
@@ -682,6 +734,162 @@ struct Smoke {
     print(
       "G2 native driver: per-arm auth, base heartbeats, occupied-page reset, readiness deadlines, stale arm replacement, late recovery, cancellation, thread picker, dictation, and reconnect passed"
     )
+  }
+
+  /// Exercises idle blanking, all tap sources, input resets, and speech through real BLE routing.
+  @MainActor
+  private static func verifyDisplayIdle() async {
+    let clock = DisplayIdleTimer()
+    let fixture = Fixture(pageHeartbeatInterval: .milliseconds(200), displayIdleTimer: clock)
+    fixture.subscribe(fixture.left)
+    fixture.subscribe(fixture.right)
+    await fixture.wait { $0["status"] as? String == "ready" }
+    fixture.connection.setActiveThread("mini:idle", enabled: true)
+    fixture.connection.displayText("Idle reply")
+    await fixture.waitForDisplay("Idle reply")
+    let initial = await clock.timer(0)
+    fixture.gesture(1)
+    var timer = await clock.timer(1)
+    clock.assertCancelled(initial)
+    let shutdowns = fixture.shutdownCount
+    let starts = T3EvenG2SpeechTranscriber.startCount
+
+    for source: UInt8 in [1, 2, 3] {
+      timer.yield()
+      timer.finish()
+      await fixture.wait { ($0["detail"] as? String)?.hasPrefix("Display asleep") == true }
+      precondition(fixture.lastDisplayPayload.range(of: Data([0x62, 1, 0x0A])) != nil,
+                   "Idle display must contain only a newline")
+      let blank = fixture.lastDisplayPayload
+      let frames = fixture.displayPayloads.count
+      let timers = clock.timers.count
+      // Phone updates, scrolls, and foreground/duplicate events must not relight the lenses.
+      fixture.connection.displayText("Updated reply \(source)")
+      fixture.connection.setThreadActivity("mini:idle", text: "Thinking…")
+      fixture.gesture(1)
+      fixture.gesture(3)
+      fixture.gesture(4)
+      let heartbeat = fixture.pageHeartbeatAcks
+      await fixture.waitForPageHeartbeat { fixture.pageHeartbeatAcks >= heartbeat + 3 }
+      precondition(fixture.lastDisplayPayload == blank && fixture.displayPayloads.count == frames)
+      precondition(clock.timers.count == timers)
+      precondition(fixture.connection.snapshot["connected"] as? Bool == true)
+
+      fixture.gesture(0, source: source)
+      fixture.gesture(0, container: true) // Duplicate wake cannot start dictation or select a thread.
+      fixture.gesture(3)
+      await fixture.waitForDisplay("Updated reply \(source)")
+      precondition(T3EvenG2SpeechTranscriber.startCount == starts)
+      precondition(fixture.selectedKeys.isEmpty)
+      precondition(fixture.shutdownCount == shutdowns)
+      timer = await clock.timer(timers)
+    }
+
+    // Once the normal duplicate window passes, the next ring tap starts dictation.
+    let heartbeat = fixture.pageHeartbeatAcks
+    await fixture.waitForPageHeartbeat { fixture.pageHeartbeatAcks >= heartbeat + 3 }
+    let beforeSpeech = clock.timers.count
+    fixture.gesture(0)
+    await fixture.wait { $0["listening"] as? Bool == true }
+    clock.assertCancelled(timer)
+    precondition(T3EvenG2SpeechTranscriber.startCount == starts + 1)
+    timer = await clock.timer(beforeSpeech + 1)
+    for source: UInt8 in [1, 2, 3] {
+      timer.yield()
+      timer.finish()
+      await fixture.wait { ($0["detail"] as? String)?.hasPrefix("Display asleep") == true }
+      precondition(fixture.connection.snapshot["listening"] as? Bool == true)
+      let blank = fixture.lastDisplayPayload
+      let timers = clock.timers.count
+      T3EvenG2SpeechTranscriber.current?.publish("Speech while blank \(source)")
+      let heartbeat = fixture.pageHeartbeatAcks
+      await fixture.waitForPageHeartbeat { fixture.pageHeartbeatAcks >= heartbeat + 3 }
+      precondition(fixture.lastDisplayPayload == blank)
+      precondition(clock.timers.count == timers)
+      fixture.gesture(0, source: source)
+      fixture.gesture(0, container: true)
+      await fixture.waitForDisplay("Speech while blank \(source)")
+      precondition(fixture.connection.snapshot["listening"] as? Bool == true)
+      precondition(!fixture.transcripts.contains { $0["isFinal"] as? Bool == true })
+      timer = await clock.timer(timers)
+    }
+    let beforeSend = clock.timers.count
+    fixture.connection.setThreadActivity("mini:idle", text: "")
+    fixture.gesture(0)
+    await fixture.waitForDisplay("Sending to T3 Code")
+    precondition(fixture.transcripts.contains {
+      $0["isFinal"] as? Bool == true && $0["text"] as? String == T3EvenG2SpeechTranscriber.finalText
+    })
+    timer = await clock.timer(beforeSend)
+    timer.yield()
+    timer.finish()
+    await fixture.wait { ($0["detail"] as? String)?.hasPrefix("Display asleep") == true }
+    fixture.connection.disconnect()
+
+    // An idle page exit stays asleep; waking a picker must not open its highlighted thread.
+    let disconnectClock = DisplayIdleTimer()
+    let disconnectFixture = Fixture(displayIdleTimer: disconnectClock)
+    disconnectFixture.connection.setThreadChoices([
+      ["key": "mini:picker", "title": "Picker choice", "subtitle": "Mini"],
+    ])
+    disconnectFixture.subscribe(disconnectFixture.left)
+    disconnectFixture.subscribe(disconnectFixture.right)
+    await disconnectFixture.wait { $0["status"] as? String == "ready" }
+    let pickerTimer = await disconnectClock.timer(0)
+    pickerTimer.yield()
+    pickerTimer.finish()
+    await disconnectFixture.wait { ($0["detail"] as? String)?.hasPrefix("Display asleep") == true }
+    disconnectFixture.gesture(7)
+    await disconnectFixture.wait { $0["status"] as? String == "paused" }
+    let baseHeartbeats = disconnectFixture.baseHeartbeatCounts["L", default: 0]
+    await disconnectFixture.waitForBaseHeartbeat {
+      disconnectFixture.baseHeartbeatCounts["L", default: 0] >= baseHeartbeats + 60
+    }
+    precondition(disconnectFixture.connection.snapshot["status"] as? String == "paused")
+    disconnectFixture.gesture(0)
+    disconnectFixture.gesture(0, container: true)
+    await disconnectFixture.wait { $0["status"] as? String == "ready" }
+    await disconnectFixture.waitForDisplay("Picker choice")
+    precondition(disconnectFixture.selectedKeys.isEmpty)
+    let resumedTimer = await disconnectClock.timer(1)
+    disconnectFixture.gesture(0)
+    precondition(disconnectFixture.selectedKeys == ["mini:picker"])
+    let disconnectedTimer = await disconnectClock.timer(2)
+    disconnectClock.assertCancelled(resumedTimer)
+    // Disconnect cancels an armed deadline, so it cannot blank the next connection.
+    disconnectFixture.connection.disconnect()
+    disconnectClock.assertCancelled(disconnectedTimer)
+
+    // Finishing microphone preparation after idle must not silently relight the lenses.
+    let preparingClock = DisplayIdleTimer()
+    let preparing = Fixture(displayIdleTimer: preparingClock)
+    preparing.subscribe(preparing.left)
+    preparing.subscribe(preparing.right)
+    await preparing.wait { $0["status"] as? String == "ready" }
+    _ = await preparingClock.timer(0)
+    preparing.connection.setActiveThread("mini:preparing-idle", enabled: true)
+    let (startStream, startGate) = AsyncStream<Void>.makeStream()
+    T3EvenG2SpeechTranscriber.beforeStart = { for await _ in startStream { break } }
+    defer { T3EvenG2SpeechTranscriber.beforeStart = nil }
+    let dictation = Task { await preparing.connection.beginDictation() }
+    let preparingTimer = await preparingClock.timer(1)
+    await preparing.waitForDisplay("Preparing dictation")
+    preparingTimer.yield()
+    preparingTimer.finish()
+    await preparing.wait { ($0["detail"] as? String)?.hasPrefix("Display asleep") == true }
+    let blank = preparing.lastDisplayPayload
+    startGate.yield()
+    startGate.finish()
+    await dictation.value
+    precondition(preparing.connection.snapshot["listening"] as? Bool == true)
+    precondition(preparing.lastDisplayPayload == blank)
+    preparing.gesture(0, source: 3)
+    await preparing.waitForDisplay("Listening")
+    precondition(preparing.connection.snapshot["listening"] as? Bool == true)
+    preparing.tapBack()
+    precondition(preparing.connection.snapshot["listening"] as? Bool == false)
+    precondition(preparing.transcripts.last?["cancelled"] as? Bool == true)
+    preparing.connection.disconnect()
   }
 
   /// Leaves the waiting screen without cancelling the submitted message.
