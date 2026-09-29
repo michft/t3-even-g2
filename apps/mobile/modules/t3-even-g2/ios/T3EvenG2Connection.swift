@@ -1438,7 +1438,16 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     trace("dictation.completed", ["cancelled": finalCancelled, "hasText": !latestTranscript.isEmpty])
     decoder = nil
 
-    if finalCancelled {
+    showStoppedDictation(cancelled: finalCancelled)
+    if status != .error, !requestedDisconnect, left.ready, right.ready {
+      setStatus(.ready, detail: "G2 and R1 ready")
+    }
+  }
+
+  /// Reports cancellation or shows the final dictation result on the glasses.
+  @MainActor
+  private func showStoppedDictation(cancelled: Bool) {
+    if cancelled {
       onTranscript?(["text": "", "isFinal": true, "cancelled": true])
       dictationNotice = nil
       scheduleDisplay(restingDisplayText)
@@ -1446,9 +1455,6 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       showDictationNotice("No speech recognized\n\nTap R1 to try again\nL arm tap: back")
     } else {
       scheduleDisplay(restingDisplayText)
-    }
-    if status != .error, !requestedDisconnect, left.ready, right.ready {
-      setStatus(.ready, detail: "G2 and R1 ready")
     }
   }
 
