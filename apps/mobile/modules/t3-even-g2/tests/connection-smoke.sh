@@ -16,6 +16,7 @@ xcrun swiftc -module-cache-path "$g2_test_dir/cache" \
   -Xlinker -rpath -Xlinker "$g2_test_dir" \
   "$g2_module_dir/ios/T3EvenG2Connection.swift" \
   "$g2_module_dir/ios/T3EvenG2Protocol.swift" \
+  "$g2_module_dir/ios/T3EvenG2ThreadPicker.swift" \
   "$g2_module_dir/tests/T3EvenG2ConnectionSmoke.swift" \
   -o "$g2_test_dir/t3-g2-connection-smoke"
 "$g2_test_dir/t3-g2-connection-smoke"

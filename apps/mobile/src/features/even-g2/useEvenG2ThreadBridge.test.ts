@@ -13,7 +13,7 @@ const native = vi.hoisted(() => ({
 vi.mock("./evenG2Native", () => ({
   displayEvenG2Text: vi.fn(),
   ensureEvenG2AutoConnect: vi.fn(),
-  setEvenG2InputEnabled: vi.fn(),
+  setEvenG2ActiveThread: vi.fn(),
   getEvenG2Status: () => ({ listening: native.listening }),
   subscribeEvenG2Status: (listener: () => void) => {
     native.statusListeners.add(listener);

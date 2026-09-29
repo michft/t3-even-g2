@@ -22,11 +22,15 @@ final class Fixture {
   let left = CBPeripheral("G2_TEST_L_ARM")
   let right = CBPeripheral("G2_TEST_R_ARM")
   var transcripts: [[String: Any]] = []
+  var selectedKeys: [String] = []
   var waiter: (([String: Any]) -> Void)?
 
   init() {
     connection.onStatus = { [weak self] state in self?.waiter?(state) }
     connection.onTranscript = { [weak self] event in self?.transcripts.append(event) }
+    connection.onThreadSelected = { [weak self] event in
+      if let key = event["key"] as? String { self?.selectedKeys.append(key) }
+    }
     connection.connect()
     connection.centralManagerDidUpdateState(CBCentralManager.latest)
     for peripheral in [left, right] {
@@ -103,14 +107,39 @@ struct Smoke {
       fatalError("G2 connection test timed out waiting for a lifecycle callback")
     }
     defer { watchdog.cancel() }
+    var picker = T3EvenG2ThreadPicker()
+    let first = T3EvenG2ThreadPicker.Choice(key: "mini:a", title: "First", subtitle: "Mini")
+    let second = T3EvenG2ThreadPicker.Choice(key: "moorbeef:a", title: "Second", subtitle: "Moorbeef")
+    picker.update([first, second])
+    picker.move(1)
+    picker.update([second, first])
+    precondition(picker.highlighted?.key == second.key)
+    picker.update([first])
+    precondition(picker.highlighted?.key == first.key)
+    picker.move(-1)
+    precondition(picker.index == 0)
+    picker.update([])
+    precondition(picker.highlighted == nil && picker.text.contains("No threads"))
     // Test process gets a separate preferences domain; no real pairing state.
     let fixture = Fixture()
+    fixture.connection.setThreadChoices([
+      ["key": "mini:a", "title": "First thread", "subtitle": "Mini"],
+      ["key": "moorbeef:b", "title": "Second thread", "subtitle": "Moorbeef"],
+    ])
     precondition(fixture.connection.snapshot["status"] as? String != "starting")
     fixture.subscribe(fixture.left)
     precondition(fixture.connection.snapshot["status"] as? String != "starting")
     fixture.subscribe(fixture.right)
     await fixture.wait { $0["status"] as? String == "ready" }
-    fixture.connection.setInputEnabled(true)
+    fixture.gesture(2, container: true)
+    // Simulate deliberate, separate gestures outside the hardware debounce.
+    try? await Task.sleep(for: .milliseconds(450))
+    fixture.gesture(0, container: true)
+    precondition(fixture.selectedKeys == ["moorbeef:b"])
+    precondition(fixture.connection.snapshot["listening"] as? Bool == false)
+    fixture.connection.setActiveThread("moorbeef:b", enabled: true)
+    fixture.connection.setActiveThread("mini:a", enabled: false)
+    try? await Task.sleep(for: .milliseconds(450))
     fixture.gesture(0, container: true)
     await fixture.wait { $0["listening"] as? Bool == true }
     fixture.gesture(3)
@@ -126,6 +155,11 @@ struct Smoke {
     await fixture.connection.finishDictation()
     precondition(fixture.transcripts.count == 2)
     precondition(fixture.transcripts[1]["text"] as? String == "test dictation")
+    fixture.gesture(3)
+    await fixture.wait { $0["status"] as? String == "ready" }
+    fixture.gesture(0)
+    precondition(fixture.selectedKeys == ["moorbeef:b", "moorbeef:b"])
+    precondition(fixture.connection.snapshot["listening"] as? Bool == false)
     fixture.right.state = .disconnected
     fixture.connection.centralManager(
       CBCentralManager.latest, didDisconnectPeripheral: fixture.right, error: nil)
@@ -136,7 +170,7 @@ struct Smoke {
     fixture.connection.disconnect()
     precondition(fixture.connection.snapshot["status"] as? String == "disconnected")
     print(
-      "G2 native driver: notification readiness, container tap, exit cancellation, automatic recovery, second dictation, and arm reconnect passed"
+      "G2 native driver: readiness, thread picker, stale screen cleanup, exit cancellation, recovery, repeated dictation, and reconnect passed"
     )
   }
 }

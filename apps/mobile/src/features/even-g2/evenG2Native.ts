@@ -26,6 +26,12 @@ export interface EvenG2TranscriptEvent {
   readonly cancelled?: boolean;
 }
 
+export interface EvenG2ThreadChoice {
+  readonly key: string;
+  readonly title: string;
+  readonly subtitle: string;
+}
+
 interface EventSubscription {
   remove(): void;
 }
@@ -40,6 +46,9 @@ interface EvenG2NativeModule {
   displayText(text: string): void;
   clearDisplay(): void;
   setInputEnabled(enabled: boolean): void;
+  setActiveThread(key: string, enabled: boolean): void;
+  setThreadChoices(choices: ReadonlyArray<EvenG2ThreadChoice>): void;
+  showThreadPicker(): void;
   beginDictation(): Promise<void>;
   finishDictation(): Promise<void>;
   cancelDictation(): Promise<void>;
@@ -87,6 +96,7 @@ function ensureNativeStatusSubscription(): void {
     return;
   }
   nativeStatusSubscription = module.addListener<EvenG2Status>("onStatus", publishStatus);
+  publishStatus(module.getStatus());
 }
 
 export function getEvenG2Status(): EvenG2Status {
@@ -143,4 +153,23 @@ export function displayEvenG2Text(text: string): void {
 
 export function setEvenG2InputEnabled(enabled: boolean): void {
   nativeModule()?.setInputEnabled(enabled);
+}
+
+export function setEvenG2ActiveThread(key: string, enabled: boolean): void {
+  nativeModule()?.setActiveThread(key, enabled);
+}
+
+export function setEvenG2ThreadChoices(choices: ReadonlyArray<EvenG2ThreadChoice>): void {
+  nativeModule()?.setThreadChoices(choices);
+}
+
+export function showEvenG2ThreadPicker(): void {
+  nativeModule()?.showThreadPicker();
+}
+
+export function subscribeEvenG2ThreadSelections(
+  listener: (event: { readonly key: string }) => void,
+): () => void {
+  const subscription = nativeModule()?.addListener("onThreadSelected", listener);
+  return () => subscription?.remove();
 }

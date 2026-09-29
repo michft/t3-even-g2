@@ -16,6 +16,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   var onStatus: (([String: Any]) -> Void)?
   var onTranscript: (([String: Any]) -> Void)?
   var onGesture: (([String: Any]) -> Void)?
+  var onThreadSelected: (([String: Any]) -> Void)?
 
   private final class Arm {
     let side: String
@@ -62,6 +63,8 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   private var requestedDisconnect = false
   private var transportBusy = false
   private var inputEnabled = false
+  private var activeThreadKey: String?
+  private var threadPicker = T3EvenG2ThreadPicker()
   private var listening = false
   private var stoppingDictation = false
   private var latestTranscript = ""
@@ -158,7 +161,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     pendingDisplayText = cleaned
     displayPages = T3EvenG2Protocol.lensTextPages(cleaned)
     displayPageIndex = 0
-    guard !listening, status == .ready else { return }
+    guard !listening, !threadPicker.isPresented, status == .ready else { return }
     scheduleDisplay(restingDisplayText)
   }
 
@@ -176,6 +179,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
 
   func setInputEnabled(_ enabled: Bool) {
     inputEnabled = enabled
+    threadPicker.isPresented = !enabled
     if !enabled, listening {
       Task { @MainActor [weak self] in
         guard let self else { return }
@@ -188,10 +192,45 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     scheduleDisplay(restingDisplayText)
   }
 
+  func setActiveThread(_ key: String, enabled: Bool) {
+    if enabled {
+      if activeThreadKey != key {
+        pendingDisplayText = nil
+        displayPages = []
+        displayPageIndex = 0
+      }
+      activeThreadKey = key
+      threadPicker.highlight(key)
+      threadPicker.openingKey = nil
+      setInputEnabled(true)
+    } else if activeThreadKey == key {
+      activeThreadKey = nil
+      setInputEnabled(false)
+    }
+  }
+
+  func setThreadChoices(_ choices: [[String: String]]) {
+    let next = choices.compactMap { item -> T3EvenG2ThreadPicker.Choice? in
+      guard let key = item["key"], !key.isEmpty else { return nil }
+      return .init(key: key, title: item["title"] ?? "Untitled", subtitle: item["subtitle"] ?? "")
+    }
+    guard next != threadPicker.choices else { return }
+    threadPicker.update(next)
+    if threadPicker.isPresented, status == .ready { scheduleDisplay(restingDisplayText) }
+  }
+
+  func showThreadPicker() {
+    guard !listening, speechSession == nil else { return }
+    threadPicker.isPresented = true
+    threadPicker.openingKey = nil
+    if status == .ready { scheduleDisplay(restingDisplayText) }
+  }
+
   @MainActor
   func beginDictation() async {
     guard
-      status == .ready, !listening, !stoppingDictation, speechSession == nil, !Task.isCancelled
+      status == .ready, inputEnabled, !threadPicker.isPresented,
+      !listening, !stoppingDictation, speechSession == nil, !Task.isCancelled
     else { return }
     displayTask?.cancel()
     latestTranscript = ""
@@ -598,13 +637,15 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   }
 
   private var restingDisplayText: String {
+    if threadPicker.isPresented { return threadPicker.text }
     if !inputEnabled {
       return "T3 Code\n\nOpen a thread to dictate"
     }
     if displayPages.indices.contains(displayPageIndex) {
       return displayPages[displayPageIndex]
     }
-    return "T3 Code\n\nTap R1 to dictate"
+    let title = threadPicker.choices.first(where: { $0.key == activeThreadKey })?.title ?? "T3 Code"
+    return "\(String(title.replacingOccurrences(of: "\n", with: " ").prefix(92)))\n\nTap R1 to dictate"
   }
 
   private func scheduleListeningDisplay(_ transcript: String) {
@@ -732,6 +773,9 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     // Handle exits before input gating and debounce: a double-tap can follow
     // a click immediately, or arrive while Settings is open.
     if T3EvenG2Protocol.requiresDisplayRecovery(for: gesture.kind) {
+      if gesture.kind == "doubleClick", !listening, speechSession == nil {
+        showThreadPicker()
+      }
       pauseDisplay()
       return
     }
@@ -739,20 +783,41 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       resumeDisplay()
       return
     }
-    guard inputEnabled, status == .ready else { return }
+    guard status == .ready else { return }
+    guard gesture.kind == "click" || T3EvenG2Protocol.lensPageOffset(for: gesture.kind) != nil else { return }
     let now = Date()
     guard now.timeIntervalSince(lastGestureAt) > 0.4 else { return }
     lastGestureAt = now
+    if threadPicker.isPresented {
+      handlePickerGesture(gesture)
+      return
+    }
+    guard inputEnabled else { return }
     if T3EvenG2Protocol.lensPageOffset(for: gesture.kind) != nil {
       Task { @MainActor [weak self] in
         self?.scrollDisplay(gesture.kind)
       }
       return
     }
-    guard gesture.kind == "click" else { return }
     guard gestureTask == nil else { return }
     gestureTask = Task { @MainActor [weak self] in
       await self?.handleClick(gesture)
+    }
+  }
+
+  private func handlePickerGesture(_ gesture: T3EvenG2Protocol.Gesture) {
+    guard T3EvenG2Protocol.isDictationSource(gesture.source), threadPicker.openingKey == nil else { return }
+    if let offset = T3EvenG2Protocol.lensPageOffset(for: gesture.kind) {
+      threadPicker.move(offset)
+      scheduleDisplay(restingDisplayText)
+    } else if gesture.kind == "click", let choice = threadPicker.highlighted {
+      if inputEnabled, activeThreadKey == choice.key {
+        threadPicker.isPresented = false
+      } else {
+        threadPicker.openingKey = choice.key
+      }
+      scheduleDisplay(restingDisplayText)
+      onThreadSelected?(["key": choice.key])
     }
   }
 
