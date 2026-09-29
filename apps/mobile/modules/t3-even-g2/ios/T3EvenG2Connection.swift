@@ -80,6 +80,9 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   private var displayPages: [String] = []
   private var displayPageIndex = 0
   private var lastGestureAt = Date.distantPast
+  private var pendingSwipeUp: T3EvenG2Protocol.Gesture?
+  private var pendingSwipeDeadline: ContinuousClock.Instant?
+  private var swipeUpTask: Task<Void, Never>?
   private var pendingAckKeys: Set<String> = []
   private var receivedAckKeys: Set<String> = []
 
@@ -195,6 +198,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   }
 
   func setInputEnabled(_ enabled: Bool) {
+    if inputEnabled != enabled { clearPendingSwipe() }
     inputEnabled = enabled
     threadPicker.isPresented = !enabled
     if !enabled, listening {
@@ -216,6 +220,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   }
 
   func setActiveThread(_ key: String, enabled: Bool) {
+    if activeThreadKey != key || !enabled { clearPendingSwipe() }
     if enabled {
       if activeThreadKey != key {
         pendingDisplayText = nil
@@ -244,6 +249,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
 
   func showThreadPicker() {
     guard !listening, speechSession == nil else { return }
+    clearPendingSwipe()
     threadPicker.isPresented = true
     threadPicker.openingKey = nil
     if status == .ready { scheduleDisplay(restingDisplayText) }
@@ -255,6 +261,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       status == .ready, inputEnabled, !threadPicker.isPresented,
       !listening, !stoppingDictation, speechSession == nil, !Task.isCancelled
     else { return }
+    clearPendingSwipe()
     displayTask?.cancel()
     latestTranscript = ""
     let speech = T3EvenG2SpeechTranscriber()
@@ -308,7 +315,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       setStatus(.ready, detail: error.localizedDescription)
       await sendEvenHub(
         textPayload(
-          "Dictation unavailable\n\n\(error.localizedDescription)\n\nLong-press R1: back",
+          "Dictation unavailable\n\n\(error.localizedDescription)\n\nSwipe up then down: back",
           magic: nextMagic()
         )
       )
@@ -324,7 +331,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     setStatus(.ready, detail: "G2 microphone did not start")
     await sendEvenHub(
       textPayload(
-        "G2 microphone did not start\n\nTap R1 to retry\nLong-press R1: back",
+        "G2 microphone did not start\n\nTap R1 to retry\nSwipe up then down: back",
         magic: nextMagic()
       )
     )
@@ -782,7 +789,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   }
 
   private func listeningDisplayText(_ transcript: String = "") -> String {
-    let instructions = "Listening…\n\nTap R1: send\nHold R1: cancel"
+    let instructions = "Listening…\n\nTap R1: send\nSwipe up then down: cancel"
     return transcript.isEmpty ? instructions : "\(instructions)\n\n\(transcript)"
   }
 
@@ -907,6 +914,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       pauseDisplay()
       return
     }
+    if handleSwipeEscape(gesture) { return }
     if handleRecoveryInput(gesture) { return }
     guard status == .ready else { return }
     guard ["click", "scrollUp", "scrollDown", "longPress"].contains(gesture.kind) else { return }
@@ -919,6 +927,50 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       return
     }
     handleThreadGesture(gesture)
+  }
+
+  private func handleSwipeEscape(_ gesture: T3EvenG2Protocol.Gesture) -> Bool {
+    guard status == .ready || ((status == .paused || status == .error) && left.ready && right.ready),
+      T3EvenG2Protocol.isDictationSource(gesture.source),
+      ["click", "scrollUp", "scrollDown", "longPress"].contains(gesture.kind)
+    else { return false }
+    if gesture.kind == "scrollDown", let deadline = pendingSwipeDeadline, ContinuousClock.now < deadline {
+      clearPendingSwipe()
+      lastGestureAt = Date()
+      let back = T3EvenG2Protocol.Gesture(kind: "longPress", source: gesture.source)
+      if !handleRecoveryInput(back) { _ = handleBackGesture(back) }
+      return true
+    }
+    guard gesture.kind == "scrollUp" else {
+      flushPendingSwipe()
+      return false
+    }
+    let now = Date()
+    guard now.timeIntervalSince(lastGestureAt) > 0.4 else { return true }
+    lastGestureAt = now
+    flushPendingSwipe()
+    pendingSwipeUp = gesture
+    pendingSwipeDeadline = .now + .milliseconds(650)
+    swipeUpTask = Task { @MainActor [weak self] in
+      try? await Task.sleep(for: .milliseconds(650))
+      guard !Task.isCancelled else { return }
+      self?.flushPendingSwipe()
+    }
+    return true
+  }
+
+  private func clearPendingSwipe() {
+    swipeUpTask?.cancel()
+    swipeUpTask = nil
+    pendingSwipeUp = nil
+    pendingSwipeDeadline = nil
+  }
+
+  private func flushPendingSwipe() {
+    guard let gesture = pendingSwipeUp else { return }
+    clearPendingSwipe()
+    guard status == .ready else { return }
+    if threadPicker.isPresented { handlePickerGesture(gesture) } else { handleThreadGesture(gesture) }
   }
 
   private func handleRecoveryInput(_ gesture: T3EvenG2Protocol.Gesture) -> Bool {
@@ -1077,7 +1129,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       onTranscript?(["text": "", "isFinal": true, "cancelled": true])
       displayText(pendingDisplayText ?? "Dictation cancelled")
     } else if latestTranscript.isEmpty {
-      displayText("No speech recognized\n\nTap R1 to try again\nLong-press R1: back")
+      displayText("No speech recognized\n\nTap R1 to try again\nSwipe up then down: back")
     } else {
       displayText("Sending to T3 Code…")
     }
@@ -1120,6 +1172,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   }
 
   private func stopTasks() {
+    clearPendingSwipe()
     connectionTimedOut = false
     shutdownExitObserved = false
     reconnectTask?.cancel()

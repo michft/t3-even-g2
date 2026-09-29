@@ -178,6 +178,11 @@ final class Fixture {
     }
   }
 
+  func swipeBack() {
+    gesture(1)
+    gesture(2)
+  }
+
   func waitForBaseHeartbeat(_ predicate: @escaping () -> Bool) async {
     if predicate() { return }
     await withCheckedContinuation { continuation in
@@ -321,8 +326,7 @@ struct Smoke {
     let createsBeforeCancel = fixture.createCount
     fixture.gesture(1)
     precondition(fixture.connection.snapshot["listening"] as? Bool == true)
-    try? await Task.sleep(for: .milliseconds(450))
-    fixture.gesture(9)
+    fixture.gesture(2) // The escape pair must bypass the normal 400 ms debounce.
     precondition(fixture.connection.snapshot["listening"] as? Bool == false)
     precondition(fixture.connection.snapshot["status"] as? String == "ready")
     precondition(fixture.createCount == createsBeforeCancel)
@@ -330,7 +334,7 @@ struct Smoke {
     try? await Task.sleep(for: .milliseconds(450))
     fixture.gesture(0)
     await fixture.wait { $0["listening"] as? Bool == true }
-    // Firmware exits must still stop recording safely, even with swipe-to-cancel.
+    // Firmware exits must still stop recording safely, even with swipe escape.
     fixture.gesture(3)
     precondition(fixture.connection.snapshot["status"] as? String == "paused")
     await fixture.waitForBaseHeartbeat { fixture.baseHeartbeatStates.contains("paused") }
@@ -384,7 +388,7 @@ struct Smoke {
     fixture.gesture(1)
     await fixture.wait { ($0["detail"] as? String)?.hasPrefix("G2 page 2 of") == true }
     try? await Task.sleep(for: .milliseconds(450))
-    fixture.gesture(9)
+    fixture.swipeBack()
     fixture.gesture(10) // Release must not act as another Back or a tap.
     try? await Task.sleep(for: .milliseconds(450))
     fixture.gesture(1) // Natural scrolling moves the picker to the second thread.
@@ -394,19 +398,21 @@ struct Smoke {
     fixture.connection.setActiveThread("moorbeef:b", enabled: true)
     fixture.connection.showThreadPicker()
     try? await Task.sleep(for: .milliseconds(450))
-    fixture.gesture(9) // Back from a scrollable picker restores the active thread.
+    fixture.swipeBack() // Back from a scrollable picker restores the active thread.
     try? await Task.sleep(for: .milliseconds(450))
     fixture.gesture(0)
     await fixture.wait { $0["listening"] as? Bool == true }
-    fixture.gesture(9) // Natural scrolling must not change hold-to-cancel.
+    fixture.gesture(1)
+    try? await Task.sleep(for: .milliseconds(450))
+    fixture.gesture(2) // Natural scrolling must not reverse the physical escape pair.
     precondition(fixture.transcripts.count == 5 && fixture.transcripts[4]["cancelled"] as? Bool == true)
-    // Empty recognition shows a short retry page; long-press must escape it.
+    // Empty recognition shows a short retry page; the escape pair must exit it.
     try? await Task.sleep(for: .milliseconds(450))
     T3EvenG2SpeechTranscriber.finalText = ""
     await fixture.connection.beginDictation()
     await fixture.connection.finishDictation()
     T3EvenG2SpeechTranscriber.finalText = "test dictation"
-    fixture.gesture(9)
+    fixture.swipeBack()
     fixture.gesture(10)
     try? await Task.sleep(for: .milliseconds(450))
     fixture.gesture(0)
@@ -418,7 +424,7 @@ struct Smoke {
     let startsBeforeBack = T3EvenG2SpeechTranscriber.startCount
     let preparing = Task { await fixture.connection.beginDictation() }
     await fixture.wait { $0["detail"] as? String == "Preparing on-device speech" }
-    fixture.gesture(9)
+    fixture.swipeBack()
     fixture.right.canSendWriteWithoutResponse = true
     await preparing.value
     precondition(T3EvenG2SpeechTranscriber.startCount == startsBeforeBack)
@@ -437,7 +443,7 @@ struct Smoke {
       }
       oldFinish = Task { await fixture.connection.finishDictation() }
     }
-    fixture.gesture(9)
+    fixture.swipeBack()
     T3EvenG2SpeechTranscriber.beforeFinish = nil
     await fixture.connection.beginDictation()
     precondition(fixture.connection.snapshot["listening"] as? Bool == true)
@@ -461,7 +467,7 @@ struct Smoke {
         && fixture.baseHeartbeatCounts["R", default: 0] > failedPageCounts["R", default: 0]
     }
     fixture.rejectPageCreation = false
-    fixture.gesture(9)
+    fixture.swipeBack()
     await fixture.wait { $0["status"] as? String == "ready" }
     // The base connection timer also ends when Bluetooth powers off.
     let poweredOffCounts = fixture.baseHeartbeatCounts
