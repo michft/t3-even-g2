@@ -70,6 +70,12 @@ export function formatReport(events: readonly DiagnosticEvent[], since?: string)
       "windowMs",
       "cancelled",
       "hasText",
+      "reply",
+      "page",
+      "displayReply",
+      "displayPage",
+      "displayPicker",
+      "written",
     ].flatMap((key) =>
       fields[key] === undefined ? [] : [`${key}=${JSON.stringify(fields[key])}`],
     );

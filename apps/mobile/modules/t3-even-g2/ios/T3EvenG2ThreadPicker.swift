@@ -57,6 +57,9 @@ struct T3EvenG2ThreadPicker {
     let controls = choices.count > 1
       ? "Swipe to choose · Tap to open\nUp then down: back" : "Tap to open · Up then down: back"
     let instruction = openingKey == nil ? controls : "Opening thread…"
-    return "T3 threads \(index + 1)/\(choices.count)\n\n\(title)\n\(subtitle)\n\n\(instruction)"
+    let threadChoices = choices.filter { !$0.isLatestOutput }
+    let threadIndex = threadChoices.firstIndex(where: { $0.key == highlighted.key }) ?? 0
+    let heading = highlighted.isLatestOutput ? "T3 quick action" : "T3 threads \(threadIndex + 1)/\(threadChoices.count)"
+    return "\(heading)\n\n\(title)\n\(subtitle)\n\n\(instruction)"
   }
 }

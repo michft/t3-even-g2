@@ -87,6 +87,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   private var naturalScrolling = UserDefaults.standard.object(forKey: "T3EvenG2NaturalScrolling") as? Bool ?? true
   private var fastBackGesture = UserDefaults.standard.bool(forKey: "T3EvenG2FastBackGesture")
   private var activeThreadKey: String?
+  private var openAtLatest = false
   private var threadPicker = T3EvenG2ThreadPicker()
   private var availableThreadChoices: [T3EvenG2ThreadPicker.Choice] = []
   private var historyByThread: [String: T3EvenG2History] = [:]
@@ -285,6 +286,13 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       cancelHistoryRequest()
     }
     if enabled {
+      if activeThreadKey != key || !inputEnabled {
+        openAtLatest = true
+        if var history = historyByThread[key] {
+          history.jumpToLatest()
+          storeHistory(history, for: key)
+        }
+      }
       if activeThreadKey != key {
         dictationNotice = nil
         displayPages = []
@@ -342,7 +350,9 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       loading: payload["loading"] as? Bool ?? false
     ))
     let latestChanged = history.latestReplyID != previousLatest
-    let requestLatest = latestChanged && followLatest && history.jumpToLatest() != nil
+    let jumpToLatest = openAtLatest || (latestChanged && followLatest)
+    let requestLatest = jumpToLatest && history.jumpToLatest() != nil
+    if openAtLatest, !requestLatest, !(payload["loading"] as? Bool ?? false) { openAtLatest = false }
     if latestChanged, dictationNotice == "Sending to T3 Code…" {
       dictationNotice = nil
     }
@@ -355,7 +365,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     }
     storeHistory(history, for: key)
     refreshThreadChoices()
-    if requestLatest { requestHistory("latest") }
+    if requestLatest, requestID == nil { requestHistory("latest") }
     if pendingHistoryRequest == nil { publishHistoryPosition() }
     if !listening, speechSession == nil, status == .ready { scheduleDisplay(restingDisplayText) }
   }
@@ -395,6 +405,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   private func publishHistoryPosition() {
     guard let key = activeThreadKey else { return }
     let id = historyByThread[key]?.currentID ?? ""
+    trace("history.position")
     onHistoryPosition?(["threadKey": key, "messageId": id])
   }
 
@@ -432,6 +443,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     cancelHistoryRequest()
     threadPicker.isPresented = false
     dictationNotice = nil
+    openAtLatest = false
     let request = history.jumpToLatest()
     storeHistory(history, for: key)
     if request != nil { requestHistory("latest") } else { publishHistoryPosition() }
@@ -1002,10 +1014,17 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   /// Debounces a resting display update and sends it if the connection stays ready.
   private func scheduleDisplay(_ text: String) {
     displayTask?.cancel()
+    let position: [String: Any] = [
+      "displayReply": activeThreadKey.flatMap { historyByThread[$0]?.currentID } ?? "",
+      "displayPage": activeThreadKey.flatMap { historyByThread[$0]?.pageIndex }.map { $0 + 1 } ?? 0,
+      "displayPicker": threadPicker.isPresented,
+    ]
+    trace("display.scheduled", position)
     displayTask = Task { @MainActor [weak self] in
       try? await Task.sleep(for: .milliseconds(300))
       guard let self, !Task.isCancelled, !self.listening, self.status == .ready else { return }
-      await self.sendEvenHub(self.textPayload(text, magic: self.nextMagic()))
+      let written = await self.sendEvenHub(self.textPayload(text, magic: self.nextMagic()))
+      self.trace("display.write-completed", position.merging(["written": written]) { _, new in new })
     }
   }
 
@@ -1188,7 +1207,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     }
     guard ["click", "scrollUp", "scrollDown", "longPress"].contains(gesture.kind) else { return }
     let now = Date()
-    guard now.timeIntervalSince(lastGestureAt) > 0.4 else {
+    guard now.timeIntervalSince(lastGestureAt) > 0.4 || (threadPicker.isPresented && gesture.kind == "click") else {
       trace("gesture.ignored", ["reason": "debounce", "kind": gesture.kind])
       return
     }
@@ -1348,6 +1367,10 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       }
       if inputEnabled, activeThreadKey == choice.key {
         threadPicker.isPresented = false
+        if historyByThread[choice.key] != nil {
+          showLatestOutput()
+          return
+        }
       } else {
         threadPicker.openingKey = choice.key
       }
@@ -1406,6 +1429,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       !listening, speechSession == nil, dictationNotice == nil,
       let offset = T3EvenG2Protocol.lensPageOffset(for: gestureKind, naturalScrolling: naturalScrolling)
     else { return }
+    openAtLatest = false
     if let key = activeThreadKey, var history = historyByThread[key] {
       guard pendingHistoryRequest == nil else { return }
       historyNotice = nil
@@ -1530,6 +1554,10 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       "sinceInputMs": min(60_000, Int(max(0, Date().timeIntervalSince(lastGestureAt) * 1_000))),
     ]
     if let activeThreadKey { state["thread"] = activeThreadKey }
+    if let history = activeThreadKey.flatMap({ historyByThread[$0] }) {
+      state["reply"] = history.currentID
+      state["page"] = history.pageIndex + 1
+    }
     state.merge(fields) { _, new in new }
     diagnostics.record(event, fields: state)
   }

@@ -47,6 +47,7 @@ private struct T3EvenG2HistorySmoke {
     history.updateSnapshot(snapshot([first, second, third], latestID: "c"))
     try check(history.currentID == "b" && history.isNewReplyAvailable, "new reply must not move the browsing cursor")
     try check(history.text.contains(" · New"), "new reply indicator must stay in the footer")
+    try check(history.text.contains("Back,tap: Latest"), "older replies must expose the catch-up shortcut")
     try check(footer(history.text).count <= 46, "reply footer must fit one 46-character lens row")
     try check(history.jumpToLatest() == nil && history.currentID == "c", "jump to latest must select a loaded reply")
 

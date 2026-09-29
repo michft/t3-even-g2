@@ -101,7 +101,10 @@ Before connecting, quit the Even app so it releases the glasses. Disconnect G2 f
 Even on any other phone or tablet using the glasses. In T3 Code, open Settings and tap
 **G2 + R1**. On the glasses, swipe R1 up/down to choose a thread and tap to open it in T3. The picker
 shows non-archived threads in recent-activity order, with their environment and project labels.
-You can also open a thread directly on the iPhone. Once a thread is open, tap R1 to start dictation,
+You can also open a thread directly on the iPhone. Opening or reopening a thread starts at its
+latest reply on the glasses. R1 pages through glasses output independently of the phone's scroll
+position; the phone can remain at the live bottom while you read older replies on the glasses.
+Once a thread is open, tap R1 to start dictation,
 tap again to send, or quickly swipe R1 up then down (within 650 ms) to cancel. You can retry the
 sequence immediately while dictation is starting or listening. Back goes one level up:
 dictation or its error/sending screen returns to the current thread output,
@@ -125,8 +128,10 @@ swipe again to retry. Reading older output does not change which thread receives
 New text preserves your reading position. New replies appear automatically while you are on the
 first page of the latest reply; while you are reading older output or dictating, a new-reply marker
 appears instead. Back opens the thread picker with **Latest output** highlighted; tap to jump to
-the newest reply, or Back again to return to your previous reading position. Recent thread positions
-and output remain available during this app session, including while the phone is locked; uncached
+the newest reply. Older replies show **Back,tap: Latest** as a reminder. The picker labels this
+as a quick action, separate from its thread count. Back again returns to the previous reading
+position; explicitly opening a thread starts at latest. Cached output remains available during
+this app session, including while the phone is locked; uncached
 history needs a live environment connection. Restarting T3 requires loading the thread again.
 
 If a double-tap returns the glasses to
@@ -174,8 +179,10 @@ node scripts/g2-diagnostics.ts report <download-directory>
 The download command prints its directory. Reports default to the latest app connection run;
 add an ISO start time as the last argument to include earlier runs. `gesture.received` records
 show what reached the driver; `gesture.ignored`, `swipe.armed`, `swipe.expired`, `swipe.matched`,
-and dictation transitions explain its decisions. `display.request` records a requested screen,
-not confirmation that the user saw it. Keep screenshots/observations alongside these records.
+and dictation transitions explain its decisions. Reply/page IDs correlate navigation with
+`display.scheduled` and `display.write-completed`. A successful write means the Bluetooth transport
+accepted the payload, not confirmation that the user saw it. `display.request` records dictation
+feedback requests. Keep screenshots/observations alongside these records.
 
 Focused test commands (repo root):
 
@@ -239,6 +246,8 @@ app; reloading JavaScript alone does not install them.
 20. While idle, double-tap R1. T3 should recover its display if firmware exits to Even, then show
     the picker. Select a different thread and start dictation. Before sending, confirm live text
     appears in that thread's phone composer. Send once and verify it reaches only that thread.
+    Separately, browse older replies, open another thread, then reopen the first: glasses should
+    start at its latest reply. Repeat by leaving/reopening that thread on the phone.
 21. While listening, double-tap. Dictation should cancel without sending and T3 should recover.
     Test long-press separately as an alternate Back; note firmware that does not deliver it.
 22. Start dictation but remain silent, then tap to finish. If recognition reports no speech,

@@ -143,6 +143,36 @@ describe("Even G2 reply history bridge", () => {
     remounted.bridge.dispose();
   });
 
+  it("reopens at the latest window after cached older history and delayed messages", () => {
+    const threadKey = "environment:reopen-latest";
+    const first = makeHarness();
+    update(first.bridge, { threadKey, messages: replies(0, 60) });
+    first.request({
+      threadKey,
+      anchorId: "assistant-40",
+      direction: "older",
+      requestId: "browse-old",
+    });
+    first.position({ threadKey, messageId: "assistant-21" });
+    expect(first.snapshots.at(-1)?.hasNewer).toBe(true);
+    first.bridge.dispose();
+
+    const reopened = makeHarness();
+    update(reopened.bridge, { threadKey, messages: undefined });
+    update(reopened.bridge, { threadKey, messages: replies(0, 61) });
+    expect(reopened.snapshots.at(-1)).toMatchObject({
+      startIndex: 41,
+      hasNewer: false,
+      latestReplyId: "assistant-60",
+    });
+    reopened.position({ threadKey, messageId: "assistant-45" });
+    update(reopened.bridge, { threadKey, messages: replies(0, 62) });
+    expect(reopened.snapshots.at(-1)?.replies.some((reply) => reply.id === "assistant-45")).toBe(
+      true,
+    );
+    reopened.bridge.dispose();
+  });
+
   it("coalesces older-page requests and responds with an overlapping correlated window", () => {
     const harness = makeHarness();
     const threadKey = "environment:thread-page";

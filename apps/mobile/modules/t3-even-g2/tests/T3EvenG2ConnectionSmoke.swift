@@ -346,6 +346,7 @@ struct Smoke {
     }
     if CommandLine.arguments.contains("--history") {
       await verifyReplyHistory()
+      await verifyOpenAtLatest()
       print("G2 history paging, modal return, Latest shortcut, and stale-window checks passed")
       return
     }
@@ -770,6 +771,67 @@ struct Smoke {
     }
   }
 
+  /// Reopening selects latest, while duplicate active-thread updates preserve browsing.
+  @MainActor
+  private static func verifyOpenAtLatest() async {
+    let fixture = Fixture()
+    fixture.pageOccupied = false
+    fixture.subscribe(fixture.left)
+    fixture.subscribe(fixture.right)
+    await fixture.wait { $0["status"] as? String == "ready" }
+    fixture.connection.setThreadChoices([
+      ["key": "mini:reopen", "title": "Reopen thread", "subtitle": "Mini"],
+      ["key": "mini:other", "title": "Other thread", "subtitle": "Mini"],
+    ])
+    fixture.connection.setActiveThread("mini:reopen", enabled: true)
+    let replies = [
+      ["id": "old", "text": "Old reading position", "prompt": ""],
+      ["id": "new", "text": "Newest reply", "prompt": ""],
+    ]
+    let payload = historyPayload(replies, key: "mini:reopen")
+    fixture.connection.setReplyHistory(payload)
+    await fixture.waitForDisplay("Newest reply")
+    fixture.gesture(1)
+    await fixture.waitForDisplay("Old reading position")
+    fixture.connection.setActiveThread("mini:reopen", enabled: true)
+    fixture.connection.setReplyHistory(payload)
+    await fixture.waitForDisplay("Old reading position")
+    fixture.connection.setActiveThread("mini:other", enabled: true)
+    fixture.connection.setActiveThread("mini:reopen", enabled: true)
+    fixture.connection.setReplyHistory(payload)
+    await fixture.waitForDisplay("Newest reply")
+    fixture.gesture(1)
+    await fixture.waitForDisplay("Old reading position")
+    fixture.connection.setActiveThread("mini:reopen", enabled: false)
+    fixture.connection.setActiveThread("mini:reopen", enabled: true)
+    fixture.connection.setReplyHistory(payload)
+    await fixture.waitForDisplay("Newest reply")
+
+    fixture.gesture(1)
+    await fixture.waitForDisplay("Old reading position")
+    fixture.connection.showThreadPicker()
+    await fixture.waitForDisplay("T3 quick action")
+    fixture.gesture(2)
+    await fixture.waitForDisplay("T3 threads 1/2")
+    fixture.gesture(0)
+    await fixture.waitForDisplay("Newest reply")
+
+    fixture.connection.setActiveThread("mini:unloaded-latest", enabled: true)
+    var oldWindow = historyPayload([replies[0]], key: "mini:unloaded-latest")
+    oldWindow["latestReplyId"] = "new"
+    oldWindow["totalReplies"] = 2
+    oldWindow["hasNewer"] = true
+    fixture.connection.setReplyHistory(oldWindow)
+    precondition(fixture.historyRequests.count == 1)
+    precondition(fixture.historyRequests[0]["direction"] as? String == "latest")
+    oldWindow["requestId"] = fixture.historyRequests[0]["requestId"]
+    fixture.connection.setReplyHistory(oldWindow)
+    precondition(fixture.historyRequests.count == 1, "Unavailable latest must not cause a request loop")
+    fixture.connection.setReplyHistory(historyPayload(replies, key: "mini:unloaded-latest"))
+    await fixture.waitForDisplay("Newest reply")
+    fixture.connection.disconnect()
+  }
+
   /// Exercises history through real ring events and firmware display writes.
   @MainActor
   private static func verifyReplyHistory() async {
@@ -802,8 +864,7 @@ struct Smoke {
     // These are separate user gestures, outside the hardware debounce.
     try? await Task.sleep(for: .milliseconds(450))
     fixture.swipeBack()
-    await fixture.waitForDisplay("Latest output")
-    try? await Task.sleep(for: .milliseconds(450))
+    // Tap immediately after Back, before its picker frame or input debounce expires.
     fixture.gesture(0)
     await fixture.waitForDisplay("New arrival")
     precondition(fixture.selectedKeys.isEmpty, "Latest must not navigate to a synthetic thread")

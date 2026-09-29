@@ -156,6 +156,7 @@ export function createEvenG2HistoryBridge(dependencies: EvenG2HistoryBridgeDepen
   let replies: ReadonlyArray<EvenG2ReplyHistoryItem> = [];
   let pendingOlder: PendingOlderRequest | undefined;
   let disposed = false;
+  let needsLatestWindow = true;
 
   /** Sends a window and stores its anchor for later route or feed updates. */
   const publish = (
@@ -312,6 +313,7 @@ export function createEvenG2HistoryBridge(dependencies: EvenG2HistoryBridgeDepen
       if (previousInput?.threadKey !== nextInput.threadKey) {
         pendingOlder = undefined;
         replies = [];
+        needsLatestWindow = true;
       }
       input = nextInput;
       const cached = historyByThread.get(nextInput.threadKey);
@@ -379,9 +381,11 @@ export function createEvenG2HistoryBridge(dependencies: EvenG2HistoryBridgeDepen
         return;
       }
 
-      const startIndex = cached
-        ? preserveWindowStart(nextReplies, cached)
-        : maximumStart(nextReplies.length);
+      const startIndex =
+        cached && !needsLatestWindow
+          ? preserveWindowStart(nextReplies, cached)
+          : maximumStart(nextReplies.length);
+      needsLatestWindow = false;
       publish(nextInput.threadKey, nextReplies, startIndex, nextInput.loadingOlder);
     },
     /** Stops native listeners without clearing the per-thread history cache. */
