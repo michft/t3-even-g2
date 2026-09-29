@@ -4,7 +4,6 @@
 
 - [Install T3 Code](./user/install.md)
 - [Messages and context](./user/composer.md)
-- [Even G2 glasses and R1 ring](./user/even-g2.md)
 - [Working with threads](./user/thread-sidebar.md)
 - [Permission modes](./user/permission-modes.md)
 - [Terminal history](./user/terminal.md)
@@ -55,7 +54,6 @@ source alone does not explain. Most code changes do not need an internal documen
 ### Runbooks
 
 - [Development and local builds](./operations/development.md)
-- [Even G2 native builds and diagnostics](./operations/even-g2.md)
 - [T3 Connect setup](./operations/connect-setup.md)
 - [Release](./operations/release.md)
 - [Observability](./operations/observability.md)

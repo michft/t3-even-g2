@@ -1,22 +1,4 @@
-# T3 Code · Even G2 fork
-
-This is [michft/t3-even-g2](https://github.com/michft/t3-even-g2), an experimental fork of
-[T3 Code](https://github.com/pingdotgg/t3code) for Even G2 glasses and the R1 ring.
-The glasses connect through a custom iPhone build to browse assistant replies, choose threads,
-and dictate messages to the same environments used by the phone and desktop clients.
-
-Glasses support requires the fork's G2 native changes and iOS 26 or later. An upstream-only
-checkout, Expo Go, and the upstream installation commands below do not provide this integration.
-
-- [Glasses setup, controls, and limitations](./docs/user/even-g2.md)
-- [Native build, focused checks, and diagnostics](./docs/operations/even-g2.md)
-- [Report a G2 issue in this fork](https://github.com/michft/t3-even-g2/issues)
-
-Current controls: R1/right-arm tap opens, dictates, or sends; left-arm tap goes Back or cancels
-dictation. After sending, **Sending to T3 Code…** changes to **Thinking…** as phone state updates.
-Swipe up returns to replies while work continues; left-arm tap opens the thread picker.
-
-## About upstream T3 Code
+# T3 Code
 
 T3 Code is an "agent harness control surface". It enables control of the agents on your machine with a best-in-class mobile app ([iOS](https://apps.apple.com/us/app/t3-code-remote-claude-more/id6787819824), [Android](https://play.google.com/store/apps/details?id=com.t3tools.t3code)), [web app](https://app.t3.codes) and [Electron-based desktop app](https://t3.codes).
 
@@ -106,7 +88,6 @@ We are (mostly) not accepting contributions yet. Small fixes may be considered. 
 
 Full docs live in [docs/](./docs). There's no docs site yet.
 
-- [Even G2 glasses and R1 ring](./docs/user/even-g2.md)
 - [Install and first run](./docs/user/install.md)
 - [Permission modes](./docs/user/permission-modes.md)
 - [Keyboard shortcuts](./docs/user/keybindings.md)
@@ -147,7 +128,6 @@ vp i
 
 Read [CONTRIBUTING.md](./CONTRIBUTING.md) before reporting a bug or opening a PR.
 
-For G2-specific bugs, use [this fork's issue tracker](https://github.com/michft/t3-even-g2/issues).
-For upstream feature requests, start an [Ideas discussion](https://github.com/pingdotgg/t3code/discussions/categories/ideas).
+Have a feature request? Start an [Ideas discussion](https://github.com/pingdotgg/t3code/discussions/categories/ideas).
 
 Need support? Join the [Discord](https://discord.gg/jn4EGJjrvv).

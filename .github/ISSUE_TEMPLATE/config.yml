@@ -1,8 +1,5 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Even G2 setup and controls
-    url: https://github.com/michft/t3-even-g2/blob/HEAD/docs/user/even-g2.md
-    about: Read current glasses controls, native-build requirements, and known limitations. Use this repository's bug report form for G2 failures.
-  - name: Upstream feature request
+  - name: Feature request
     url: https://github.com/pingdotgg/t3code/discussions/categories/ideas
-    about: Suggest a change to upstream T3 Code in its Ideas discussions.
+    about: Suggest an improvement or new capability in Discussions.

@@ -1,16 +1,10 @@
 # T3 Code
 
-## Fork / upstream split
+## Local repository notes
 
-- **Upstream** means T3 Code **Nightly**.
-- JJ **Upstream** can also mean JJ bookmarks of local changes earlier in commits. Most changes will be here.
-- When the intended base is unclear, **ask before acting**. Do not assume `t3/main`.
-- **GitHub** means code pushed to the user's fork, `michft/t3-even-g2` (`origin`). It is distinct from T3 upstream (`t3`).
-- Never create PR for t3/main unless explicitly instructed to do so. Keep local G2 code and documentation changes separate.
-- Leave T3 updates for later unless explicitly requested; an ambiguous mention of upstream does not authorize a fetch, merge, rebase, or push.
-- **Ponytail** means the smallest change that meets the requirements. When in doubt, ask. It is a local skill.
-
-## needs heading
+Before working in this checkout, read [.plans/README.md](.plans/README.md) when present.
+The gitignored `.plans/` folder contains local changes, fork-specific guidance, and build/deploy
+notes for this repository. Keep that documentation there; preserve shared T3 documentation.
 
 T3 Code is a minimal GUI for coding agents. A Node WebSocket server wraps provider CLIs and agents (Codex, Claude Code, Cursor, Grok, OpenCode, Antigravity) and serves web, desktop, and mobile clients.
 

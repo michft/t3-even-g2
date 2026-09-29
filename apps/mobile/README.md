@@ -1,9 +1,7 @@
 # T3 Code Mobile
 
-For this fork's Even G2 integration, use a custom iOS 26-or-later native build containing the
-G2 changes. See [glasses controls and setup](../../docs/user/even-g2.md) and the
-[G2 build and diagnostics runbook](../../docs/operations/even-g2.md).
-An upstream-only checkout does not contain the G2 module.
+> [!WARNING]
+> T3 Code Mobile is currently in development and is not distributed yet. If you want to try it out, you can build it from source.
 
 ## Quickstart
 
@@ -92,156 +90,6 @@ T3CODE_IOS_PERSONAL_TEAM_BUNDLE_ID=com.example.t3code \
 vp run ios:release
 ```
 
-### Even G2 + R1 direct mode
-
-The iOS 26 build can connect directly to both Even G2 arms. It uses the G2 microphone for
-on-device dictation, the R1 ring for start/send/cancel gestures, and the G2 display for assistant
-reply history. This is an experimental, unofficial protocol integration and may need updates
-after glasses firmware changes.
-
-Before connecting, quit the Even app so it releases the glasses. Disconnect G2 from T3 and quit
-Even on any other phone or tablet using the glasses. In T3 Code, open Settings and tap
-**G2 + R1**. On the glasses, swipe R1 up/down to choose a thread and tap to open it in T3. The picker
-shows non-archived threads in recent-activity order, with their environment and project labels.
-You can also open a thread directly on the iPhone. Opening or reopening a thread starts at its
-latest reply on the glasses. R1 pages through glasses output independently of the phone's scroll
-position; the phone can remain at the live bottom while you read older replies on the glasses.
-Once a thread is open, tap R1 to start dictation and tap again to send. Recognized words scroll
-on the glasses so the newest line stays at the bottom; the complete transcript is retained for
-sending. After sending, the glasses show **Sending to T3 Code…**, then **Thinking…** when the
-phone reports work underway. While waiting, swipe up to return to the current thread's replies,
-or tap the left G2 arm to open the thread picker. These actions leave the submitted message running.
-Offline, approval, and input waits point to the connection or phone instead of claiming the agent
-is thinking. Swipe up leaves the waiting screen regardless of the Natural scrolling setting.
-Swipes scroll while reading. Up→down is no longer a Back or Cancel gesture anywhere,
-and swipes do nothing during dictation. Starting dictation has no tap-confirmation screen.
-
-Tap the left G2 arm to go Back: during dictation it explicitly cancels; from thread output it
-opens the picker; from the picker it restores the last
-open thread. Error notices return to the current reply and reading position.
-R1 and right-arm taps still open, dictate, or send. Long-press no longer triggers Back.
-Tap-then-hold remains the firmware menu gesture.
-In **Settings → Even G2**, **Natural scrolling** makes swipe up advance through content; turn it
-off for swipe down to advance instead. While idle, double-tap also returns to the thread picker.
-Scroll backward through a reply to reach the previous reply's last page; scroll forward to read
-newer replies. Each reply includes a short prompt label and a reply/page position. Older replies load
-as you reach the edge of available history. If loading is unavailable, keep reading cached output or
-swipe again to retry. Reading older output does not change which thread receives dictation.
-
-New text preserves your reading position. New replies appear automatically while you are on the
-first page of the latest reply; while you are reading older output or dictating, a new-reply marker
-appears instead. Back opens the thread picker with **Latest output** highlighted; tap to jump to
-the newest reply using R1 or the right arm. Older replies show **L arm tap, R1 tap: Latest** as a
-reminder. The picker labels this as a quick action, separate from its thread count.
-Back again returns to the previous reading
-position; explicitly opening a thread starts at latest. Cached output remains available during
-this app session, including while the phone is locked; uncached
-history needs a live environment connection. Restarting T3 requires loading the thread again.
-
-If a double-tap returns the glasses to
-Even, T3 automatically restores its display.
-Dictation stays stopped until you tap again. Display exits and Bluetooth interruptions keep already
-recognized words in the originating phone draft without sending them; explicit cancellation discards
-only the current dictation. Review the retained draft before sending it from the phone.
-If recovery fails, tap R1 to retry or use **Settings → Even G2 → Resume T3 display**.
-To leave T3 on purpose, disconnect **G2 + R1** in Settings.
-Existing typed composer text is preserved.
-
-Select the desired thread before locking the iPhone. Bluetooth background delivery is enabled,
-and T3 remembers both arms for reconnection after sleep or loss of range. Force-quitting T3 stops
-this session; reopen T3 and its thread before using R1 again. Locked-phone dictation and automatic
-display recovery require verification on your glasses firmware; a Bluetooth connection alone does
-not confirm the glasses are still delivering taps or microphone audio.
-
-A paid Apple Developer Program membership is not required for local testing on your own iPhone.
-Add your Apple Account to Xcode, connect and trust the iPhone, enable Developer Mode when prompted,
-then use the Personal Team build with a bundle identifier you control:
-
-```bash
-T3CODE_IOS_PERSONAL_TEAM=1 \
-T3CODE_IOS_PERSONAL_TEAM_BUNDLE_ID=com.example.t3code.g2 \
-pnpm run ios:dev -- --device
-```
-
-Free Personal Team provisioning expires after seven days, so Xcode must rebuild/reinstall the app
-periodically. Expo Go cannot load this native G2 module. A physical iPhone is required for G2 BLE
-testing; the iOS Simulator can only exercise the non-hardware UI.
-
-Run `vp run test:g2-native` for protocol/codec checks and `vp run test:g2-connection` for the
-native driver's recovery and repeated-dictation checks with simulated Bluetooth callbacks.
-
-G2 gesture diagnostics persist inside the native app, including Release builds. No Metro server
-or attached console is required. Logs contain timestamps, input source, thread IDs, state, and
-accept/ignore decisions; they omit speech and reply text. Two rotating segments retain at most
-about 1 MiB. Export soon after a failed attempt; older events eventually rotate out.
-
-From the repo root, download a paired iPhone's logs without restarting the app:
-
-```bash
-node scripts/g2-diagnostics.ts pull <device-id> <installed-bundle-id>
-node scripts/g2-diagnostics.ts report <download-directory>
-```
-
-The download command prints its directory. Reports default to the latest app connection run;
-add an ISO start time as the last argument to include earlier runs. `gesture.received` records
-show what reached the driver; `gesture.ignored` and dictation transitions explain its decisions. Reply/page IDs correlate navigation with
-`display.scheduled` and `display.write-completed`. A successful write means the Bluetooth transport
-accepted the payload, not confirmation that the user saw it. `display.request` records dictation
-screen requests. Keep screenshots/observations alongside these records.
-
-Focused test commands (repo root):
-
-```bash
-bash apps/mobile/modules/t3-even-g2/tests/connection-smoke.sh --startup-input
-bash apps/mobile/modules/t3-even-g2/tests/connection-smoke.sh --diagnostics
-bash apps/mobile/modules/t3-even-g2/tests/connection-smoke.sh --sending
-node --test scripts/g2-diagnostics.test.ts
-```
-
-The connection suite covers startup swipes, explicit Back, long transcript display, interruption
-retention, full-text sending, diagnostic persistence, rotation, and report parsing.
-
-Hardware test/debug run:
-
-Use a new thread reserved for send tests and a thread with several multi-page replies for history.
-Record the T3 build, iOS version, glasses/R1 firmware, and Natural scrolling setting. Run one check
-at a time. Changes to this native driver require an updated native app.
-
-1. Open a thread on the phone. Confirm glasses open its latest reply at page one.
-2. Swipe through a long reply. Confirm pages move while the phone can stay at the live bottom.
-3. Reverse swipe direction. Confirm no Back action or thread-picker jump occurs.
-4. Tap R1, then immediately swipe up→down. Listening should continue; nothing should send.
-5. Repeat up→down during Preparing, then during Listening, as separate attempts.
-6. Dictate more than one screen of text. The newest line should remain visible at the bottom.
-7. Keep dictating across several screenfuls. Send once and verify the full text, including its start.
-8. Dictate line breaks and a long uninterrupted phrase. Confirm the latest words remain visible.
-9. Type an unsent phone draft, then dictate and send. Typed text should remain; dictated text sends once.
-10. Dictate a distinctive phrase, then double-tap to trigger a display exit. Confirm no send occurs
-    and recognized words remain in the originating phone draft after recovery.
-11. With recognized words still unsent, disconnect/reconnect the glasses. Verify the draft survives.
-12. After interruption, start another dictation. New words should append after the retained draft,
-    without duplicating the older words. Explicitly review/send retained text from the phone.
-13. Tap the left G2 arm to cancel dictation, dismiss an error, open the picker from a reply or
-    waiting screen, and return from the picker. R1/right-arm taps still open, dictate, and send.
-    Long-press must not trigger Back. Confirm logs identify the left tap as `leftTemple`.
-14. From an older reply, tap the left G2 arm to reach the picker, then tap **Latest output**.
-    Confirm newest reply, page one. Open another thread and confirm its latest reply too.
-15. Send while a reply is delayed. Confirm Sending changes to Thinking when work starts;
-    swipe up returns to replies, then Back opens the picker. Repeat with Natural scrolling off.
-    Reading and dictation swipes must never cancel or go Back.
-16. Select a thread, lock the phone, then dictate/send twice. Verify each message reaches that thread once.
-17. Power-cycle the glasses. Confirm recovery and two consecutive dictations. If needed, separately
-    test **Settings → Even G2 → Resume T3 display**.
-
-For each failure, record `step | input device | starting screen/reply/page | exact gesture order |
-approximate gaps | expected | actual | recovery needed`. Capture whether Listening remained on,
-whether any message sent, and whether one or both displays changed. Download native logs after the
-attempt and include gesture `kind` and `source`: system events distinguish `ring`, `rightTemple`, and
-`leftTemple`; container events may only identify `textContainer` or `listContainer`.
-
-Head nods/tilts are not acceptance inputs yet: this direct driver does not enable or decode IMU
-motion data. Test them separately only after motion support is implemented.
-
 Build and run the local iOS preview app:
 
 ```bash
@@ -267,12 +115,6 @@ Run static checks for mobile native code:
 
 ```bash
 node ../../scripts/mobile-native-static-check.ts
-```
-
-Run the hardware-independent G2 protocol fixtures on macOS:
-
-```bash
-pnpm run test:g2-native
 ```
 
 The native lint task runs SwiftLint for Swift plus ktlint and detekt for Kotlin. Missing native tools are reported as warnings and skipped locally. CI installs the default toolset from `apps/mobile/Brewfile` before running the native checks.
