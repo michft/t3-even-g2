@@ -401,6 +401,7 @@ struct Smoke {
     }
     defer { watchdog.cancel() }
     if CommandLine.arguments.contains("--display-idle") {
+      await verifyDisplayIdleWriteFailure()
       await verifyDisplayIdle()
       print("G2 display idle timeout and tap wake checks passed")
       return
@@ -734,6 +735,32 @@ struct Smoke {
     print(
       "G2 native driver: per-arm auth, base heartbeats, occupied-page reset, readiness deadlines, stale arm replacement, late recovery, cancellation, thread picker, dictation, and reconnect passed"
     )
+  }
+
+  /// Restores visible content automatically when the idle blank cannot reach the glasses.
+  @MainActor
+  private static func verifyDisplayIdleWriteFailure() async {
+    let clock = DisplayIdleTimer()
+    let fixture = Fixture(displayIdleTimer: clock)
+    fixture.subscribe(fixture.left)
+    fixture.subscribe(fixture.right)
+    await fixture.wait { $0["status"] as? String == "ready" }
+    fixture.connection.setActiveThread("mini:idle-write-failure", enabled: true)
+    fixture.connection.displayText("Reply after failed blank")
+    await fixture.waitForDisplay("Reply after failed blank")
+    let creates = fixture.createCount
+    let timer = await clock.timer(0)
+    // A transport loss can be visible before CoreBluetooth reports the disconnect.
+    fixture.right.state = .disconnected
+    timer.yield()
+    timer.finish()
+    await fixture.wait { $0["status"] as? String == "paused" }
+    fixture.right.state = .connected
+    await fixture.wait { $0["status"] as? String == "ready" }
+    precondition(fixture.createCount > creates, "Failed blank must recreate the page without a tap")
+    await fixture.waitForDisplay("Reply after failed blank")
+    _ = await clock.timer(1)
+    fixture.connection.disconnect()
   }
 
   /// Exercises idle blanking, all tap sources, input resets, and speech through real BLE routing.
