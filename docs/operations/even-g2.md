@@ -26,6 +26,84 @@ For a self-contained Release build without Metro, use the same environment varia
 `vp run ios:release -- --device`. Personal Team builds omit unsupported extensions and
 entitlements; see the mobile README. Quit the Even app before connecting G2 through T3.
 
+## Current local iPhone deployment
+
+Verified on 2026-09-29 in `/Users/mt/src/even-g2`. This setup builds a self-contained **Release**
+binary using the **development app identity** (`T3 Code Dev`). Keep `APP_VARIANT=development`
+when updating this installation; the generic `ios:release` script above regenerates a production
+variant instead. Release configuration embeds JavaScript and does not need a Metro server.
+
+| Setting                  | Verified value                                        |
+| ------------------------ | ----------------------------------------------------- |
+| Physical iPhone          | `deadbeef7`, iPhone 17 Pro                            |
+| Device UDID              | `00008150-00112CC60EF2401C`                           |
+| Installed bundle ID      | `net.mich431.t3code.g2.mappe`                         |
+| Personal Team            | `PP97C35JA7`                                          |
+| Workspace / scheme       | `apps/mobile/ios/T3CodeDev.xcworkspace` / `T3CodeDev` |
+| Reusable build directory | `/private/tmp/even-g2-release-20260929`               |
+
+Run from the repository root. Confirm the physical device and installed identity before deploying;
+the paired iPad and simulators are separate targets:
+
+```bash
+xcrun devicectl list devices
+xcrun devicectl device info apps \
+  --device 00008150-00112CC60EF2401C \
+  --filter 'bundleIdentifier CONTAINS "t3"'
+```
+
+For native source changes with the existing generated workspace and Pods, rebuild directly:
+
+```bash
+APP_VARIANT=development \
+T3CODE_IOS_PERSONAL_TEAM=1 \
+T3CODE_IOS_PERSONAL_TEAM_BUNDLE_ID=net.mich431.t3code.g2.mappe \
+xcodebuild \
+  -workspace apps/mobile/ios/T3CodeDev.xcworkspace \
+  -scheme T3CodeDev \
+  -configuration Release \
+  -destination 'generic/platform=iOS' \
+  -derivedDataPath /private/tmp/even-g2-release-20260929 \
+  -allowProvisioningUpdates -allowProvisioningDeviceRegistration \
+  DEVELOPMENT_TEAM=PP97C35JA7 \
+  CODE_SIGN_STYLE=Automatic CODE_SIGN_IDENTITY='Apple Development' \
+  build > /private/tmp/even-g2-iphone-build.log 2>&1
+```
+
+Require exit code zero and `BUILD SUCCEEDED` in the log before installing. Confirm the output
+`T3CodeDev.app` contains `main.jsbundle`. Install over the existing app without uninstalling it
+to retain its data, then launch:
+
+```bash
+xcrun devicectl device install app \
+  --device 00008150-00112CC60EF2401C \
+  /private/tmp/even-g2-release-20260929/Build/Products/Release-iphoneos/T3CodeDev.app
+xcrun devicectl device process launch \
+  --device 00008150-00112CC60EF2401C net.mich431.t3code.g2.mappe
+```
+
+Run launch only after install succeeds. Successful installation and launch confirm deployment,
+not G2/R1 behavior; use the hardware checks below for that.
+
+### Reusing or repairing the local setup
+
+- `apps/mobile/ios` is generated and untracked. Native source-only edits do not require a clean
+  prebuild. If it is missing or app configuration changes, regenerate using the mobile README's
+  setup with the three environment variables above, then build with the same signing overrides.
+  Inspect local native edits before running `expo prebuild --clean`.
+- After native dependency or patch changes, rerun CocoaPods as described in the mobile README.
+  Existing Pods may otherwise reference an old pnpm package path.
+- Check `apps/mobile/ios/.xcode.env.local` if the build cannot find Node. This setup used
+  `/opt/homebrew/Cellar/node/26.8.2/bin/node`; Homebrew upgrades can invalidate that path.
+- The `/private/tmp` build directory is a disposable cache, not a required artifact. Xcode can
+  recreate it. If choosing another path, update both build and install commands.
+- If `vp` is absent from `PATH`, use `node_modules/.bin/vp` from the repository root. Avoid
+  reinstalling dependencies merely to locate the existing runner.
+- A sandboxed `devicectl` call timed out waiting for `CoreDeviceService`; the same command worked
+  with access outside the sandbox. Request that access if needed. Signing also needs access to
+  the local Xcode account and provisioning services. Personal Team provisioning expires after
+  seven days; rebuild/reinstall when needed.
+
 ## Focused checks
 
 From `apps/mobile`, run protocol/codec and simulated connection checks:
