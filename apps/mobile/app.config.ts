@@ -252,6 +252,7 @@ const config: ExpoConfig = {
       "keychain-access-groups": [`$(AppIdentifierPrefix)${iosBundleIdentifier}`],
     },
     infoPlist: {
+      UIBackgroundModes: ["bluetooth-central"],
       NSAppTransportSecurity: {
         NSAllowsArbitraryLoads: true,
       },

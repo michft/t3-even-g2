@@ -18,7 +18,7 @@ enum T3EvenG2Protocol {
     let source: String
   }
 
-  static func createPage(magic: Int) -> [UInt8] {
+  static func createPage(magic: Int, name: String = "t3code") -> [UInt8] {
     let item = message([
       uint(1, 1),
       string(4, "T3 Code ready"),
@@ -27,7 +27,7 @@ enum T3EvenG2Protocol {
       uint(3, 576),
       uint(4, 288),
       uint(9, 1),
-      string(10, "t3code"),
+      string(10, name),
       nested(11, item),
       uint(12, 1),
     ])
@@ -40,13 +40,13 @@ enum T3EvenG2Protocol {
     return message([uint(2, magic), nested(3, page)])
   }
 
-  static func rebuildText(_ text: String, magic: Int) -> [UInt8] {
+  static func rebuildText(_ text: String, magic: Int, name: String = "t3code") -> [UInt8] {
     let content = limitedUTF8(text, maxBytes: 900)
     let textObject = message([
       uint(3, 576),
       uint(4, 288),
       uint(9, 1),
-      string(10, "t3code"),
+      string(10, name),
       uint(11, 1),
       bytes(12, Array(content.utf8)),
     ])
@@ -109,10 +109,10 @@ enum T3EvenG2Protocol {
       )
     }
     if let textData = event.data(2) {
-      return Gesture(kind: gestureName(fields(textData).uint(3) ?? 0), source: "unknown")
+      return Gesture(kind: gestureName(fields(textData).uint(3) ?? 0), source: "textContainer")
     }
     if let listData = event.data(1) {
-      return Gesture(kind: gestureName(fields(listData).uint(5) ?? 0), source: "unknown")
+      return Gesture(kind: gestureName(fields(listData).uint(5) ?? 0), source: "listContainer")
     }
     return nil
   }
@@ -150,7 +150,7 @@ enum T3EvenG2Protocol {
   }
 
   static func isDictationSource(_ source: String) -> Bool {
-    source == "ring" || source == "rightTemple" || source == "leftTemple"
+    ["ring", "rightTemple", "leftTemple", "textContainer", "listContainer"].contains(source)
   }
 
   static func requiresDisplayRecovery(for gestureKind: String) -> Bool {

@@ -16,6 +16,14 @@ public final class T3EvenG2Module: Module {
     Name("T3EvenG2")
     Events("onStatus", "onTranscript", "onGesture")
 
+    OnCreate {
+      self.performOnMain { self.ensureAutoConnect() }
+    }
+
+    OnAppEntersForeground {
+      self.performOnMain { self.ensureAutoConnect() }
+    }
+
     Function("getStatus") { () -> [String: Any] in
       self.statusSnapshot()
     }

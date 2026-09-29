@@ -44,6 +44,7 @@
     "generate": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/generate-uniwind-themes.mts",
     "test": "vp test run",
     "test:g2-native": "clang -std=c11 -fsyntax-only modules/t3-even-g2/tests/T3EvenG2LC3Smoke.c && xcrun swiftc modules/t3-even-g2/ios/T3EvenG2Protocol.swift modules/t3-even-g2/tests/T3EvenG2ProtocolSmoke.swift -o /tmp/t3-even-g2-protocol-smoke && /tmp/t3-even-g2-protocol-smoke",
+    "test:g2-connection": "bash modules/t3-even-g2/tests/connection-smoke.sh",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

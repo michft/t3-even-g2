@@ -48,12 +48,15 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   private var detail = ""
   private var transportSequence: UInt8 = 0x40
   private var magic = 100
+  private var pageName = "t3code"
   private var heartbeatTask: Task<Void, Never>?
   private var displayTask: Task<Void, Never>?
   private var bootstrapTask: Task<Void, Never>?
   private var scanTimeoutTask: Task<Void, Never>?
   private var gestureTask: Task<Void, Never>?
   private var pauseTask: Task<Void, Never>?
+  private var recoveryTask: Task<Void, Never>?
+  private var reconnectTask: Task<Void, Never>?
   private var speechSession: AnyObject?
   private var decoder: T3EvenG2LC3Decoder?
   private var requestedDisconnect = false
@@ -98,7 +101,11 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     requestedDisconnect = false
     setStatus(.scanning, detail: "Looking for both G2 arms")
     if central == nil {
-      central = CBCentralManager(delegate: self, queue: .main)
+      central = CBCentralManager(
+        delegate: self,
+        queue: .main,
+        options: [CBCentralManagerOptionRestoreIdentifierKey: "T3EvenG2Central"]
+      )
     } else if let central {
       if central.state == .poweredOn {
         beginScan()
@@ -132,10 +139,16 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     guard status == .ready || status == .starting else { return }
     stopTasks()
     cancelSpeechAfterDisconnect()
-    setStatus(.paused, detail: "T3 display closed. Tap Resume T3 display to return.")
+    setStatus(.paused, detail: "Restoring T3 display; dictation cancelled")
     pauseTask = Task { @MainActor [weak self] in
       guard let self else { return }
       await self.sendEvenHub(T3EvenG2Protocol.audioControl(enabled: false, magic: self.nextMagic()))
+    }
+    recoveryTask = Task { @MainActor [weak self] in
+      try? await Task.sleep(for: .seconds(1))
+      guard let self, !Task.isCancelled, !self.requestedDisconnect else { return }
+      self.resumeDisplay()
+      self.recoveryTask = nil
     }
   }
 
@@ -184,7 +197,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     latestTranscript = ""
     setStatus(.ready, detail: "Preparing on-device speech")
     await sendEvenHub(
-      T3EvenG2Protocol.rebuildText("Preparing dictation…", magic: nextMagic())
+      textPayload("Preparing dictation…", magic: nextMagic())
     )
     guard status == .ready, !Task.isCancelled else { return }
 
@@ -206,7 +219,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       decoder = T3EvenG2LC3Decoder()
       let displayMagic = nextMagic()
       await sendEvenHub(
-        T3EvenG2Protocol.rebuildText("Listening…\n\nTap R1 again to send", magic: displayMagic)
+        textPayload("Listening…\n\nTap R1 again to send", magic: displayMagic)
       )
       guard speechSession === speech, status == .ready, !Task.isCancelled else { return }
       let audioMagic = nextMagic()
@@ -233,7 +246,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       listening = false
       setStatus(.ready, detail: error.localizedDescription)
       await sendEvenHub(
-        T3EvenG2Protocol.rebuildText(
+        textPayload(
           "Dictation unavailable\n\n\(error.localizedDescription)",
           magic: nextMagic()
         )
@@ -249,7 +262,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     decoder = nil
     setStatus(.ready, detail: "G2 microphone did not start")
     await sendEvenHub(
-      T3EvenG2Protocol.rebuildText(
+      textPayload(
         "G2 microphone did not start\n\nTap R1 to retry",
         magic: nextMagic()
       )
@@ -269,8 +282,12 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   func centralManagerDidUpdateState(_ central: CBCentralManager) {
     switch central.state {
     case .poweredOn:
-      if status == .scanning { beginScan() }
+      if status == .scanning { beginScan() } else if status == .error, !requestedDisconnect { connect() }
     case .poweredOff:
+      stopTasks()
+      cancelSpeechAfterDisconnect()
+      left.resetCharacteristics()
+      right.resetCharacteristics()
       setStatus(.error, detail: "Bluetooth is off")
     case .unauthorized:
       setStatus(.error, detail: "Bluetooth permission denied")
@@ -279,6 +296,17 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     default:
       break
     }
+  }
+
+  func centralManager(_ central: CBCentralManager, willRestoreState dict: [String: Any]) {
+    guard !requestedDisconnect else { return }
+    for peripheral in dict[CBCentralManagerRestoredStatePeripheralsKey] as? [CBPeripheral] ?? [] {
+      guard let arm = armForName((peripheral.name ?? "").uppercased()) else { continue }
+      arm.peripheral = peripheral
+      peripheral.delegate = self
+    }
+    // poweredOn follows restoration; only then may discovery/connect resume.
+    setStatus(.scanning, detail: "Restoring G2 connection")
   }
 
   func centralManager(
@@ -293,6 +321,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     guard upper.contains("G2_"), let arm = armForName(upper), arm.peripheral == nil else { return }
 
     arm.peripheral = peripheral
+    UserDefaults.standard.set(peripheral.identifier.uuidString, forKey: "T3EvenG2Arm\(arm.side)")
     peripheral.delegate = self
     central.connect(peripheral, options: nil)
     setStatus(.connecting, detail: "Found G2 \(arm.side) arm")
@@ -303,6 +332,8 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   }
 
   func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
+    guard !requestedDisconnect, let arm = arm(for: peripheral) else { return }
+    arm.resetCharacteristics()
     peripheral.discoverServices(nil)
   }
 
@@ -311,7 +342,8 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     didFailToConnect peripheral: CBPeripheral,
     error: Error?
   ) {
-    setStatus(.error, detail: error?.localizedDescription ?? "Could not connect to G2")
+    guard !requestedDisconnect, arm(for: peripheral) != nil else { return }
+    retryConnection(detail: error?.localizedDescription ?? "Could not connect to G2")
   }
 
   func centralManager(
@@ -325,6 +357,10 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     cancelSpeechAfterDisconnect()
     if requestedDisconnect {
       setStatus(.disconnected)
+      return
+    }
+    guard central.state == .poweredOn else {
+      setStatus(.error, detail: "Waiting for Bluetooth")
       return
     }
     setStatus(.connecting, detail: "Reconnecting G2 \(arm.side) arm")
@@ -371,13 +407,48 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
 
     arm.servicesDiscovered += 1
     guard arm.servicesDiscovered >= arm.servicesExpected else { return }
-    arm.ready = arm.write != nil && arm.notify != nil
-    if !arm.ready {
+    guard arm.write != nil, arm.notify != nil, arm.renderNotify != nil else {
       setStatus(.error, detail: "G2 \(arm.side) protocol characteristics missing")
-    } else if left.ready, right.ready {
+      return
+    }
+    updateReadiness(arm)
+  }
+
+  func peripheral(
+    _ peripheral: CBPeripheral,
+    didUpdateNotificationStateFor characteristic: CBCharacteristic,
+    error: Error?
+  ) {
+    guard let arm = arm(for: peripheral) else { return }
+    if error != nil || !characteristic.isNotifying {
+      arm.ready = false
+      retryConnection(detail: "G2 \(arm.side) notifications unavailable")
+      return
+    }
+    updateReadiness(arm)
+  }
+
+  private func updateReadiness(_ arm: Arm) {
+    guard arm.servicesDiscovered >= arm.servicesExpected, arm.servicesExpected > 0 else { return }
+    arm.ready = arm.write != nil && arm.notify?.isNotifying == true && arm.renderNotify?.isNotifying == true
+    guard arm.ready else { return }
+    if left.ready, right.ready {
+      guard status == .connecting || status == .scanning else { return }
       bootstrap()
     } else {
       setStatus(.connecting, detail: "Waiting for other G2 arm")
+    }
+  }
+
+  private func retryConnection(detail: String) {
+    stopTasks()
+    cancelSpeechAfterDisconnect()
+    setStatus(.error, detail: "\(detail). Reconnecting…")
+    reconnectTask = Task { @MainActor [weak self] in
+      try? await Task.sleep(for: .seconds(2))
+      guard let self, !Task.isCancelled, !self.requestedDisconnect, self.central?.state == .poweredOn else { return }
+      self.reconnectTask = nil
+      self.connect()
     }
   }
 
@@ -403,11 +474,27 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   }
 
   private func beginScan() {
-    left.peripheral = nil
-    right.peripheral = nil
-    left.resetCharacteristics()
-    right.resetCharacteristics()
-    central?.scanForPeripherals(
+    guard let central, !requestedDisconnect else { return }
+    for arm in [left, right] {
+      if arm.peripheral == nil,
+         let saved = UserDefaults.standard.string(forKey: "T3EvenG2Arm\(arm.side)"),
+         let identifier = UUID(uuidString: saved) {
+        arm.peripheral = central.retrievePeripherals(withIdentifiers: [identifier]).first
+      }
+      guard let peripheral = arm.peripheral else { continue }
+      peripheral.delegate = self
+      if peripheral.state == .connected {
+        arm.resetCharacteristics()
+        peripheral.discoverServices(nil)
+      } else if peripheral.state == .disconnected {
+        central.connect(peripheral, options: nil)
+      }
+    }
+    if left.peripheral != nil, right.peripheral != nil {
+      setStatus(.connecting, detail: "Waiting for remembered G2 arms")
+      return
+    }
+    central.scanForPeripherals(
       withServices: nil,
       options: [CBCentralManagerScanOptionAllowDuplicatesKey: false]
     )
@@ -428,18 +515,19 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       await self.pauseTask?.value
       try? await Task.sleep(for: .milliseconds(800))
       guard !Task.isCancelled else { return }
-      if !resuming {
-        let acknowledged = await self.sendSessionPrelude()
-        guard !Task.isCancelled else { return }
-        guard acknowledged else {
-          self.bootstrapTask = nil
-          self.setStatus(.error, detail: "G2 session handshake timed out")
-          return
-        }
+      let acknowledged = await self.sendSessionPrelude()
+      guard !Task.isCancelled else { return }
+      guard acknowledged else {
+        self.bootstrapTask = nil
+        self.setStatus(resuming ? .paused : .error, detail: "G2 session handshake timed out")
+        return
       }
+      // Firmware can retain old container names after exit and omit CREATE's
+      // acknowledgement. Each session gets a fresh name (under 14 bytes).
+      self.pageName = "t3-\(UUID().uuidString.prefix(8))"
       let createMagic = self.nextMagic()
       let created = await self.sendEvenHub(
-        T3EvenG2Protocol.createPage(magic: createMagic),
+        T3EvenG2Protocol.createPage(magic: createMagic, name: self.pageName),
         expectedAckMagic: createMagic
       )
       guard !Task.isCancelled else { return }
@@ -450,7 +538,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       }
       let displayMagic = self.nextMagic()
       let displayed = await self.sendEvenHub(
-        T3EvenG2Protocol.rebuildText(self.restingDisplayText, magic: displayMagic),
+        self.textPayload(self.restingDisplayText, magic: displayMagic),
         expectedAckMagic: displayMagic
       )
       guard !Task.isCancelled else { return }
@@ -463,6 +551,10 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       self.startHeartbeat()
       self.bootstrapTask = nil
     }
+  }
+
+  private func textPayload(_ text: String, magic: Int) -> [UInt8] {
+    T3EvenG2Protocol.rebuildText(text, magic: magic, name: pageName)
   }
 
   @MainActor
@@ -481,7 +573,17 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
         try? await Task.sleep(for: .seconds(5))
         guard let self, !Task.isCancelled else { return }
         guard self.status == .ready, !self.transportBusy else { continue }
-        await self.sendEvenHub(T3EvenG2Protocol.heartbeat(magic: self.nextMagic()))
+        let magic = self.nextMagic()
+        let alive = await self.sendEvenHub(
+          T3EvenG2Protocol.heartbeat(magic: magic),
+          expectedAckMagic: magic,
+          timeout: .seconds(2)
+        )
+        guard !Task.isCancelled else { return }
+        if !alive {
+          self.pauseDisplay()
+          return
+        }
       }
     }
   }
@@ -491,7 +593,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     displayTask = Task { @MainActor [weak self] in
       try? await Task.sleep(for: .milliseconds(300))
       guard let self, !Task.isCancelled, !self.listening, self.status == .ready else { return }
-      await self.sendEvenHub(T3EvenG2Protocol.rebuildText(text, magic: self.nextMagic()))
+      await self.sendEvenHub(self.textPayload(text, magic: self.nextMagic()))
     }
   }
 
@@ -511,7 +613,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     displayTask = Task { @MainActor [weak self] in
       try? await Task.sleep(for: .milliseconds(450))
       guard let self, !Task.isCancelled, self.listening, self.status == .ready else { return }
-      await self.sendEvenHub(T3EvenG2Protocol.rebuildText(text, magic: self.nextMagic()))
+      await self.sendEvenHub(self.textPayload(text, magic: self.nextMagic()))
     }
   }
 
@@ -523,12 +625,17 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     timeout: Duration = .seconds(5)
   ) async -> Bool {
     guard !Task.isCancelled else { return false }
-    guard let peripheral = right.peripheral, let write = right.write else { return false }
+    guard let peripheral = right.peripheral, peripheral.state == .connected, let write = right.write else { return false }
+    let deadline = ContinuousClock.now + timeout
     let expectedAckKey = expectedAckMagic.map { ackKey(service: 0xE0, magic: $0) }
     if let expectedAckKey {
       pendingAckKeys.insert(expectedAckKey)
     }
     while transportBusy {
+      guard ContinuousClock.now < deadline else {
+        clearAck(expectedAckKey)
+        return false
+      }
       do {
         try await Task.sleep(for: .milliseconds(10))
       } catch {
@@ -538,6 +645,23 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     }
     transportBusy = true
     defer { transportBusy = false }
+    do {
+      try await writeFrames(payload, to: peripheral, characteristic: write, deadline: deadline)
+    } catch {
+      clearAck(expectedAckKey)
+      return false
+    }
+    guard let expectedAckKey else { return true }
+    return await waitForAck(key: expectedAckKey, timeout: timeout)
+  }
+
+  @MainActor
+  private func writeFrames(
+    _ payload: [UInt8],
+    to peripheral: CBPeripheral,
+    characteristic: CBCharacteristic,
+    deadline: ContinuousClock.Instant
+  ) async throws {
     let sequence = transportSequence
     transportSequence &+= 1
     let maximumWriteLength = peripheral.maximumWriteValueLength(for: .withoutResponse)
@@ -548,23 +672,14 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       chunkSize: chunkSize
     ) {
       while !peripheral.canSendWriteWithoutResponse {
-        do {
-          try await Task.sleep(for: .milliseconds(5))
-        } catch {
-          clearAck(expectedAckKey)
-          return false
-        }
+        guard ContinuousClock.now < deadline, peripheral.state == .connected else { throw CancellationError() }
+        try await Task.sleep(for: .milliseconds(5))
       }
-      peripheral.writeValue(frame, for: write, type: .withoutResponse)
-      do {
-        try await Task.sleep(for: .milliseconds(14))
-      } catch {
-        clearAck(expectedAckKey)
-        return false
-      }
+      try Task.checkCancellation()
+      guard peripheral === right.peripheral, peripheral.state == .connected else { throw CancellationError() }
+      peripheral.writeValue(frame, for: characteristic, type: .withoutResponse)
+      try await Task.sleep(for: .milliseconds(14))
     }
-    guard let expectedAckKey else { return true }
-    return await waitForAck(key: expectedAckKey, timeout: timeout)
   }
 
   private func waitForAck(key: String, timeout: Duration) async -> Bool {
@@ -620,6 +735,10 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       pauseDisplay()
       return
     }
+    if status == .paused, gesture.kind == "click", T3EvenG2Protocol.isDictationSource(gesture.source) {
+      resumeDisplay()
+      return
+    }
     guard inputEnabled, status == .ready else { return }
     let now = Date()
     guard now.timeIntervalSince(lastGestureAt) > 0.4 else { return }
@@ -644,7 +763,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     let inputAccepted = T3EvenG2Protocol.isDictationSource(gesture.source)
     let feedback = inputAccepted ? "Tap received" : "Input detected"
     await sendEvenHub(
-      T3EvenG2Protocol.rebuildText(
+      textPayload(
         "\(feedback)\n\n\(sourceLabel) · \(gesture.kind)",
         magic: nextMagic()
       )
@@ -662,6 +781,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     case "ring": "R1"
     case "rightTemple": "right temple"
     case "leftTemple": "left temple"
+    case "textContainer", "listContainer": "G2 input"
     default: source
     }
   }
@@ -759,6 +879,10 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   }
 
   private func stopTasks() {
+    reconnectTask?.cancel()
+    reconnectTask = nil
+    recoveryTask?.cancel()
+    recoveryTask = nil
     gestureTask?.cancel()
     gestureTask = nil
     pauseTask?.cancel()

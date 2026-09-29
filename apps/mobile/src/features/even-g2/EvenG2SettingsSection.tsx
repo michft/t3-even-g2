@@ -62,7 +62,7 @@ export function EvenG2SettingsSection() {
       </SettingsSection>
       <Text className="px-2 text-sm text-foreground-muted">
         {status.detail ||
-          "Quit the Even app first. In a thread, tap R1 once to start or send. Double-tap leaves T3; resume the display here."}
+          "Quit the Even app first. In a thread, tap R1 once to start or send. Double-tap cancels dictation; T3 restores its display automatically."}
       </Text>
     </View>
   );
