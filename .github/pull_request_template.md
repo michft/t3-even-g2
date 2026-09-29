@@ -7,6 +7,7 @@ See CONTRIBUTING.md and docs/operations/even-g2-triage.md.
 ## Issue
 
 <!-- Replace with the accepted fork issue number. Use "Refs" for a partial fix. -->
+
 Closes #<issue-number>
 
 ## What changed and why

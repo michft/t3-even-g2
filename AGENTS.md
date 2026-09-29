@@ -169,7 +169,9 @@ Most code changes do not need an internal documentation change. Agents can read 
 - Do not commit implementation plans, research notes, or agent scratch files.
   Keep temporary scratch files outside the worktree. The gitignored `.plans/`
   directory is reserved for planning; operational documentation belongs in `docs/`.
-- Track active maintainer work in the GitHub issue or project item that owns it. External proposals follow `CONTRIBUTING.md` and belong in Ideas discussions.
+- Track active maintainer work in the GitHub issue or project item that owns it.
+  External proposals follow `CONTRIBUTING.md` and belong in the
+  [fork issue tracker](https://github.com/michft/t3-even-g2/issues).
 - A merged PR is the implementation record. Close or update its tracking item when the work lands; do not preserve a second checklist in the repository.
 
 ## How it works

@@ -149,6 +149,9 @@ vp i
 
 Read [CONTRIBUTING.md](./CONTRIBUTING.md) before reporting a bug or opening a PR.
 
-Have a feature request? Start an [Ideas discussion](https://github.com/pingdotgg/t3code/discussions/categories/ideas).
+Have a fork feature request? Use the
+[G2 feature-request form](https://github.com/michft/t3-even-g2/issues/new?template=feature_request.yml).
+Upstream-only proposals belong in T3 Code's
+[Ideas discussions](https://github.com/pingdotgg/t3code/discussions/categories/ideas).
 
 Need support? Join the [Discord](https://discord.gg/jn4EGJjrvv).

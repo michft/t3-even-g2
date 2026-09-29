@@ -2,13 +2,13 @@
 
 The canonical skill roles use the same names in the fork's GitHub tracker:
 
-| State | Meaning |
-| --- | --- |
-| `needs-triage` | Awaiting maintainer evaluation |
-| `needs-info` | Waiting for specific evidence from the reporter |
-| `ready-for-agent` | Accepted, fully specified work for an assigned agent |
+| State             | Meaning                                                  |
+| ----------------- | -------------------------------------------------------- |
+| `needs-triage`    | Awaiting maintainer evaluation                           |
+| `needs-info`      | Waiting for specific evidence from the reporter          |
+| `ready-for-agent` | Accepted, fully specified work for an assigned agent     |
 | `ready-for-human` | Accepted work requiring human judgment or implementation |
-| `wontfix` | Not accepted; close with the reason |
+| `wontfix`         | Not accepted; close with the reason                      |
 
 Every triaged issue has one category (`bug` or `enhancement`) and one state.
 Remove the previous state when transitioning. If states conflict, ask the

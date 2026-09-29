@@ -28,15 +28,15 @@ picker is empty, load threads on the phone first.
 **Back means a single tap on the left G2 arm.** Long-press does not trigger
 Back.
 
-| State | Left-arm tap | R1 tap | Right-arm tap |
-| --- | --- | --- | --- |
-| Display asleep | Wake only | Wake only | Wake only |
-| Thread picker | Back to thread | Open selection | Open selection |
-| Reply / empty thread | Open picker | Dictate | Latest reply |
-| Preparing dictation | Cancel | Wait | No action |
-| Listening | Cancel | Send | No action |
-| Sending / waiting | Open picker | Dictate | Latest reply |
-| Speech error | Dismiss | Retry | Latest reply |
+| State                | Left-arm tap   | R1 tap         | Right-arm tap  |
+| -------------------- | -------------- | -------------- | -------------- |
+| Display asleep       | Wake only      | Wake only      | Wake only      |
+| Thread picker        | Back to thread | Open selection | Open selection |
+| Reply / empty thread | Open picker    | Dictate        | Latest reply   |
+| Preparing dictation  | Cancel         | Wait           | No action      |
+| Listening            | Cancel         | Send           | No action      |
+| Sending / waiting    | Open picker    | Dictate        | Latest reply   |
+| Speech error         | Dismiss        | Retry          | Latest reply   |
 
 Right-arm tap jumps to the latest reply in the current thread. It does not
 switch to another thread or start, send, or cancel dictation. If no reply
