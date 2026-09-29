@@ -103,7 +103,10 @@ Even on any other phone or tablet using the glasses. In T3 Code, open Settings a
 shows non-archived threads in recent-activity order, with their environment and project labels.
 You can also open a thread directly on the iPhone. Once a thread is open, tap R1 to start dictation,
 tap again to send, or quickly swipe R1 up then down (within 650 ms) to cancel. The same sequence
-goes back from a reply, thread picker, or dictation error. A lone up swipe waits briefly for the
+goes back one level: dictation or its error/sending screen returns to the current thread output,
+preserving its reading position. Back from thread output opens the thread picker; Back there returns
+to the last open thread. Dismissing Sending does not retract a submitted message.
+A lone up swipe waits briefly for the
 second gesture, then scrolls normally; down alone scrolls immediately. Hold (long-press) remains
 an alternative when the glasses deliver that event. In **Settings → Even G2**, **Natural
 scrolling** makes swipe up advance through content; turn it off for swipe down to advance instead.

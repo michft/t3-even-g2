@@ -76,7 +76,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   private var listening = false
   private var stoppingDictation = false
   private var latestTranscript = ""
-  private var pendingDisplayText: String?
+  private var dictationNotice: String?
   private var displayPages: [String] = []
   private var displayPageIndex = 0
   private var lastGestureAt = Date.distantPast
@@ -178,7 +178,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   func displayText(_ text: String) {
     let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !cleaned.isEmpty else { return }
-    pendingDisplayText = cleaned
+    dictationNotice = nil
     displayPages = T3EvenG2Protocol.lensTextPages(cleaned)
     displayPageIndex = 0
     guard !listening, !threadPicker.isPresented, status == .ready else { return }
@@ -186,7 +186,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   }
 
   func clearDisplay() {
-    pendingDisplayText = nil
+    dictationNotice = nil
     displayPages = []
     displayPageIndex = 0
     displayTask?.cancel()
@@ -223,7 +223,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     if activeThreadKey != key || !enabled { clearPendingSwipe() }
     if enabled {
       if activeThreadKey != key {
-        pendingDisplayText = nil
+        dictationNotice = nil
         displayPages = []
         displayPageIndex = 0
       }
@@ -249,6 +249,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
 
   func showThreadPicker() {
     guard !listening, speechSession == nil else { return }
+    dictationNotice = nil
     clearPendingSwipe()
     threadPicker.isPresented = true
     threadPicker.openingKey = nil
@@ -262,6 +263,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       !listening, !stoppingDictation, speechSession == nil, !Task.isCancelled
     else { return }
     clearPendingSwipe()
+    dictationNotice = nil
     displayTask?.cancel()
     latestTranscript = ""
     let speech = T3EvenG2SpeechTranscriber()
@@ -313,12 +315,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       decoder = nil
       listening = false
       setStatus(.ready, detail: error.localizedDescription)
-      await sendEvenHub(
-        textPayload(
-          "Dictation unavailable\n\n\(error.localizedDescription)\n\nSwipe up then down: back",
-          magic: nextMagic()
-        )
-      )
+      showDictationNotice("Dictation unavailable\n\n\(error.localizedDescription)\n\nSwipe up then down: back")
     }
   }
 
@@ -329,12 +326,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     speechSession = nil
     decoder = nil
     setStatus(.ready, detail: "G2 microphone did not start")
-    await sendEvenHub(
-      textPayload(
-        "G2 microphone did not start\n\nTap R1 to retry\nSwipe up then down: back",
-        magic: nextMagic()
-      )
-    )
+    showDictationNotice("G2 microphone did not start\n\nTap R1 to retry\nSwipe up then down: back")
   }
 
   @MainActor
@@ -771,11 +763,17 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     if !inputEnabled {
       return "T3 Code\n\nOpen a thread to dictate"
     }
+    if let dictationNotice { return dictationNotice }
     if displayPages.indices.contains(displayPageIndex) {
       return displayPages[displayPageIndex]
     }
     let title = threadPicker.choices.first(where: { $0.key == activeThreadKey })?.title ?? "T3 Code"
     return "\(String(title.replacingOccurrences(of: "\n", with: " ").prefix(92)))\n\nTap R1 to dictate"
+  }
+
+  private func showDictationNotice(_ text: String) {
+    dictationNotice = text
+    scheduleDisplay(restingDisplayText)
   }
 
   private func scheduleListeningDisplay(_ transcript: String) {
@@ -978,7 +976,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       ["click", "longPress"].contains(gesture.kind),
       T3EvenG2Protocol.isDictationSource(gesture.source)
     else { return false }
-    if gesture.kind != "click" { showThreadPicker() }
+    if gesture.kind != "click" { _ = handleBackGesture(gesture) }
     bootstrap(resuming: true)
     return true
   }
@@ -1005,6 +1003,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     if listening || speechSession != nil || (!threadPicker.isPresented && gestureTask != nil) {
       gestureTask?.cancel()
       gestureTask = nil
+      dictationNotice = nil
       cancelSpeechAfterDisconnect()
       setStatus(.ready, detail: "Dictation cancelled")
       scheduleDisplay(restingDisplayText)
@@ -1018,6 +1017,11 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     if threadPicker.isPresented {
       threadPicker.openingKey = nil
       if inputEnabled, activeThreadKey != nil { threadPicker.isPresented = false }
+      scheduleDisplay(restingDisplayText)
+      return true
+    }
+    if dictationNotice != nil {
+      dictationNotice = nil
       scheduleDisplay(restingDisplayText)
       return true
     }
@@ -1076,7 +1080,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   private func scrollDisplay(_ gestureKind: String) {
     guard
       status == .ready,
-      !listening,
+      !listening, speechSession == nil, dictationNotice == nil,
       displayPages.count > 1,
       let offset = T3EvenG2Protocol.lensPageOffset(for: gestureKind, naturalScrolling: naturalScrolling)
     else { return }
@@ -1127,11 +1131,12 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
 
     if finalCancelled {
       onTranscript?(["text": "", "isFinal": true, "cancelled": true])
-      displayText(pendingDisplayText ?? "Dictation cancelled")
+      dictationNotice = nil
+      scheduleDisplay(restingDisplayText)
     } else if latestTranscript.isEmpty {
-      displayText("No speech recognized\n\nTap R1 to try again\nSwipe up then down: back")
+      showDictationNotice("No speech recognized\n\nTap R1 to try again\nSwipe up then down: back")
     } else {
-      displayText("Sending to T3 Code…")
+      showDictationNotice("Sending to T3 Code…")
     }
     if status != .error, !requestedDisconnect, left.ready, right.ready {
       setStatus(.ready, detail: "G2 and R1 ready")

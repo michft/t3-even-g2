@@ -43,6 +43,9 @@ final class Fixture {
   var baseHeartbeatCounts: [String: Int] = [:]
   var baseHeartbeatStates: Set<String> = []
   var baseHeartbeatWaiter: (() -> Void)?
+  var displayFrame: [UInt8] = []
+  var lastDisplayPayload = Data()
+  var displayWaiter: (() -> Void)?
 
   init(connectionTimeout: Duration = .seconds(20), rememberedLeft: CBPeripheral? = nil) {
     connection = T3EvenG2Connection(
@@ -67,6 +70,18 @@ final class Fixture {
       peripheral.onWrite = { [weak self, weak peripheral] frame in
         guard let self, let peripheral else { return }
         let bytes = Array(frame)
+        if bytes.count > 9, bytes[6] == 0xE0 {
+          if bytes[5] == 1 {
+            self.displayFrame = bytes[8] == 8 && bytes[9] == 7 ? Array(bytes.dropFirst(8)) : []
+          } else if !self.displayFrame.isEmpty {
+            self.displayFrame += bytes.dropFirst(8)
+          }
+          if bytes[4] == bytes[5], !self.displayFrame.isEmpty {
+            self.lastDisplayPayload = Data(self.displayFrame)
+            self.displayFrame = []
+            self.displayWaiter?()
+          }
+        }
         if bytes.count >= 14, bytes[6] == 0x80 {
           precondition(bytes[7] == 0 && bytes[8] == 8)
           let side = peripheral === self.left ? "L" : "R"
@@ -181,6 +196,18 @@ final class Fixture {
   func swipeBack() {
     gesture(1)
     gesture(2)
+  }
+
+  func waitForDisplay(_ text: String) async {
+    let expected = Data(text.utf8)
+    if lastDisplayPayload.range(of: expected) != nil { return }
+    await withCheckedContinuation { continuation in
+      displayWaiter = { [weak self] in
+        guard let self, self.lastDisplayPayload.range(of: expected) != nil else { return }
+        self.displayWaiter = nil
+        continuation.resume()
+      }
+    }
   }
 
   func waitForBaseHeartbeat(_ predicate: @escaping () -> Bool) async {
@@ -406,17 +433,29 @@ struct Smoke {
     try? await Task.sleep(for: .milliseconds(450))
     fixture.gesture(2) // Natural scrolling must not reverse the physical escape pair.
     precondition(fixture.transcripts.count == 5 && fixture.transcripts[4]["cancelled"] as? Bool == true)
-    // Empty recognition shows a short retry page; the escape pair must exit it.
+    // Dictation errors are one level above the same reply and reading position.
     try? await Task.sleep(for: .milliseconds(450))
+    fixture.connection.displayText(longReply)
+    fixture.gesture(1)
+    await fixture.wait { ($0["detail"] as? String)?.hasPrefix("G2 page 2 of") == true }
+    let secondPage = T3EvenG2Protocol.lensTextPages(longReply)[1]
+    await fixture.waitForDisplay(secondPage)
     T3EvenG2SpeechTranscriber.finalText = ""
     await fixture.connection.beginDictation()
     await fixture.connection.finishDictation()
+    await fixture.waitForDisplay("No speech recognized")
     T3EvenG2SpeechTranscriber.finalText = "test dictation"
     fixture.swipeBack()
     fixture.gesture(10)
+    await fixture.waitForDisplay(secondPage)
+    precondition(fixture.selectedKeys.count == 4)
+    // A second Back goes to selection; Back there returns to the same output.
     try? await Task.sleep(for: .milliseconds(450))
-    fixture.gesture(0)
-    precondition(fixture.selectedKeys.count == 5 && fixture.selectedKeys.last == "moorbeef:b")
+    fixture.swipeBack()
+    await fixture.waitForDisplay("T3 threads")
+    try? await Task.sleep(for: .milliseconds(450))
+    fixture.swipeBack()
+    await fixture.waitForDisplay(secondPage)
     precondition(fixture.connection.snapshot["listening"] as? Bool == false)
     // Back must invalidate a direct start before its first display write finishes.
     try? await Task.sleep(for: .milliseconds(450))
