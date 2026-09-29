@@ -27,6 +27,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     var servicesExpected = 0
     var servicesDiscovered = 0
     var ready = false
+    var didSendAuthentication = false
 
     init(side: String) {
       self.side = side
@@ -39,6 +40,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       servicesExpected = 0
       servicesDiscovered = 0
       ready = false
+      didSendAuthentication = false
     }
   }
 
@@ -51,8 +53,11 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   private var magic = 100
   private var pageName = "t3code"
   private var heartbeatTask: Task<Void, Never>?
+  private var baseHeartbeatTask: Task<Void, Never>?
+  private let baseHeartbeatInterval: Duration
   private var displayTask: Task<Void, Never>?
   private var bootstrapTask: Task<Void, Never>?
+  private var shutdownExitObserved = false
   private var scanTimeoutTask: Task<Void, Never>?
   private let connectionTimeout: Duration
   private var connectionTimedOut = false
@@ -89,8 +94,9 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
 
   static let autoConnectKey = "T3EvenG2AutoConnect"
 
-  init(connectionTimeout: Duration = .seconds(20)) {
+  init(connectionTimeout: Duration = .seconds(20), baseHeartbeatInterval: Duration = .seconds(5)) {
     self.connectionTimeout = connectionTimeout
+    self.baseHeartbeatInterval = baseHeartbeatInterval
     super.init()
   }
 
@@ -98,6 +104,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     guard status == .disconnected || status == .error else { return }
     if status == .error {
       requestedDisconnect = true
+      stopBaseHeartbeat()
       stopTasks()
       cancelSpeechAfterDisconnect()
       for arm in [left, right] {
@@ -127,6 +134,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
 
   func disconnect() {
     requestedDisconnect = true
+    stopBaseHeartbeat()
     central?.stopScan()
     stopTasks()
     cancelSpeechAfterDisconnect()
@@ -330,6 +338,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     case .poweredOn:
       if status == .scanning { beginScan() } else if status == .error, !requestedDisconnect { connect() }
     case .poweredOff:
+      stopBaseHeartbeat()
       stopTasks()
       cancelSpeechAfterDisconnect()
       left.resetCharacteristics()
@@ -481,6 +490,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     guard arm.servicesDiscovered >= arm.servicesExpected, arm.servicesExpected > 0 else { return }
     arm.ready = arm.write != nil && arm.notify?.isNotifying == true && arm.renderNotify?.isNotifying == true
     guard arm.ready else { return }
+    startBaseHeartbeat(for: arm)
     if left.ready, right.ready {
       guard status == .connecting || status == .scanning || connectionTimedOut else { return }
       central?.stopScan()
@@ -523,6 +533,11 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     }
     guard let gesture = T3EvenG2Protocol.gesture(from: data) else { return }
     onGesture?(["kind": gesture.kind, "source": gesture.source])
+    // The shutdown ACK can precede teardown. Relaunch only after its exit event.
+    if status == .starting, gesture.kind == "systemExit" {
+      shutdownExitObserved = true
+      return
+    }
     handleGesture(gesture)
   }
 
@@ -582,7 +597,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       await self.pauseTask?.value
       try? await Task.sleep(for: .milliseconds(800))
       guard !Task.isCancelled else { return }
-      let acknowledged = await self.sendSessionPrelude()
+      let acknowledged = await self.resetSessionPage()
       guard !Task.isCancelled else { return }
       guard acknowledged else {
         self.bootstrapTask = nil
@@ -625,12 +640,85 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   }
 
   @MainActor
+  private func resetSessionPage() async -> Bool {
+    guard await sendSessionPrelude(), !Task.isCancelled else { return false }
+    // A previous page can survive the BLE connection and block a fresh CREATE.
+    // A missing shutdown ACK must not block startup when no page is active.
+    let shutdownMagic = nextMagic()
+    shutdownExitObserved = false
+    let shutdownDeadline = ContinuousClock.now + .seconds(2)
+    _ = await sendEvenHub(
+      T3EvenG2Protocol.shutdown(magic: shutdownMagic),
+      expectedAckMagic: shutdownMagic,
+      timeout: .seconds(2)
+    )
+    guard !Task.isCancelled else { return false }
+    while !shutdownExitObserved, ContinuousClock.now < shutdownDeadline {
+      do {
+        try await Task.sleep(for: .milliseconds(10))
+      } catch {
+        return false
+      }
+    }
+    guard !Task.isCancelled else { return false }
+    return await sendSessionPrelude()
+  }
+
+  @MainActor
   private func sendSessionPrelude() async -> Bool {
     guard let peripheral = right.peripheral, let write = right.write else { return false }
     let key = ackKey(service: 0x01, magic: 156)
     pendingAckKeys.insert(key)
     peripheral.writeValue(T3EvenG2Protocol.sessionPrelude, for: write, type: .withoutResponse)
     return await waitForAck(key: key, timeout: .seconds(5))
+  }
+
+  private func startBaseHeartbeat(for arm: Arm) {
+    guard !requestedDisconnect, central?.state == .poweredOn else { return }
+    sendBaseHeartbeat(to: arm)
+    guard baseHeartbeatTask == nil else { return }
+    let interval = baseHeartbeatInterval
+    baseHeartbeatTask = Task { @MainActor [weak self] in
+      while !Task.isCancelled {
+        try? await Task.sleep(for: interval)
+        guard !Task.isCancelled, let active = self?.sendBaseHeartbeats(), active else { return }
+      }
+    }
+  }
+
+  private func sendBaseHeartbeats() -> Bool {
+    guard !requestedDisconnect, central?.state == .poweredOn else { return false }
+    for arm in [left, right] { sendBaseHeartbeat(to: arm) }
+    return true
+  }
+
+  private func sendBaseHeartbeat(to arm: Arm) {
+    guard
+      arm.ready, let peripheral = arm.peripheral, peripheral.state == .connected,
+      let write = arm.write, peripheral.canSendWriteWithoutResponse,
+      arm.side != "R" || !transportBusy
+    else { return }
+    // One short frame; retry next tick if BLE is backpressured or a right-arm
+    // page write is in flight. Never splice into a fragmented EvenHub message.
+    let authenticating = !arm.didSendAuthentication
+    let magic = nextMagic()
+    let payload = authenticating
+      ? T3EvenG2Protocol.authenticate(magic: magic)
+      : T3EvenG2Protocol.baseHeartbeat(magic: magic)
+    let frame = T3EvenG2Protocol.frames(
+      payload: payload,
+      sequence: transportSequence, service: 0x80, flag: 0x00
+    )[0]
+    transportSequence &+= 1
+    // Record only after the write guard passes; a blocked arm retries next tick.
+    // Successful hardware sessions return false/empty auth fields; do not gate startup on them.
+    if authenticating { arm.didSendAuthentication = true }
+    peripheral.writeValue(frame, for: write, type: .withoutResponse)
+  }
+
+  private func stopBaseHeartbeat() {
+    baseHeartbeatTask?.cancel()
+    baseHeartbeatTask = nil
   }
 
   private func startHeartbeat() {
@@ -974,6 +1062,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
 
   private func stopTasks() {
     connectionTimedOut = false
+    shutdownExitObserved = false
     reconnectTask?.cancel()
     reconnectTask = nil
     recoveryTask?.cancel()

@@ -61,6 +61,17 @@ enum T3EvenG2Protocol {
     message([uint(1, 12), uint(2, magic), nested(14, [])])
   }
 
+  // Base connection liveness is separate from the EvenHub page heartbeat.
+  // https://github.com/Mentra-Community/MentraOS/blob/dev/mobile/modules/bluetooth-sdk/ios/Source/sgcs/G2.swift
+  static func baseHeartbeat(magic: Int) -> [UInt8] {
+    message([uint(1, 14), uint(2, magic), nested(13, [])])
+  }
+
+  // Same DevSettings source above: secAuth=true, phoneType=PHONE_IOS (3).
+  static func authenticate(magic: Int) -> [UInt8] {
+    message([uint(1, 4), uint(2, magic), nested(3, message([uint(1, 1), uint(2, 3)]))])
+  }
+
   static func audioControl(enabled: Bool, magic: Int) -> [UInt8] {
     let command = enabled ? message([uint(1, 1)]) : []
     return message([uint(1, 15), uint(2, magic), nested(18, command)])

@@ -104,6 +104,26 @@ private struct T3EvenG2ProtocolSmoke {
       "heartbeat payload changed"
     )
     try check(
+      T3EvenG2Protocol.frames(
+        payload: T3EvenG2Protocol.baseHeartbeat(magic: 42),
+        sequence: 0x44, service: 0x80, flag: 0x00
+      ) == [Data([
+        0xAA, 0x21, 0x44, 0x08, 0x01, 0x01, 0x80, 0x00,
+        0x08, 0x0E, 0x10, 0x2A, 0x6A, 0x00, 0xBB, 0x72,
+      ])],
+      "base heartbeat must use device settings command 14, empty field 13, flag 0 and valid CRC"
+    )
+    try check(
+      T3EvenG2Protocol.frames(
+        payload: T3EvenG2Protocol.authenticate(magic: 42),
+        sequence: 0x44, service: 0x80, flag: 0x00
+      ) == [Data([
+        0xAA, 0x21, 0x44, 0x0C, 0x01, 0x01, 0x80, 0x00,
+        0x08, 0x04, 0x10, 0x2A, 0x1A, 0x04, 0x08, 0x01, 0x10, 0x03, 0xF2, 0x03,
+      ])],
+      "iOS auth must use command 4, secAuth=true, phoneType=3 and valid CRC"
+    )
+    try check(
       T3EvenG2Protocol.audioControl(enabled: true, magic: 42)
         == [0x08, 0x0F, 0x10, 0x2A, 0x92, 0x01, 0x02, 0x08, 0x01],
       "audio-start payload changed"
