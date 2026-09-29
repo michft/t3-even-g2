@@ -67,6 +67,10 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   /// Test hook called when a base-heartbeat task exits; not a user-facing API.
   var onBaseHeartbeatTaskEnd: (() -> Void)?
   private var displayTask: Task<Void, Never>?
+  private var displayIdleTask: Task<Void, Never>?
+  private let waitForDisplayIdle: @MainActor (Duration) async throws -> Void
+  private var displayIsSleeping = false
+  private var lastWakeAt = Date.distantPast
   private var bootstrapTask: Task<Void, Never>?
   private var shutdownExitObserved = false
   private var scanTimeoutTask: Task<Void, Never>?
@@ -125,12 +129,16 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     baseHeartbeatInterval: Duration = .seconds(5),
     pageHeartbeatInterval: Duration = .seconds(5),
     pageHeartbeatTimeout: Duration = .seconds(2),
+    waitForDisplayIdle: @escaping @MainActor (Duration) async throws -> Void = {
+      try await Task.sleep(for: $0)
+    },
     diagnostics: T3EvenG2Diagnostics = T3EvenG2Diagnostics()
   ) {
     self.connectionTimeout = connectionTimeout
     self.baseHeartbeatInterval = baseHeartbeatInterval
     self.pageHeartbeatInterval = pageHeartbeatInterval
     self.pageHeartbeatTimeout = pageHeartbeatTimeout
+    self.waitForDisplayIdle = waitForDisplayIdle
     self.diagnostics = diagnostics
     super.init()
     trace("connection.created")
@@ -172,6 +180,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   /// Stops Bluetooth work, cancels dictation, resets both arms, and reports disconnected.
   func disconnect() {
     requestedDisconnect = true
+    displayIsSleeping = false
     stopBaseHeartbeat()
     central?.stopScan()
     stopTasks()
@@ -189,6 +198,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   /// Restarts the display handshake when both arms are ready and the page is paused.
   func resumeDisplay() {
     guard status == .paused, left.ready, right.ready else { return }
+    displayIsSleeping = false
     bootstrap(resuming: true)
   }
 
@@ -202,6 +212,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       guard let self else { return }
       await self.sendEvenHub(T3EvenG2Protocol.audioControl(enabled: false, magic: self.nextMagic()))
     }
+    guard !displayIsSleeping else { return }
     recoveryTask = Task { @MainActor [weak self] in
       try? await Task.sleep(for: .seconds(1))
       guard let self, !Task.isCancelled, !self.requestedDisconnect else { return }
@@ -233,7 +244,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     displayPages = []
     displayPageIndex = 0
     displayTask?.cancel()
-    guard status == .ready else { return }
+    guard status == .ready, !displayIsSleeping else { return }
     displayTask = Task { @MainActor [weak self] in
       guard let self else { return }
       await self.sendEvenHub(T3EvenG2Protocol.shutdown(magic: self.nextMagic()))
@@ -470,6 +481,8 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       status == .ready, inputEnabled, !threadPicker.isPresented,
       !listening, !stoppingDictation, speechSession == nil, !Task.isCancelled
     else { return }
+    displayIsSleeping = false
+    restartDisplayIdleTimer()
     cancelHistoryRequest()
     publishHistoryPosition()
     dictationNotice = nil
@@ -480,9 +493,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     trace("dictation.preparing")
     setStatus(.ready, detail: "Preparing on-device speech")
     trace("display.request", ["screen": "preparing"])
-    await sendEvenHub(
-      textPayload("Preparing dictation…", magic: nextMagic())
-    )
+    await sendVisibleText("Preparing dictation…")
     guard speechSession === speech, status == .ready, !Task.isCancelled else { return }
     do {
       try await speech.start { [weak self, weak speech] text, isFinal in
@@ -498,11 +509,8 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
         return
       }
       decoder = T3EvenG2LC3Decoder()
-      let displayMagic = nextMagic()
       trace("display.request", ["screen": "listening"])
-      await sendEvenHub(
-        textPayload(listeningDisplayText(), magic: displayMagic)
-      )
+      await sendVisibleText(listeningDisplayText())
       guard speechSession === speech, status == .ready, !Task.isCancelled else { return }
       let audioMagic = nextMagic()
       let microphoneStarted = await sendEvenHub(
@@ -830,6 +838,10 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   /// Resets the previous page, creates a fresh one, and displays its resting content.
   private func bootstrap(resuming: Bool = false) {
     guard bootstrapTask == nil else { return }
+    guard !displayIsSleeping else {
+      setStatus(.paused, detail: "Display asleep; tap either arm or R1 to wake")
+      return
+    }
     setStatus(.starting, detail: "Starting direct G2 session")
     bootstrapTask = Task { @MainActor [weak self] in
       guard let self else { return }
@@ -870,6 +882,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       }
       self.setStatus(.ready, detail: "G2 and R1 ready")
       self.startHeartbeat()
+      self.restartDisplayIdleTimer()
       self.bootstrapTask = nil
     }
   }
@@ -877,6 +890,14 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   /// Builds a page-rebuild payload using this connection's current container name.
   private func textPayload(_ text: String, magic: Int) -> [UInt8] {
     T3EvenG2Protocol.rebuildText(text, magic: magic, name: pageName)
+  }
+
+  /// Writes current content only while the lenses are awake, including during dictation startup.
+  @MainActor
+  @discardableResult
+  private func sendVisibleText(_ text: String) async -> Bool {
+    guard !displayIsSleeping else { return false }
+    return await sendEvenHub(textPayload(text, magic: nextMagic()))
   }
 
   /// Sends the session prelude, shuts down any prior page, and sends the prelude again.
@@ -1011,9 +1032,71 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     }
   }
 
-  /// Debounces a resting display update and sends it if the connection stays ready.
+  /// Keeps the input page alive but blanks the lenses after fifteen seconds without input.
+  private func restartDisplayIdleTimer() {
+    displayIdleTask?.cancel()
+    displayIdleTask = nil
+    guard status == .ready, !displayIsSleeping else { return }
+    let wait = waitForDisplayIdle
+    displayIdleTask = Task { @MainActor [weak self] in
+      do {
+        try await wait(.seconds(15))
+      } catch { return }
+      guard let self, !Task.isCancelled, self.status == .ready else { return }
+      self.displayIsSleeping = true
+      self.displayTask?.cancel()
+      self.trace("display.sleep")
+      // Shutting down the page loses input capture and triggers automatic recovery.
+      // A blank page preserves tap delivery without showing incoming reply updates.
+      let written = await self.sendEvenHub(self.textPayload("\n", magic: self.nextMagic()))
+      guard !Task.isCancelled, self.displayIsSleeping else { return }
+      if written {
+        self.setStatus(.ready, detail: "Display asleep; tap either arm or R1 to wake")
+      } else {
+        self.pauseDisplay()
+      }
+    }
+  }
+
+  /// Resets the idle deadline on input and consumes wake taps without running their actions.
+  private func handleDisplayIdleInput(_ gesture: T3EvenG2Protocol.Gesture) -> Bool {
+    if !displayIsSleeping {
+      // Firmware can deliver the wake tap through more than one container or arm.
+      if Date().timeIntervalSince(lastWakeAt) <= 0.4,
+        ["click", "doubleClick", "scrollUp", "scrollDown"].contains(gesture.kind) { return true }
+      if status == .ready, ["click", "scrollUp", "scrollDown"].contains(gesture.kind),
+        gesture.isBack || T3EvenG2Protocol.isDictationSource(gesture.source) {
+        restartDisplayIdleTimer()
+      }
+      return false
+    }
+    guard gesture.kind == "click" else {
+      return !["systemExit", "abnormalExit"].contains(gesture.kind)
+    }
+    guard gesture.isBack || T3EvenG2Protocol.isDictationSource(gesture.source),
+      left.ready, right.ready, [.ready, .paused, .error].contains(status) else { return true }
+    displayIsSleeping = false
+    lastWakeAt = Date()
+    lastGestureAt = lastWakeAt
+    trace("display.wake", ["source": gesture.source])
+    if status == .ready {
+      restartDisplayIdleTimer()
+      if listening {
+        scheduleListeningDisplay(latestTranscript)
+      } else {
+        scheduleDisplay(speechSession != nil || startingDictation ? "Preparing dictation…" : restingDisplayText)
+      }
+      setStatus(.ready, detail: "G2 and R1 ready")
+    } else {
+      bootstrap(resuming: true)
+    }
+    return true
+  }
+
+  /// Debounces a resting display update without waking an idle display.
   private func scheduleDisplay(_ text: String) {
     displayTask?.cancel()
+    guard !displayIsSleeping else { return }
     let position: [String: Any] = [
       "displayReply": activeThreadKey.flatMap { historyByThread[$0]?.currentID } ?? "",
       "displayPage": activeThreadKey.flatMap { historyByThread[$0]?.pageIndex }.map { $0 + 1 } ?? 0,
@@ -1023,7 +1106,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     displayTask = Task { @MainActor [weak self] in
       try? await Task.sleep(for: .milliseconds(300))
       guard let self, !Task.isCancelled, !self.listening, self.status == .ready else { return }
-      let written = await self.sendEvenHub(self.textPayload(text, magic: self.nextMagic()))
+      let written = await self.sendVisibleText(text)
       self.trace("display.write-completed", position.merging(["written": written]) { _, new in new })
     }
   }
@@ -1063,12 +1146,13 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
 
   /// Debounces transcript display updates while listening remains active.
   private func scheduleListeningDisplay(_ transcript: String) {
+    guard !displayIsSleeping else { return }
     let text = listeningDisplayText(transcript)
     displayTask?.cancel()
     displayTask = Task { @MainActor [weak self] in
       try? await Task.sleep(for: .milliseconds(450))
       guard let self, !Task.isCancelled, self.listening, self.status == .ready else { return }
-      await self.sendEvenHub(self.textPayload(text, magic: self.nextMagic()))
+      await self.sendVisibleText(text)
     }
   }
 
@@ -1204,6 +1288,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
 
   /// Routes gestures through recovery, back, picker, and active-thread handling.
   private func handleGesture(_ gesture: T3EvenG2Protocol.Gesture) {
+    if handleDisplayIdleInput(gesture) { return }
     // Handle exits before input gating and debounce: a double-tap can follow
     // a click immediately, or arrive while Settings is open.
     if T3EvenG2Protocol.requiresDisplayRecovery(for: gesture.kind) {
@@ -1535,6 +1620,8 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     heartbeatTask = nil
     displayTask?.cancel()
     displayTask = nil
+    displayIdleTask?.cancel()
+    displayIdleTask = nil
     bootstrapTask?.cancel()
     bootstrapTask = nil
     scanTimeoutTask?.cancel()

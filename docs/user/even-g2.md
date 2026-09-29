@@ -38,7 +38,14 @@ the opening state for the active thread when available.
 In **Settings → Even G2 → Natural scrolling**, on means swipe up advances through content;
 off means swipe down advances. The sending screen's **swipe up to replies** action uses physical
 up under either setting. Swipes never cancel dictation, and up-then-down is not a Back gesture.
-An idle double-tap opens the picker and triggers display recovery; use left-arm tap for Back.
+A double-tap while the display is awake and you are not dictating opens the picker and triggers
+display recovery; use left-arm tap for Back.
+
+The lenses go blank after 15 seconds without a tap or swipe. Tap either G2 arm or R1 once to
+wake the current view; that first tap only wakes, and the next tap performs its usual action.
+Incoming replies stay hidden until you wake the display. The same timeout applies during
+dictation: speech capture continues while the lenses are blank. Wake with one tap, then tap
+again to send, or tap the left arm to cancel.
 
 ## Dictate and send
 
@@ -71,7 +78,8 @@ tap R1/right arm to jump there, or Back again to keep your previous position.
 
 ## Recovery and limits
 
-T3 attempts to restore its display after a display exit. If recovery fails, tap R1 or use
+T3 attempts to restore an awake display after a display exit. A timed-out display stays blank
+until you tap to wake it. If recovery fails, tap R1 or use
 **Settings → Even G2 → Resume T3 display** when available. To leave T3 deliberately, disconnect
 **G2 + R1** in Settings before returning to the Even app.
 
