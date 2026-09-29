@@ -32,6 +32,8 @@ final class T3EvenG2LC3Decoder {
 final class Fixture {
   static var waitingAtLine = 0
   let connection: T3EvenG2Connection
+  let diagnostics = T3EvenG2Diagnostics(
+    directory: FileManager.default.temporaryDirectory.appendingPathComponent("g2-test-\(UUID().uuidString)"))
   let left = CBPeripheral("G2_TEST_L_ARM")
   let right = CBPeripheral("G2_TEST_R_ARM")
   var transcripts: [[String: Any]] = []
@@ -73,7 +75,8 @@ final class Fixture {
       connectionTimeout: connectionTimeout,
       baseHeartbeatInterval: baseHeartbeatInterval,
       pageHeartbeatInterval: pageHeartbeatInterval,
-      pageHeartbeatTimeout: pageHeartbeatTimeout
+      pageHeartbeatTimeout: pageHeartbeatTimeout,
+      diagnostics: diagnostics
     )
     connection.onBaseHeartbeatTaskStart = { [weak self] in self?.baseHeartbeatTaskStarts += 1 }
     connection.onBaseHeartbeatTaskEnd = { [weak self] in
@@ -199,6 +202,11 @@ final class Fixture {
     }
   }
 
+  deinit {
+    diagnostics.flush()
+    try? FileManager.default.removeItem(at: diagnostics.directory)
+  }
+
   /// Completes connection and characteristic discovery for one simulated arm.
   func discover(_ peripheral: CBPeripheral) {
     peripheral.state = .connected
@@ -319,7 +327,7 @@ final class Fixture {
 struct Smoke {
   /// Exercises real connection, recovery, dictation, and navigation behavior with simulated firmware.
   @MainActor
-  static func main() async {
+  static func main() async throws {
     let savedScrolling = UserDefaults.standard.object(forKey: "T3EvenG2NaturalScrolling")
     defer { UserDefaults.standard.set(savedScrolling, forKey: "T3EvenG2NaturalScrolling") }
     let savedFastBack = UserDefaults.standard.object(forKey: "T3EvenG2FastBackGesture")
@@ -344,6 +352,16 @@ struct Smoke {
     if CommandLine.arguments.contains("--swipe-back") {
       await verifyDictationSwipeBack()
       print("G2 dictation swipe cancellation and duplicate Back checks passed")
+      return
+    }
+    if CommandLine.arguments.contains("--startup-back") {
+      try await verifyStartupSwipeBack()
+      print("G2 tap-feedback cancellation checks passed")
+      return
+    }
+    if CommandLine.arguments.contains("--diagnostics") {
+      try verifyDiagnostics()
+      print("G2 diagnostic persistence, rotation, and restart checks passed")
       return
     }
     var picker = T3EvenG2ThreadPicker()
@@ -521,7 +539,7 @@ struct Smoke {
     fixture.gesture(9)
     precondition(fixture.transcripts.count == 4 && fixture.transcripts[3]["cancelled"] as? Bool == true)
     fixture.connection.setNaturalScrolling(true)
-    precondition(T3EvenG2Connection().snapshot["naturalScrolling"] as? Bool == true)
+    precondition(T3EvenG2Connection(diagnostics: fixture.diagnostics).snapshot["naturalScrolling"] as? Bool == true)
     try? await Task.sleep(for: .milliseconds(450))
     fixture.gesture(1)
     await fixture.wait { ($0["detail"] as? String)?.hasPrefix("G2 page 2 of") == true }
@@ -641,6 +659,83 @@ struct Smoke {
     print(
       "G2 native driver: per-arm auth, base heartbeats, occupied-page reset, readiness deadlines, stale arm replacement, late recovery, cancellation, thread picker, dictation, and reconnect passed"
     )
+  }
+
+  /// Cancels through actual ring notifications before the tap-feedback delay ends.
+  @MainActor
+  private static func verifyStartupSwipeBack() async throws {
+    for fastBack in [false, true] {
+      for container in [false, true] {
+        let fixture = Fixture()
+        fixture.pageOccupied = false
+        fixture.subscribe(fixture.left)
+        fixture.subscribe(fixture.right)
+        await fixture.wait { $0["status"] as? String == "ready" }
+        fixture.connection.setFastBackGesture(fastBack)
+        fixture.connection.setActiveThread("mini:startup", enabled: true)
+        fixture.connection.displayText("Startup reply")
+        let starts = T3EvenG2SpeechTranscriber.startCount
+        fixture.gesture(0, container: container)
+        await fixture.waitForDisplay("Tap received")
+        fixture.gesture(1, container: container)
+        fixture.gesture(2, container: container)
+        precondition(
+          fixture.connection.snapshot["detail"] as? String == "Dictation cancelled",
+          "Up-then-down during Tap received must cancel pending dictation")
+        await fixture.waitForDisplay("Startup reply")
+        precondition(T3EvenG2SpeechTranscriber.startCount == starts)
+        precondition(fixture.transcripts.isEmpty)
+        fixture.diagnostics.flush()
+        let log = try String(contentsOf: fixture.diagnostics.directory.appendingPathComponent("current.jsonl"), encoding: .utf8)
+        precondition(log.contains("tap.accepted") && log.contains("swipe.matched") && log.contains("dictation.cancelled"))
+        precondition(!log.contains("Startup reply") && !log.contains("test dictation"))
+        fixture.connection.disconnect()
+      }
+    }
+    let crossing = Fixture()
+    crossing.pageOccupied = false
+    crossing.subscribe(crossing.left)
+    crossing.subscribe(crossing.right)
+    await crossing.wait { $0["status"] as? String == "ready" }
+    crossing.connection.setActiveThread("mini:crossing", enabled: true)
+    crossing.connection.displayText("Crossing reply")
+    crossing.gesture(0)
+    await crossing.waitForDisplay("Tap received")
+    crossing.gesture(1)
+    await crossing.waitForDisplay("Preparing dictation")
+    crossing.gesture(2)
+    precondition(
+      crossing.connection.snapshot["detail"] as? String == "Dictation cancelled",
+      "A pending swipe must survive the tap-feedback to preparing transition")
+    await crossing.waitForDisplay("Crossing reply")
+    crossing.connection.disconnect()
+  }
+
+  /// Verifies readable, ordered, bounded records survive creating a new logger instance.
+  private static func verifyDiagnostics() throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent("g2-log-test-\(UUID().uuidString)")
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let logger = T3EvenG2Diagnostics(directory: directory, maxBytes: 1_024)
+    for index in 0..<20 { logger.record("gesture.received", fields: ["index": index]) }
+    logger.flush()
+    let restarted = T3EvenG2Diagnostics(directory: directory, maxBytes: 1_024)
+    restarted.record("connection.created")
+    restarted.flush()
+    let entries = try ["previous.jsonl", "current.jsonl"].flatMap { name -> [[String: Any]] in
+      let data = try Data(contentsOf: directory.appendingPathComponent(name))
+      precondition(data.count <= 1_024)
+      return try data.split(separator: 0x0A).map {
+        guard let entry = try JSONSerialization.jsonObject(with: Data($0)) as? [String: Any] else {
+          fatalError("Invalid diagnostic record")
+        }
+        return entry
+      }
+    }
+    precondition(entries.last?["event"] as? String == "connection.created")
+    precondition(Set(entries.compactMap { $0["run"] as? String }).count == 2)
+    let indices = entries.compactMap { $0["index"] as? Int }
+    precondition(indices == indices.sorted() && indices.last == 19)
+    precondition(entries.allSatisfy { $0["uptimeMs"] is Double && $0["schema"] as? Int == 1 })
   }
 
   /// Cancels dictation even when a preceding swipe falls inside the input debounce.
@@ -779,7 +874,7 @@ struct Smoke {
     fixture.connection.setReplyHistory(newest)
     await fixture.waitForDisplay("Live reply beyond window")
     fixture.connection.setFastBackGesture(true)
-    precondition(T3EvenG2Connection().snapshot["fastBackGesture"] as? Bool == true)
+    precondition(T3EvenG2Connection(diagnostics: fixture.diagnostics).snapshot["fastBackGesture"] as? Bool == true)
     fixture.connection.disconnect()
     T3EvenG2SpeechTranscriber.finalText = "test dictation"
   }

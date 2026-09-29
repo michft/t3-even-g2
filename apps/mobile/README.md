@@ -159,6 +159,35 @@ testing; the iOS Simulator can only exercise the non-hardware UI.
 Run `vp run test:g2-native` for protocol/codec checks and `vp run test:g2-connection` for the
 native driver's recovery and repeated-dictation checks with simulated Bluetooth callbacks.
 
+G2 gesture diagnostics persist inside the native app, including Release builds. No Metro server
+or attached console is required. Logs contain timestamps, input source, thread IDs, state, and
+accept/ignore decisions; they omit speech and reply text. Two rotating segments retain at most
+about 1 MiB. Export soon after a failed attempt; older events eventually rotate out.
+
+From the repo root, download a paired iPhone's logs without restarting the app:
+
+```bash
+node scripts/g2-diagnostics.ts pull <device-id> <installed-bundle-id>
+node scripts/g2-diagnostics.ts report <download-directory>
+```
+
+The download command prints its directory. Reports default to the latest app connection run;
+add an ISO start time as the last argument to include earlier runs. `gesture.received` records
+show what reached the driver; `gesture.ignored`, `swipe.armed`, `swipe.expired`, `swipe.matched`,
+and dictation transitions explain its decisions. `display.request` records a requested screen,
+not confirmation that the user saw it. Keep screenshots/observations alongside these records.
+
+Focused test commands (repo root):
+
+```bash
+bash apps/mobile/modules/t3-even-g2/tests/connection-smoke.sh --startup-back
+bash apps/mobile/modules/t3-even-g2/tests/connection-smoke.sh --diagnostics
+node --test scripts/g2-diagnostics.test.ts
+```
+
+The existing connection suite also runs these groups. They cover cancellation during tap feedback
+and across preparation, plus diagnostic persistence, rotation, and report parsing.
+
 Hardware test/debug run:
 
 Use a disposable thread for send tests and a thread with several multi-page replies for history
@@ -181,8 +210,9 @@ app; reloading JavaScript alone does not install them.
    send, and the previous reply and reading position should return.
 7. Repeat step 6 using only right-arm swipes, then only left-arm swipes. Record whether each
    arm delivers both swipe directions on this firmware.
-8. Start dictation and cancel as soon as Preparing or Listening appears. It should stay
-   cancelled even if microphone startup completes late.
+8. Start dictation and cancel immediately during **Tap received**. Test again after **Preparing**,
+   then after **Listening** appears, one attempt at a time. Also start up during tap feedback and
+   finish down during Preparing. It should stay cancelled even if microphone startup completes late.
 9. While listening, swipe down, then immediately up→down without a pause. This is the debounce
    regression: it must cancel despite the preceding down swipe. Repeat five times.
 10. After cancellation, immediately repeat up→down. Duplicate input inside 400 ms should not
@@ -221,8 +251,8 @@ app; reloading JavaScript alone does not install them.
 
 For each failure, record `step | input device | starting screen/reply/page | exact gesture order |
 approximate gaps | expected | actual | recovery needed`. Capture whether Listening remained on,
-whether any message sent, and whether one or both displays changed. If native event logs are being
-captured, include gesture `kind` and `source`: system events distinguish `ring`, `rightTemple`, and
+whether any message sent, and whether one or both displays changed. Download native logs after the
+attempt and include gesture `kind` and `source`: system events distinguish `ring`, `rightTemple`, and
 `leftTemple`; container events may only identify `textContainer` or `listContainer`.
 
 Head nods/tilts are not acceptance inputs yet: this direct driver does not enable or decode IMU
