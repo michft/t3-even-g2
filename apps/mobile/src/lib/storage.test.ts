@@ -1,4 +1,6 @@
 import { EnvironmentId } from "@t3tools/contracts";
+import { it as effectIt } from "@effect/vitest";
+import * as Effect from "effect/Effect";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const mocks = vi.hoisted(() => {
@@ -101,6 +103,8 @@ import {
   savePreferencesPatch,
 } from "../persistence/imperative";
 import { toStableSavedRemoteConnection } from "./connection";
+import { CONNECTION_CATALOG_KEY, make as makeCatalogStore } from "../connection/catalog-store";
+import { layer as secureStorageLayer } from "../persistence/mobile-secure-storage";
 
 const managedConnection = {
   environmentId: EnvironmentId.make("environment-1"),
@@ -148,9 +152,45 @@ describe("mobile connection storage", () => {
       operation: "read",
       key: "t3code.connections",
       cause,
+      message:
+        "Mobile secure storage operation read failed for key t3code.connections. keychain unavailable",
+    });
+  });
+
+  it("does not stringify arbitrary secure-storage rejection values", async () => {
+    const cause = { storedValue: "private connection data" };
+    mocks.getItemAsync.mockRejectedValueOnce(cause);
+
+    await expect(loadSavedConnections()).rejects.toMatchObject({
+      _tag: "MobileSecureStorageError",
+      cause,
       message: "Mobile secure storage operation read failed for key t3code.connections.",
     });
   });
+
+  effectIt.effect(
+    "includes native read diagnostics in catalog failures without discarding stored data",
+    () =>
+      Effect.gen(function* () {
+        const cause = Object.assign(new Error("User interaction is not allowed."), {
+          code: "ERR_SECURESTORE_READ",
+        });
+        mocks.getItemAsync.mockRejectedValueOnce(cause);
+        const catalog = yield* makeCatalogStore();
+        const error = yield* Effect.flip(catalog.read);
+
+        expect(error).toMatchObject({
+          _tag: "ConnectionTransientError",
+          detail:
+            `Could not load the local connection catalog: MobileSecureStorageError: ` +
+            `Mobile secure storage operation read failed for key ${CONNECTION_CATALOG_KEY}. ` +
+            "User interaction is not allowed. (ERR_SECURESTORE_READ)",
+        });
+        expect(mocks.getItemAsync).toHaveBeenCalledExactlyOnceWith(CONNECTION_CATALOG_KEY);
+        expect(mocks.deleteItemAsync).not.toHaveBeenCalled();
+        expect(mocks.setItemAsync).not.toHaveBeenCalled();
+      }).pipe(Effect.provide(secureStorageLayer)),
+  );
 
   it("logs structured decode failures before using the empty fallback", async () => {
     await mocks.setItemAsync("t3code.connections", "{");

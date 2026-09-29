@@ -15,7 +15,13 @@ export class MobileSecureStorageError extends Schema.TaggedError<MobileSecureSto
   },
 ) {
   override get message(): string {
-    return `Mobile secure storage operation ${this.operation} failed for key ${this.key}.`;
+    const prefix = `Mobile secure storage operation ${this.operation} failed for key ${this.key}.`;
+    if (!(this.cause instanceof Error)) {
+      return prefix;
+    }
+    const code =
+      "code" in this.cause && typeof this.cause.code === "string" ? ` (${this.cause.code})` : "";
+    return `${prefix} ${this.cause.message}${code}`;
   }
 }
 
