@@ -3,15 +3,19 @@ import Foundation
 
 @MainActor
 final class T3EvenG2SpeechTranscriber {
+  static weak var current: T3EvenG2SpeechTranscriber?
   static var finalText = "test dictation"
   static var startCount = 0
   static var beforeFinish: (() async -> Void)?
   private var update: ((String, Bool) -> Void)?
   /// Captures the transcript callback and records recognition starts.
   func start(onUpdate: @escaping (String, Bool) -> Void) async throws {
+    Self.current = self
     Self.startCount += 1
     update = onUpdate
   }
+  /// Emits recognized words through the same callback as the device recognizer.
+  func publish(_ text: String) { update?(text, false) }
   /// Accepts audio without decoding it in the speech fixture.
   func appendPCM(_ pcm: Data) throws {}
   /// Waits for the optional test gate, then publishes the configured final transcript.
@@ -86,7 +90,6 @@ final class Fixture {
       self.baseHeartbeatTaskWaiter?()
     }
     connection.setNaturalScrolling(false)
-    connection.setFastBackGesture(false)
     connection.onStatus = { [weak self] state in self?.waiter?(state) }
     connection.onTranscript = { [weak self] event in self?.transcripts.append(event) }
     connection.onThreadSelected = { [weak self] event in
@@ -255,10 +258,20 @@ final class Fixture {
     }
   }
 
-  /// Sends the up-then-down escape gesture without a debounce delay.
-  func swipeBack() {
-    gesture(1)
-    gesture(2)
+  /// Delivers the firmware Back gesture.
+  func holdBack() { gesture(9) }
+
+  /// Waits for the next completed lens frame after a transcript update.
+  func waitForNextDisplay(after count: Int, line: Int = #line) async {
+    if displayPayloads.count > count { return }
+    Self.waitingAtLine = line
+    await withCheckedContinuation { continuation in
+      displayWaiter = { [weak self] in
+        guard let self, self.displayPayloads.count > count else { return }
+        self.displayWaiter = nil
+        continuation.resume()
+      }
+    }
   }
 
   /// Waits until a completed text frame contains the expected visible text.
@@ -333,8 +346,6 @@ struct Smoke {
   static func main() async throws {
     let savedScrolling = UserDefaults.standard.object(forKey: "T3EvenG2NaturalScrolling")
     defer { UserDefaults.standard.set(savedScrolling, forKey: "T3EvenG2NaturalScrolling") }
-    let savedFastBack = UserDefaults.standard.object(forKey: "T3EvenG2FastBackGesture")
-    defer { UserDefaults.standard.set(savedFastBack, forKey: "T3EvenG2FastBackGesture") }
     let watchdog = Task {
       // Covers the full suite's deliberate gesture debounce and firmware deadlines.
       try? await Task.sleep(for: .seconds(40))
@@ -342,6 +353,11 @@ struct Smoke {
       fatalError("G2 connection test timed out waiting for a lifecycle callback at line \(Fixture.waitingAtLine)")
     }
     defer { watchdog.cancel() }
+    if CommandLine.arguments.contains("--listening") {
+      await verifyListeningTranscript()
+      print("G2 transcript tail, swipe isolation, full send, and interruption checks passed")
+      return
+    }
     if CommandLine.arguments.contains("--heartbeats") {
       await verifyHeartbeats()
       print("G2 heartbeat restart, stale-task cleanup, and consecutive ACK checks passed")
@@ -353,14 +369,9 @@ struct Smoke {
       print("G2 history paging, modal return, Latest shortcut, and stale-window checks passed")
       return
     }
-    if CommandLine.arguments.contains("--swipe-back") {
-      await verifyDictationSwipeBack()
-      print("G2 dictation swipe cancellation and duplicate Back checks passed")
-      return
-    }
-    if CommandLine.arguments.contains("--startup-back") {
+    if CommandLine.arguments.contains("--startup-input") {
       try await verifyStartupSwipeBack()
-      print("G2 immediate, preparing, and transition cancellation checks passed")
+      print("G2 startup swipes and explicit Back checks passed")
       return
     }
     if CommandLine.arguments.contains("--diagnostics") {
@@ -486,7 +497,7 @@ struct Smoke {
     let createsBeforeCancel = fixture.createCount
     fixture.gesture(1)
     precondition(fixture.connection.snapshot["listening"] as? Bool == true)
-    fixture.gesture(2) // The escape pair must bypass the normal 400 ms debounce.
+    fixture.gesture(9) // Explicit Back cancels without waiting for debounce.
     precondition(fixture.connection.snapshot["listening"] as? Bool == false)
     precondition(fixture.connection.snapshot["status"] as? String == "ready")
     precondition(fixture.createCount == createsBeforeCancel)
@@ -494,7 +505,7 @@ struct Smoke {
     try? await Task.sleep(for: .milliseconds(450))
     fixture.gesture(0)
     await fixture.wait { $0["listening"] as? Bool == true }
-    // Firmware exits must still stop recording safely, even with swipe escape.
+    // Firmware exits must still stop recording safely, while dictating.
     fixture.gesture(3)
     precondition(fixture.connection.snapshot["status"] as? String == "paused")
     await fixture.waitForBaseHeartbeat { fixture.baseHeartbeatStates.contains("paused") }
@@ -548,7 +559,7 @@ struct Smoke {
     fixture.gesture(1)
     await fixture.wait { ($0["detail"] as? String)?.hasPrefix("G2 page 2 of") == true }
     try? await Task.sleep(for: .milliseconds(450))
-    fixture.swipeBack()
+    fixture.holdBack()
     fixture.gesture(10) // Release must not act as another Back or a tap.
     try? await Task.sleep(for: .milliseconds(450))
     fixture.gesture(1) // Natural scrolling moves the picker to the second thread.
@@ -558,13 +569,13 @@ struct Smoke {
     fixture.connection.setActiveThread("moorbeef:b", enabled: true)
     fixture.connection.showThreadPicker()
     try? await Task.sleep(for: .milliseconds(450))
-    fixture.swipeBack() // Back from a scrollable picker restores the active thread.
+    fixture.holdBack() // Back from a scrollable picker restores the active thread.
     try? await Task.sleep(for: .milliseconds(450))
     fixture.gesture(0)
     await fixture.wait { $0["listening"] as? Bool == true }
     fixture.gesture(1)
     try? await Task.sleep(for: .milliseconds(450))
-    fixture.gesture(2) // Natural scrolling must not reverse the physical escape pair.
+    fixture.gesture(9) // Explicit Back is independent of scrolling direction.
     precondition(fixture.transcripts.count == 5 && fixture.transcripts[4]["cancelled"] as? Bool == true)
     // Dictation errors are one level above the same reply and reading position.
     try? await Task.sleep(for: .milliseconds(450))
@@ -578,16 +589,16 @@ struct Smoke {
     await fixture.connection.finishDictation()
     await fixture.waitForDisplay("No speech recognized")
     T3EvenG2SpeechTranscriber.finalText = "test dictation"
-    fixture.swipeBack()
+    fixture.holdBack()
     fixture.gesture(10)
     await fixture.waitForDisplay(secondPage)
     precondition(fixture.selectedKeys.count == 4)
     // A second Back goes to selection; Back there returns to the same output.
     try? await Task.sleep(for: .milliseconds(450))
-    fixture.swipeBack()
+    fixture.holdBack()
     await fixture.waitForDisplay("T3 threads")
     try? await Task.sleep(for: .milliseconds(450))
-    fixture.swipeBack()
+    fixture.holdBack()
     await fixture.waitForDisplay(secondPage)
     precondition(fixture.connection.snapshot["listening"] as? Bool == false)
     // Back must invalidate a direct start before its first display write finishes.
@@ -596,7 +607,7 @@ struct Smoke {
     let startsBeforeBack = T3EvenG2SpeechTranscriber.startCount
     let preparing = Task { await fixture.connection.beginDictation() }
     await fixture.wait { $0["detail"] as? String == "Preparing on-device speech" }
-    fixture.swipeBack()
+    fixture.holdBack()
     fixture.right.canSendWriteWithoutResponse = true
     await preparing.value
     precondition(T3EvenG2SpeechTranscriber.startCount == startsBeforeBack)
@@ -615,7 +626,7 @@ struct Smoke {
       }
       oldFinish = Task { await fixture.connection.finishDictation() }
     }
-    fixture.swipeBack()
+    fixture.holdBack()
     T3EvenG2SpeechTranscriber.beforeFinish = nil
     await fixture.connection.beginDictation()
     precondition(fixture.connection.snapshot["listening"] as? Bool == true)
@@ -639,7 +650,7 @@ struct Smoke {
         && fixture.baseHeartbeatCounts["R", default: 0] > failedPageCounts["R", default: 0]
     }
     fixture.rejectPageCreation = false
-    fixture.swipeBack()
+    fixture.holdBack()
     await fixture.wait { $0["status"] as? String == "ready" }
     // The base connection timer also ends when Bluetooth powers off.
     let poweredOffCounts = fixture.baseHeartbeatCounts
@@ -665,52 +676,80 @@ struct Smoke {
     )
   }
 
-  /// Checks immediate cancellation and pairs spanning preparation without a tap-feedback page.
+  /// Keeps the latest recognized rows visible without truncating the submitted transcript.
+  @MainActor
+  private static func verifyListeningTranscript() async {
+    let fixture = Fixture()
+    fixture.pageOccupied = false
+    fixture.subscribe(fixture.left)
+    fixture.subscribe(fixture.right)
+    await fixture.wait { $0["status"] as? String == "ready" }
+    fixture.connection.setActiveThread("mini:transcript", enabled: true)
+    await fixture.connection.beginDictation()
+    let rows = (1...30).map { "Recognized row \($0)" }.joined(separator: "\n")
+    let samples = [
+      (rows, "Recognized row 30"),
+      (String(repeating: "continuous speech ", count: 100) + "newest words", "words"),
+      (String(repeating: "👩🏽‍💻", count: 200) + " newest emoji", "emoji"),
+    ]
+    for (transcript, ending) in samples {
+      let frames = fixture.displayPayloads.count
+      T3EvenG2SpeechTranscriber.current?.publish(transcript)
+      await fixture.waitForNextDisplay(after: frames)
+      precondition(fixture.lastDisplayPayload.range(of: Data(ending.utf8)) != nil,
+                   "Latest recognized row must remain visible: \(ending)")
+      precondition(fixture.lastDisplayPayload.range(of: Data("Recognized row 1\n".utf8)) == nil)
+      precondition(fixture.transcripts.last?["text"] as? String == transcript)
+    }
+    let transcript = samples.last!.0
+    fixture.gesture(1)
+    fixture.gesture(2)
+    precondition(fixture.connection.snapshot["listening"] as? Bool == true,
+                 "Swipe reversal must not cancel dictation")
+    T3EvenG2SpeechTranscriber.finalText = transcript
+    await fixture.connection.finishDictation()
+    precondition(fixture.transcripts.last?["text"] as? String == transcript)
+    precondition(fixture.transcripts.last?["isFinal"] as? Bool == true)
+    await fixture.connection.beginDictation()
+    T3EvenG2SpeechTranscriber.current?.publish("Keep these unsent words")
+    fixture.gesture(3)
+    precondition(fixture.transcripts.last?["interrupted"] as? Bool == true)
+    precondition(fixture.transcripts.last?["text"] as? String == "Keep these unsent words")
+    fixture.connection.disconnect()
+    T3EvenG2SpeechTranscriber.finalText = "test dictation"
+  }
+
+  /// Swipes never cancel startup; supported firmware Back still cancels explicitly.
   @MainActor
   private static func verifyStartupSwipeBack() async throws {
-    for fastBack in [false, true] {
-      for container in [false, true] {
-        let fixture = Fixture()
-        fixture.pageOccupied = false
-        fixture.subscribe(fixture.left)
-        fixture.subscribe(fixture.right)
-        await fixture.wait { $0["status"] as? String == "ready" }
-        fixture.connection.setFastBackGesture(fastBack)
-        fixture.connection.setActiveThread("mini:startup", enabled: true)
-        fixture.connection.displayText("Startup reply")
-        await fixture.waitForDisplay("Startup reply")
-        for phase in ["immediate", "preparing", "transition"] {
-          // Allow the intentional post-cancellation debounce before starting another attempt.
-          if phase != "immediate" { try await Task.sleep(for: .milliseconds(450)) }
-          let transcriptCount = fixture.transcripts.count
-          let firstFrame = fixture.displayPayloads.count
-          fixture.gesture(0, container: container)
-          if phase != "immediate" {
-            await fixture.waitForDisplay("Preparing dictation")
-            precondition(
-              fixture.displayPayloads[firstFrame].range(of: Data("Preparing dictation".utf8)) != nil,
-              "Tap must go straight to preparation without a click-registering page")
-          }
-          fixture.gesture(1, container: container)
-          if phase == "transition" { await fixture.waitForDisplay("Listening") }
-          fixture.gesture(2, container: container)
-          precondition(
-            fixture.connection.snapshot["detail"] as? String == "Dictation cancelled",
-            "Up-then-down must cancel during \(phase)")
-          await fixture.waitForDisplay("Startup reply")
-          precondition(fixture.connection.snapshot["listening"] as? Bool == false)
-          if phase == "immediate" {
-            precondition(fixture.transcripts.count == transcriptCount)
-          } else {
-            precondition(fixture.transcripts.count == transcriptCount + 1 && fixture.transcripts.last?["cancelled"] as? Bool == true)
-          }
-          fixture.diagnostics.flush()
-          let log = try String(contentsOf: fixture.diagnostics.directory.appendingPathComponent("current.jsonl"), encoding: .utf8)
-          precondition(log.contains("tap.accepted") && log.contains("swipe.matched") && log.contains("dictation.cancelled"))
-          precondition(!log.contains("Startup reply") && !log.contains("test dictation"))
+    for container in [false, true] {
+      let fixture = Fixture()
+      fixture.pageOccupied = false
+      fixture.subscribe(fixture.left)
+      fixture.subscribe(fixture.right)
+      await fixture.wait { $0["status"] as? String == "ready" }
+      fixture.connection.setActiveThread("mini:startup", enabled: true)
+      fixture.connection.displayText("Startup reply")
+      await fixture.waitForDisplay("Startup reply")
+      for phase in ["immediate", "preparing", "transition"] {
+        if phase != "immediate" { try await Task.sleep(for: .milliseconds(450)) }
+        let firstFrame = fixture.displayPayloads.count
+        fixture.gesture(0, container: container)
+        if phase != "immediate" {
+          await fixture.waitForDisplay("Preparing dictation")
+          precondition(fixture.displayPayloads[firstFrame].range(of: Data("Preparing dictation".utf8)) != nil)
         }
-        fixture.connection.disconnect()
+        fixture.gesture(1, container: container)
+        if phase == "transition" { await fixture.waitForDisplay("Listening") }
+        fixture.gesture(2, container: container)
+        await fixture.wait { $0["listening"] as? Bool == true }
+        fixture.gesture(9, container: container)
+        precondition(fixture.connection.snapshot["detail"] as? String == "Dictation cancelled")
+        await fixture.waitForDisplay("Startup reply")
+        precondition(fixture.transcripts.last?["cancelled"] as? Bool == true)
+        precondition(fixture.transcripts.last?["interrupted"] as? Bool == false)
       }
+      fixture.connection.disconnect()
     }
   }
 
@@ -741,38 +780,6 @@ struct Smoke {
     precondition(entries.allSatisfy { $0["uptimeMs"] is Double && $0["schema"] as? Int == 1 })
   }
 
-  /// Cancels dictation even when a preceding swipe falls inside the input debounce.
-  @MainActor
-  private static func verifyDictationSwipeBack() async {
-    for fastBack in [false, true] {
-      for container in [false, true] {
-        let fixture = Fixture()
-        fixture.pageOccupied = false
-        fixture.subscribe(fixture.left)
-        fixture.subscribe(fixture.right)
-        await fixture.wait { $0["status"] as? String == "ready" }
-        fixture.connection.setFastBackGesture(fastBack)
-        fixture.connection.setActiveThread("mini:a", enabled: true)
-        fixture.connection.displayText("Current reply")
-        await fixture.connection.beginDictation()
-        precondition(fixture.connection.snapshot["listening"] as? Bool == true)
-        fixture.gesture(2, container: container)
-        fixture.gesture(1, container: container)
-        fixture.gesture(2, container: container)
-        precondition(
-          fixture.connection.snapshot["listening"] as? Bool == false,
-          "A preceding down swipe must not suppress up-then-down cancellation")
-        precondition(fixture.transcripts.count == 1)
-        precondition(fixture.transcripts[0]["cancelled"] as? Bool == true)
-        fixture.gesture(1, container: container)
-        fixture.gesture(2, container: container)
-        await fixture.waitForDisplay("Current reply")
-        precondition(fixture.transcripts.count == 1)
-        fixture.connection.disconnect()
-      }
-    }
-  }
-
   /// Reopening selects latest, while duplicate active-thread updates preserve browsing.
   @MainActor
   private static func verifyOpenAtLatest() async {
@@ -793,6 +800,7 @@ struct Smoke {
     let payload = historyPayload(replies, key: "mini:reopen")
     fixture.connection.setReplyHistory(payload)
     await fixture.waitForDisplay("Newest reply")
+    try? await Task.sleep(for: .milliseconds(450))
     fixture.gesture(1)
     await fixture.waitForDisplay("Old reading position")
     fixture.connection.setActiveThread("mini:reopen", enabled: true)
@@ -802,6 +810,7 @@ struct Smoke {
     fixture.connection.setActiveThread("mini:reopen", enabled: true)
     fixture.connection.setReplyHistory(payload)
     await fixture.waitForDisplay("Newest reply")
+    try? await Task.sleep(for: .milliseconds(450))
     fixture.gesture(1)
     await fixture.waitForDisplay("Old reading position")
     fixture.connection.setActiveThread("mini:reopen", enabled: false)
@@ -809,10 +818,12 @@ struct Smoke {
     fixture.connection.setReplyHistory(payload)
     await fixture.waitForDisplay("Newest reply")
 
+    try? await Task.sleep(for: .milliseconds(450))
     fixture.gesture(1)
     await fixture.waitForDisplay("Old reading position")
     fixture.connection.showThreadPicker()
     await fixture.waitForDisplay("T3 quick action")
+    try? await Task.sleep(for: .milliseconds(450))
     fixture.gesture(2)
     await fixture.waitForDisplay("T3 threads 1/2")
     fixture.gesture(0)
@@ -850,6 +861,7 @@ struct Smoke {
     ]
     fixture.connection.setReplyHistory(historyPayload(replies))
     await fixture.waitForDisplay("Latest original reply")
+    try? await Task.sleep(for: .milliseconds(450))
     fixture.gesture(1)
     await fixture.waitForDisplay("Older line 17")
     await fixture.connection.beginDictation()
@@ -861,11 +873,11 @@ struct Smoke {
     await fixture.connection.beginDictation()
     await fixture.connection.finishDictation()
     await fixture.waitForDisplay("No speech recognized")
-    fixture.swipeBack()
+    fixture.holdBack()
     await fixture.waitForDisplay("Older line 17")
     // These are separate user gestures, outside the hardware debounce.
     try? await Task.sleep(for: .milliseconds(450))
-    fixture.swipeBack()
+    fixture.holdBack()
     // Tap immediately after Back, before its picker frame or input debounce expires.
     fixture.gesture(0)
     await fixture.waitForDisplay("New arrival")
@@ -893,6 +905,7 @@ struct Smoke {
     loaded["requestId"] = request["requestId"]
     fixture.connection.setReplyHistory(loaded)
     await fixture.waitForDisplay("Loaded older reply")
+    try? await Task.sleep(for: .milliseconds(450))
     fixture.gesture(1)
     await fixture.waitForHistoryRequest(2)
     await fixture.connection.beginDictation() // Cancels the pending window request.
@@ -910,6 +923,7 @@ struct Smoke {
     emptyWindow["hasOlder"] = true
     fixture.connection.setReplyHistory(emptyWindow)
     await fixture.waitForDisplay("No replies available")
+    try? await Task.sleep(for: .milliseconds(450))
     fixture.gesture(1)
     await fixture.waitForHistoryRequest(3)
     var firstLoaded = historyPayload([
@@ -936,8 +950,6 @@ struct Smoke {
     newest["requestId"] = fixture.historyRequests[3]["requestId"]
     fixture.connection.setReplyHistory(newest)
     await fixture.waitForDisplay("Live reply beyond window")
-    fixture.connection.setFastBackGesture(true)
-    precondition(T3EvenG2Connection(diagnostics: fixture.diagnostics).snapshot["fastBackGesture"] as? Bool == true)
     fixture.connection.disconnect()
     T3EvenG2SpeechTranscriber.finalText = "test dictation"
   }

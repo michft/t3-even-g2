@@ -19,13 +19,14 @@ export interface EvenG2Status {
   readonly listening: boolean;
   readonly autoConnect: boolean;
   readonly naturalScrolling: boolean;
-  readonly fastBackGesture: boolean;
 }
 
 export interface EvenG2TranscriptEvent {
   readonly text: string;
   readonly isFinal: boolean;
   readonly cancelled?: boolean;
+  /** Recognition stopped unexpectedly; retain these words as an unsent draft. */
+  readonly interrupted?: boolean;
 }
 
 export interface EvenG2ThreadChoice {
@@ -78,8 +79,6 @@ interface EvenG2NativeModule {
   setAutoConnect(enabled: boolean): void;
   /** Sets the direction used to advance through displayed content. */
   setNaturalScrolling(enabled: boolean): void;
-  /** Sets the shorter gesture window used to reverse direction and go back. */
-  setFastBackGesture(enabled: boolean): void;
   /** Starts a connection to the glasses. */
   connect(): void;
   /** Closes the current glasses connection. */
@@ -120,7 +119,6 @@ const unavailableStatus: EvenG2Status = {
   listening: false,
   autoConnect: false,
   naturalScrolling: true,
-  fastBackGesture: false,
 };
 
 let cachedModule: EvenG2NativeModule | null | undefined;
@@ -204,11 +202,6 @@ export function setEvenG2AutoConnect(enabled: boolean): void {
 /** Sets whether vertical gestures follow the natural-scroll direction. */
 export function setEvenG2NaturalScrolling(enabled: boolean): void {
   nativeModule()?.setNaturalScrolling(enabled);
-}
-
-/** Enables the shorter swipe-reversal window for returning to the prior page. */
-export function setEvenG2FastBackGesture(enabled: boolean): void {
-  nativeModule()?.setFastBackGesture(enabled);
 }
 
 /** Starts connecting to the Even glasses. */

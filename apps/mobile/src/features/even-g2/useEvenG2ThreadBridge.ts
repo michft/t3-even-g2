@@ -54,10 +54,14 @@ export function subscribeEvenG2Dictation(getInput: () => EvenG2DictationInput): 
       return;
     }
 
-    origin.onChangeDraftMessage(origin.draftMessage);
+    origin.onChangeDraftMessage(
+      event.interrupted
+        ? mergeDraftWithTranscript(origin.draftMessage, event.text)
+        : origin.draftMessage,
+    );
     session = null;
     const command = event.text.trim();
-    if (!event.cancelled && command.length > 0) {
+    if (!event.cancelled && !event.interrupted && command.length > 0) {
       void origin.onSendTextMessage(command).catch((error: unknown) => {
         console.error("[even-g2] Failed to send dictated message", origin.threadKey, error);
       });

@@ -85,7 +85,6 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   private var transportBusy = false
   private var inputEnabled = false
   private var naturalScrolling = UserDefaults.standard.object(forKey: "T3EvenG2NaturalScrolling") as? Bool ?? true
-  private var fastBackGesture = UserDefaults.standard.bool(forKey: "T3EvenG2FastBackGesture")
   private var activeThreadKey: String?
   private var openAtLatest = false
   private var threadPicker = T3EvenG2ThreadPicker()
@@ -102,9 +101,6 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   private var displayPages: [String] = []
   private var displayPageIndex = 0
   private var lastGestureAt = Date.distantPast
-  private var pendingSwipeUp: T3EvenG2Protocol.Gesture?
-  private var pendingSwipeDeadline: ContinuousClock.Instant?
-  private var swipeUpTask: Task<Void, Never>?
   private var pendingAckKeys: Set<String> = []
   private var receivedAckKeys: Set<String> = []
 
@@ -117,7 +113,6 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       "listening": listening,
       "autoConnect": UserDefaults.standard.bool(forKey: Self.autoConnectKey),
       "naturalScrolling": naturalScrolling,
-      "fastBackGesture": fastBackGesture,
     ]
   }
 
@@ -201,7 +196,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     guard status == .ready || status == .starting else { return }
     stopTasks()
     cancelSpeechAfterDisconnect()
-    setStatus(.paused, detail: "Restoring T3 display; dictation cancelled")
+    setStatus(.paused, detail: "Restoring T3 display; dictation stopped")
     pauseTask = Task { @MainActor [weak self] in
       guard let self else { return }
       await self.sendEvenHub(T3EvenG2Protocol.audioControl(enabled: false, magic: self.nextMagic()))
@@ -246,7 +241,6 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
 
   /// Enables thread input or cancels dictation when input is disabled.
   func setInputEnabled(_ enabled: Bool) {
-    if inputEnabled != enabled { clearPendingSwipe() }
     inputEnabled = enabled
     threadPicker.isPresented = !enabled
     if !enabled, listening {
@@ -268,21 +262,12 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     emitStatus()
   }
 
-  /// Selects a shorter escape window to reduce accidental Back gestures while browsing.
-  func setFastBackGesture(_ enabled: Bool) {
-    clearPendingSwipe()
-    fastBackGesture = enabled
-    UserDefaults.standard.set(enabled, forKey: "T3EvenG2FastBackGesture")
-    emitStatus()
-  }
-
   /// Selects or clears the active thread and updates the input picker state.
   func setActiveThread(_ key: String, enabled: Bool) {
     if activeThreadKey != key || inputEnabled != enabled {
       trace("thread.selection", ["targetThread": key, "enabled": enabled])
     }
     if activeThreadKey != key || !enabled {
-      clearPendingSwipe()
       cancelHistoryRequest()
     }
     if enabled {
@@ -456,7 +441,6 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     dictationNotice = nil
     cancelHistoryRequest()
     publishHistoryPosition()
-    clearPendingSwipe()
     refreshThreadChoices()
     threadPicker.highlightLatestOutput()
     threadPicker.isPresented = true
@@ -473,7 +457,6 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     else { return }
     cancelHistoryRequest()
     publishHistoryPosition()
-    // Preserve an up/down pair that started immediately after the tap.
     dictationNotice = nil
     displayTask?.cancel()
     latestTranscript = ""
@@ -530,7 +513,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       decoder = nil
       listening = false
       setStatus(.ready, detail: error.localizedDescription)
-      showDictationNotice("Dictation unavailable\n\n\(error.localizedDescription)\n\nSwipe up then down: back")
+      showDictationNotice("Dictation unavailable\n\n\(error.localizedDescription)\n\nHold: back")
     }
   }
 
@@ -542,7 +525,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     speechSession = nil
     decoder = nil
     setStatus(.ready, detail: "G2 microphone did not start")
-    showDictationNotice("G2 microphone did not start\n\nTap R1 to retry\nSwipe up then down: back")
+    showDictationNotice("G2 microphone did not start\n\nTap R1 to retry\nHold: back")
   }
 
   /// Stops microphone capture and finalizes the current transcript.
@@ -1067,10 +1050,17 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     }
   }
 
-  /// Formats listening controls and optional recognized transcript for the lens.
+  /// Shows the newest wrapped transcript rows at the bottom, retaining full speech for sending.
   private func listeningDisplayText(_ transcript: String = "") -> String {
-    let instructions = "Listening…\n\nTap R1: send\nSwipe up then down: cancel"
-    return transcript.isEmpty ? instructions : "\(instructions)\n\n\(transcript)"
+    let heading = "Listening…\nTap R1: send"
+    guard !transcript.isEmpty else { return heading }
+    let maxBytes = 820 - heading.utf8.count - 2
+    let lines = T3EvenG2Protocol.lensTextPages(transcript, maxBytes: maxBytes, includeFooter: false)
+      .flatMap { $0.components(separatedBy: "\n") }
+    var tail = Array(lines.suffix(6))
+    while tail.count > 1, tail.joined(separator: "\n").utf8.count > maxBytes { tail.removeFirst() }
+    let padding = Array(repeating: "", count: 6 - tail.count)
+    return heading + "\n\n" + (padding + tail).joined(separator: "\n")
   }
 
   /// Serializes an EvenHub payload, writes its frames, and optionally waits for its ACK.
@@ -1201,7 +1191,6 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       pauseDisplay()
       return
     }
-    if handleSwipeEscape(gesture) { return }
     if handleRecoveryInput(gesture) { return }
     guard status == .ready else {
       trace("gesture.ignored", ["reason": "not-ready", "kind": gesture.kind])
@@ -1222,64 +1211,6 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       return
     }
     handleThreadGesture(gesture)
-  }
-
-  /// Defers swipe-up and treats a following swipe-down as the dictation back gesture.
-  private func handleSwipeEscape(_ gesture: T3EvenG2Protocol.Gesture) -> Bool {
-    guard status == .ready || ((status == .paused || status == .error) && left.ready && right.ready),
-      T3EvenG2Protocol.isDictationSource(gesture.source),
-      ["click", "scrollUp", "scrollDown", "longPress"].contains(gesture.kind)
-    else { return false }
-    if gesture.kind == "scrollDown", let deadline = pendingSwipeDeadline, ContinuousClock.now < deadline {
-      trace("swipe.matched")
-      clearPendingSwipe()
-      lastGestureAt = Date()
-      let back = T3EvenG2Protocol.Gesture(kind: "longPress", source: gesture.source)
-      if !handleRecoveryInput(back) { _ = handleBackGesture(back) }
-      return true
-    }
-    guard gesture.kind == "scrollUp" else {
-      if pendingSwipeUp != nil { trace("swipe.interrupted", ["kind": gesture.kind]) }
-      flushPendingSwipe()
-      return false
-    }
-    let now = Date()
-    // Swipes cannot scroll during dictation, so a recent input must not swallow
-    // the start of Cancel. Keep the debounce after cancellation to avoid two Backs.
-    guard startingDictation || listening || speechSession != nil || now.timeIntervalSince(lastGestureAt) > 0.4 else {
-      trace("gesture.ignored", ["reason": "swipe-debounce", "kind": gesture.kind])
-      return true
-    }
-    lastGestureAt = now
-    flushPendingSwipe()
-    pendingSwipeUp = gesture
-    let escapeWindow: Duration = .milliseconds(fastBackGesture ? 350 : 650)
-    pendingSwipeDeadline = .now + escapeWindow
-    trace("swipe.armed", ["windowMs": fastBackGesture ? 350 : 650])
-    swipeUpTask = Task { @MainActor [weak self] in
-      try? await Task.sleep(for: escapeWindow)
-      guard !Task.isCancelled else { return }
-      self?.trace("swipe.expired")
-      self?.flushPendingSwipe()
-    }
-    return true
-  }
-
-  /// Cancels the swipe-up delay and clears its pending gesture and deadline.
-  private func clearPendingSwipe() {
-    if pendingSwipeUp != nil { trace("swipe.cleared") }
-    swipeUpTask?.cancel()
-    swipeUpTask = nil
-    pendingSwipeUp = nil
-    pendingSwipeDeadline = nil
-  }
-
-  /// Routes a deferred swipe-up to the picker or active-thread gesture handler.
-  private func flushPendingSwipe() {
-    guard let gesture = pendingSwipeUp else { return }
-    clearPendingSwipe()
-    guard status == .ready else { return }
-    if threadPicker.isPresented { handlePickerGesture(gesture) } else { handleThreadGesture(gesture) }
   }
 
   /// Restarts display bootstrap for valid input received while paused or errored.
@@ -1332,7 +1263,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       gestureTask?.cancel()
       gestureTask = nil
       dictationNotice = nil
-      cancelSpeechAfterDisconnect()
+      cancelSpeechAfterDisconnect(preserveDraft: false)
       setStatus(.ready, detail: "Dictation cancelled")
       scheduleDisplay(restingDisplayText)
       gestureTask = Task { @MainActor [weak self] in
@@ -1480,7 +1411,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       dictationNotice = nil
       scheduleDisplay(restingDisplayText)
     } else if latestTranscript.isEmpty {
-      showDictationNotice("No speech recognized\n\nTap R1 to try again\nSwipe up then down: back")
+      showDictationNotice("No speech recognized\n\nTap R1 to try again\nHold: back")
     } else {
       showDictationNotice("Sending to T3 Code…")
     }
@@ -1536,7 +1467,6 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       "phase": stoppingDictation ? "stopping" : listening ? "listening"
         : speechSession != nil ? "preparing" : startingDictation ? "pending-start" : "idle",
       "inputEnabled": inputEnabled, "picker": threadPicker.isPresented,
-      "swipePending": pendingSwipeUp != nil, "fastBack": fastBackGesture,
       "sinceInputMs": min(60_000, Int(max(0, Date().timeIntervalSince(lastGestureAt) * 1_000))),
     ]
     if let activeThreadKey { state["thread"] = activeThreadKey }
@@ -1552,7 +1482,6 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   private func stopTasks() {
     cancelHistoryRequest()
     publishHistoryPosition()
-    clearPendingSwipe()
     connectionTimedOut = false
     shutdownExitObserved = false
     reconnectTask?.cancel()
@@ -1576,16 +1505,17 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     receivedAckKeys.removeAll()
   }
 
-  /// Clears active speech state, emits cancellation, and asynchronously cancels analysis.
-  private func cancelSpeechAfterDisconnect() {
+  /// Stops recognition, keeping interrupted speech as a draft unless Back explicitly discards it.
+  private func cancelSpeechAfterDisconnect(preserveDraft: Bool = true) {
     guard listening || speechSession != nil else { return }
-    trace("dictation.session-cleared")
+    trace("dictation.session-cleared", ["preserved": preserveDraft, "hasText": !latestTranscript.isEmpty])
     listening = false
     stoppingDictation = false
     let speech = speechSession as? T3EvenG2SpeechTranscriber
     speechSession = nil
     decoder = nil
-    onTranscript?(["text": "", "isFinal": true, "cancelled": true])
+    onTranscript?(["text": preserveDraft ? latestTranscript : "", "isFinal": true,
+                   "cancelled": true, "interrupted": preserveDraft])
     Task { @MainActor in await speech?.cancel() }
   }
 }

@@ -55,7 +55,7 @@ struct T3EvenG2ThreadPicker {
     let title = String(highlighted.title.replacingOccurrences(of: "\n", with: " ").prefix(92))
     let subtitle = String(highlighted.subtitle.replacingOccurrences(of: "\n", with: " ").prefix(46))
     let controls = choices.count > 1
-      ? "Swipe to choose · Tap to open\nUp then down: back" : "Tap to open · Up then down: back"
+      ? "Swipe to choose · Tap to open\nHold: back" : "Tap to open · Hold: back"
     let instruction = openingKey == nil ? controls : "Opening thread…"
     let threadChoices = choices.filter { !$0.isLatestOutput }
     let threadIndex = threadChoices.firstIndex(where: { $0.key == highlighted.key }) ?? 0

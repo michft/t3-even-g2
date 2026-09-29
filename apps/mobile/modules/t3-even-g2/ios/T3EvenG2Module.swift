@@ -11,7 +11,6 @@ public final class T3EvenG2Module: Module {
     "listening": false,
     "autoConnect": false,
     "naturalScrolling": UserDefaults.standard.object(forKey: "T3EvenG2NaturalScrolling") as? Bool ?? true,
-    "fastBackGesture": UserDefaults.standard.bool(forKey: "T3EvenG2FastBackGesture"),
   ]
 
   /// Registers the native module's events, lifecycle hooks, and JavaScript methods.
@@ -47,13 +46,6 @@ public final class T3EvenG2Module: Module {
       self.performOnMain {
         guard #available(iOS 26.0, *) else { return }
         self.connection()?.setNaturalScrolling(enabled)
-      }
-    }
-
-    Function("setFastBackGesture") { (enabled: Bool) in
-      self.performOnMain {
-        guard #available(iOS 26.0, *) else { return }
-        self.connection()?.setFastBackGesture(enabled)
       }
     }
 
@@ -228,7 +220,6 @@ public final class T3EvenG2Module: Module {
         "listening": false,
         "autoConnect": false,
         "naturalScrolling": true,
-        "fastBackGesture": false,
       ]
     }
     if Thread.isMainThread, let connection = connectionStorage as? T3EvenG2Connection {

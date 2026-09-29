@@ -184,23 +184,23 @@ describe("Even G2 dictation sessions", () => {
     expect(sent).toEqual([]);
   });
 
-  it("starts a fresh dictation after a page-exit cancellation without sending the abandoned partial", () => {
+  it("keeps interrupted words in the originating draft without sending", () => {
     let input = thread("a", "original draft");
     unsubscribe = subscribeEvenG2Dictation(() => input);
     startListening();
-    transcript({ text: "abandoned partial", isFinal: false });
+    transcript({ text: "keep these words", isFinal: false });
+    input = thread("b", "other draft");
     native.listening = false;
-    transcript({ text: "", isFinal: true, cancelled: true });
+    transcript({ text: "keep these words", isFinal: true, cancelled: true, interrupted: true });
 
-    expect(drafts.get("a")).toBe("original draft");
+    expect(drafts.get("a")).toBe("original draft\n\nkeep these words");
+    expect(drafts.get("b")).toBe("other draft");
     expect(sent).toEqual([]);
 
-    input = thread("a", "edited after recovery");
+    input = thread("a", drafts.get("a") ?? "");
     startListening();
-    transcript({ text: "new dictation", isFinal: true });
-
-    expect(drafts.get("a")).toBe("edited after recovery");
-    expect(sent).toEqual([{ threadKey: "a", text: "new dictation" }]);
+    transcript({ text: "next words", isFinal: false });
+    expect(drafts.get("a")).toBe("original draft\n\nkeep these words\n\nnext words");
   });
 
   it("handles send rejection without blocking the next dictation session", async () => {

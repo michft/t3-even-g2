@@ -25,9 +25,9 @@ if [[ $# -gt 0 ]]; then
   "$g2_test_dir/t3-g2-connection-smoke" "$@"
   exit
 fi
-"$g2_test_dir/t3-g2-connection-smoke" --startup-back
+"$g2_test_dir/t3-g2-connection-smoke" --startup-input
 "$g2_test_dir/t3-g2-connection-smoke" --diagnostics
-"$g2_test_dir/t3-g2-connection-smoke" --swipe-back
+"$g2_test_dir/t3-g2-connection-smoke" --listening
 "$g2_test_dir/t3-g2-connection-smoke" --heartbeats
 "$g2_test_dir/t3-g2-connection-smoke" --history
 "$g2_test_dir/t3-g2-connection-smoke"

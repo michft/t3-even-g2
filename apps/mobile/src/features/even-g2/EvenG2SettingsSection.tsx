@@ -12,7 +12,6 @@ import {
   resumeEvenG2Display,
   setEvenG2AutoConnect,
   setEvenG2NaturalScrolling,
-  setEvenG2FastBackGesture,
   useEvenG2Status,
 } from "./evenG2Native";
 
@@ -67,23 +66,15 @@ export function EvenG2SettingsSection() {
         <SettingsSwitchRow
           icon="eye"
           label="Natural scrolling"
-          subtitle="On: swipe up advances through content. Off: swipe down advances. Quickly swipe up then down to go back."
+          subtitle="On: swipe up advances through content. Off: swipe down advances."
           value={status.naturalScrolling}
           disabled={status.status === "unsupported"}
           onValueChange={setEvenG2NaturalScrolling}
         />
-        <SettingsSwitchRow
-          icon="eye"
-          label="Fast Back gesture"
-          subtitle="Require up then down within 350 ms instead of 650 ms. Helps avoid going Back when reversing scroll direction."
-          value={status.fastBackGesture}
-          disabled={status.status === "unsupported"}
-          onValueChange={setEvenG2FastBackGesture}
-        />
       </SettingsSection>
       <Text className="px-2 text-sm text-foreground-muted">
         {status.detail ||
-          "Quit the Even app first. Tap to open a thread, dictate, or send. Quickly swipe up then down to cancel or go back. A lone up swipe scrolls after a short pause. Hold also works if supported by your glasses."}
+          "Quit the Even app first. Tap to open a thread, dictate, or send. Swipes scroll only; they never cancel dictation. Hold to go back if supported by your glasses."}
       </Text>
     </View>
   );
