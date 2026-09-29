@@ -11,11 +11,15 @@ diagnostics, use a Mac that can reach the paired phone.
 
 ## What is available
 
-This is a manual, agent-assisted workflow. The repository has a bug form with
-`needs-triage`, a structured triage report form, and a fork feature request
-form. These forms do not automatically investigate or prioritize reports.
-There is no dedicated mobile triage screen or configured multi-stage triage
-queue. GitHub only shows template changes once they reach its default branch.
+Public issues are welcome. PR creation is restricted to repository collaborators;
+maintainers action accepted issues themselves or through authorized agents.
+The **G2 bug report**, **G2 feature request**, and **G2 triage report** forms
+start reports in `needs-triage`. The Issue Labels workflow also queues newly
+opened issues without a state label and preserves an existing state.
+
+Investigation, acceptance, assignment, and implementation remain maintainer-led.
+No dedicated mobile triage screen or automatic coding agent is required. Label
+and template automation takes effect when its files reach the default branch.
 
 Do not use `npx t3 triage` for this fork workflow yet. Its current playbook and
 generated context still point to T3 upstream, including upstream source and
@@ -99,6 +103,63 @@ For a later triage pass, open a project thread and give the agent the fork
 issue URL. Ask it to check missing evidence, duplicates, impact, and the next
 action. Request implementation separately. Record verification results on the
 issue when authorized, and close it once the fix is confirmed.
+
+## Maintainer workflow
+
+1. **Evaluate.** Read the report, check duplicates, and select `bug` or
+   `enhancement`. Keep `needs-triage` while evaluating. For missing evidence,
+   switch to `needs-info` and ask specific questions. Re-evaluate when the
+   reporter replies. Declined work gets `wontfix` and a closing explanation.
+2. **Accept.** Record the problem, agreed scope, acceptance criteria, known
+   constraints, and verification plan. Switch to `ready-for-agent` when an
+   agent can implement without guessing, or `ready-for-human` when human work
+   is needed. Keep exactly one state label; `via-triage` is provenance only.
+3. **Claim.** Assign a repository collaborator before implementation. Check
+   for an existing assignee or linked PR to avoid duplicate work. Explicitly
+   request implementation and PR creation when ready to authorize publishing.
+4. **Implement and verify.** Use a separate branch or JJ bookmark in the fork.
+   Follow the accepted scope and record test results. For Swift/native changes,
+   build and install the Release app on the phone; distinguish that from
+   physical G2/R1 verification. Report any unmet acceptance criterion.
+5. **Open the PR.** The assigned collaborator, or an agent using that person's
+   authorized account, opens a PR against the fork's intended base. Include
+   `Closes #123` for a complete fix, or `Refs #123` if follow-up work remains.
+   Use the PR template, include validation, and link it from the issue.
+6. **Review and finish.** Resolve review findings and verify the acceptance
+   criteria. Merge only when authorized. A closing keyword completes the issue
+   when the PR merges into the default branch; for other bases, keep tracking
+   the issue until the fix lands there. Keep the issue open if hardware checks
+   remain part of its acceptance criteria.
+
+From a phone thread, a maintainer can give an explicit handoff like:
+
+```text
+Implement accepted issue #123 in michft/t3-even-g2.
+Read its body, comments, labels, and acceptance criteria first.
+Check whether someone is already assigned or has opened a PR.
+Assign it to my collaborator account if unclaimed.
+Implement the agreed scope, run verification, then push the task branch and
+open a PR against the fork's intended base. Link the issue and report results.
+Do not merge it.
+```
+
+Replace the number with a real accepted issue. The prompt authorizes publishing
+that work; a ready label by itself does not. An agent needs GitHub credentials
+for a repository collaborator to open the PR. Public reporters need no such
+access to create issues. The triage skill uses the
+[tracker instructions](../agents/issue-tracker.md) and
+[label mapping](../agents/triage-labels.md).
+
+## Repository access settings
+
+In the fork's GitHub **Settings → General → Features**, keep **Issues** enabled
+for everyone and set **Pull requests → Collaborators only**. Do not use a broad
+interaction limit to restrict PRs: it also restricts issue participation.
+
+The repository setting blocks public PR creation. Templates and labels guide
+the issue-first process; they do not enforce issue acceptance as a merge rule.
+
+## Verification boundaries
 
 Assume upstream works. Keep uncertain ownership in the fork tracker. Only
 propose upstream escalation when evidence identifies an upstream-code defect;

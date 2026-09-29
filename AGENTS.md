@@ -123,6 +123,9 @@ For authorized mobile verification, a missing or outdated native client is a bui
 
 ## Pull requests
 
+- This fork accepts public issues; only repository collaborators may open PRs.
+  PRs implement accepted issues in `michft/t3-even-g2`. Follow
+  [the maintainer workflow](docs/operations/even-g2-triage.md#maintainer-workflow).
 - Never make a PR unless the developer explicitly asks you to do so.
 - Conventional commit titles, plain language: `fix(web): new threads no longer spike CPU`.
 - Body: the problem in a sentence or two, then how you fixed it. End with the model and harness that did the work.
@@ -130,6 +133,23 @@ For authorized mobile verification, a missing or outdated native client is a bui
 - Upload PR evidence to GitHub. Never commit PR-only screenshots or assets such as `.github/pr-assets/`.
 - One concern per PR. If the description says "also", split it.
 - When babysitting: poll checks and comments newer than the last push, verify each bot finding against the source, fix real ones, dismiss false positives with a written reason. Stay quiet when nothing is new. Stop when the bots are green on the latest commit.
+
+## Agent skills
+
+### Issue tracker
+
+Use GitHub issues in `michft/t3-even-g2`, always selecting the repository
+explicitly. See [issue tracker instructions](docs/agents/issue-tracker.md).
+
+### Triage labels
+
+Use the five canonical state labels, with one state per triaged issue. See
+[triage labels](docs/agents/triage-labels.md).
+
+### Domain docs
+
+Use the existing T3 glossary and relevant architecture docs. See
+[domain documentation](docs/agents/domain.md).
 
 ## Documentation
 

@@ -1,33 +1,33 @@
 <!--
-⚠️ READ BEFORE OPENING ⚠️
-
-We are not actively accepting contributions right now.
-
-You can still open a PR, but please do so knowing there is a high chance
-we may close it without merging it, or never review it.
-
-- Small, focused PRs are strongly preferred. Bug fixes are most likely to be merged.
-- New features will most likely just annoy us.
-- 1,000+ line PRs with a bunch of new features will probably get you banned from the repo.
+PR creation is limited to repository collaborators. Public contributions start
+with an issue in michft/t3-even-g2. This PR must implement accepted fork work.
+See CONTRIBUTING.md and docs/operations/even-g2-triage.md.
 -->
 
-## What Changed
+## Issue
 
-<!-- Describe the change clearly and keep scope tight. -->
+<!-- Replace with the accepted fork issue number. Use "Refs" for a partial fix. -->
+Closes #<issue-number>
 
-## Why
+## What changed and why
 
-<!-- Explain the problem being solved and why this approach is the right one. -->
+<!-- Describe the problem, resulting behavior, and scope. One concern per PR. -->
 
-## UI Changes
+## Validation
 
-<!-- If this PR changes UI, include clear before/after screenshots.
-     If the change involves motion or interaction, include a short video.
-     Delete this section if not applicable. -->
+<!-- List commands and results. State failures and remaining verification gaps.
+     For G2 changes, distinguish simulated checks from physical hardware tests. -->
+
+## UI evidence
+
+<!-- Include before/after images for UI changes and video for motion or timing.
+     Upload evidence to GitHub; do not commit PR-only assets. Delete if unused. -->
 
 ## Checklist
 
-- [ ] This PR is small and focused
-- [ ] I explained what changed and why
-- [ ] I included before/after screenshots for any UI changes
-- [ ] I included a video for animation/interaction changes
+- [ ] Linked an accepted issue in michft/t3-even-g2
+- [ ] Kept changes within its acceptance criteria
+- [ ] Recorded relevant validation and remaining gaps
+- [ ] Updated affected user or contributor guides
+
+<!-- For agent-assisted changes, end with the model and harness used. -->

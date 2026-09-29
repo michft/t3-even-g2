@@ -2,6 +2,7 @@ name: G2 triage report
 description: Record an agent investigation of a fork issue. For an uninvestigated problem, use G2 bug report.
 labels:
   - via-triage
+  - needs-triage
 body:
   - type: markdown
     attributes:
