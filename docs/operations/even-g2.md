@@ -42,7 +42,7 @@ bash apps/mobile/modules/t3-even-g2/tests/connection-smoke.sh --startup-input
 bash apps/mobile/modules/t3-even-g2/tests/connection-smoke.sh --sending
 bash apps/mobile/modules/t3-even-g2/tests/connection-smoke.sh --history
 vp test run apps/mobile/src/features/even-g2/useEvenG2ThreadBridge.test.ts apps/mobile/src/features/even-g2/evenG2ThreadBridge.logic.test.ts apps/mobile/src/features/even-g2/evenG2HistoryBridge.test.ts
-node --test scripts/g2-diagnostics.test.ts
+vp test run scripts/g2-diagnostics.test.ts
 ```
 
 These checks exercise code with simulated Bluetooth callbacks. They do not prove behavior on
