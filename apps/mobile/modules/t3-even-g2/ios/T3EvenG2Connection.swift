@@ -70,6 +70,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   private var requestedDisconnect = false
   private var transportBusy = false
   private var inputEnabled = false
+  private var naturalScrolling = UserDefaults.standard.object(forKey: "T3EvenG2NaturalScrolling") as? Bool ?? true
   private var activeThreadKey: String?
   private var threadPicker = T3EvenG2ThreadPicker()
   private var listening = false
@@ -89,6 +90,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       "connected": status == .ready || status == .paused,
       "listening": listening,
       "autoConnect": UserDefaults.standard.bool(forKey: Self.autoConnectKey),
+      "naturalScrolling": naturalScrolling,
     ]
   }
 
@@ -205,6 +207,12 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     }
     guard !listening, status == .ready else { return }
     scheduleDisplay(restingDisplayText)
+  }
+
+  func setNaturalScrolling(_ enabled: Bool) {
+    naturalScrolling = enabled
+    UserDefaults.standard.set(enabled, forKey: "T3EvenG2NaturalScrolling")
+    emitStatus()
   }
 
   func setActiveThread(_ key: String, enabled: Bool) {
@@ -775,7 +783,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   }
 
   private func listeningDisplayText(_ transcript: String = "") -> String {
-    let instructions = "Listening…\n\nTap R1: send\nDouble-tap R1: cancel"
+    let instructions = "Listening…\n\nTap R1: send\nSwipe up R1: cancel"
     return transcript.isEmpty ? instructions : "\(instructions)\n\n\(transcript)"
   }
 
@@ -905,14 +913,19 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       return
     }
     guard status == .ready else { return }
-    guard gesture.kind == "click" || T3EvenG2Protocol.lensPageOffset(for: gesture.kind) != nil else { return }
+    guard ["click", "scrollUp", "scrollDown", "longPress"].contains(gesture.kind) else { return }
     let now = Date()
     guard now.timeIntervalSince(lastGestureAt) > 0.4 else { return }
     lastGestureAt = now
+    if handleBackGesture(gesture) { return }
     if threadPicker.isPresented {
       handlePickerGesture(gesture)
       return
     }
+    handleThreadGesture(gesture)
+  }
+
+  private func handleThreadGesture(_ gesture: T3EvenG2Protocol.Gesture) {
     guard inputEnabled else { return }
     if T3EvenG2Protocol.lensPageOffset(for: gesture.kind) != nil {
       Task { @MainActor [weak self] in
@@ -920,15 +933,48 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       }
       return
     }
-    guard gestureTask == nil else { return }
+    guard gesture.kind == "click", gestureTask == nil else { return }
     gestureTask = Task { @MainActor [weak self] in
       await self?.handleClick(gesture)
     }
   }
 
+  private func handleBackGesture(_ gesture: T3EvenG2Protocol.Gesture) -> Bool {
+    let scrolling = !listening && speechSession == nil && gestureTask == nil
+      && (threadPicker.isPresented
+        ? threadPicker.openingKey == nil && threadPicker.choices.count > 1
+        : displayPages.count > 1)
+    guard gesture.kind == (scrolling ? "longPress" : "scrollUp"),
+      T3EvenG2Protocol.isDictationSource(gesture.source)
+    else { return false }
+    // Dictation is modal: Back cancels even when the underlying reply scrolls.
+    if listening || speechSession != nil || (!threadPicker.isPresented && gestureTask != nil) {
+      gestureTask?.cancel()
+      gestureTask = nil
+      cancelSpeechAfterDisconnect()
+      setStatus(.ready, detail: "Dictation cancelled")
+      scheduleDisplay(restingDisplayText)
+      gestureTask = Task { @MainActor [weak self] in
+        guard let self else { return }
+        await self.sendEvenHub(T3EvenG2Protocol.audioControl(enabled: false, magic: self.nextMagic()))
+        if !Task.isCancelled { self.gestureTask = nil }
+      }
+      return true
+    }
+    if threadPicker.isPresented {
+      threadPicker.openingKey = nil
+      if inputEnabled, activeThreadKey != nil { threadPicker.isPresented = false }
+      scheduleDisplay(restingDisplayText)
+      return true
+    }
+    guard inputEnabled else { return false }
+    showThreadPicker()
+    return true
+  }
+
   private func handlePickerGesture(_ gesture: T3EvenG2Protocol.Gesture) {
     guard T3EvenG2Protocol.isDictationSource(gesture.source), threadPicker.openingKey == nil else { return }
-    if let offset = T3EvenG2Protocol.lensPageOffset(for: gesture.kind) {
+    if let offset = T3EvenG2Protocol.lensPageOffset(for: gesture.kind, naturalScrolling: naturalScrolling) {
       threadPicker.move(offset)
       scheduleDisplay(restingDisplayText)
     } else if gesture.kind == "click", let choice = threadPicker.highlighted {
@@ -978,7 +1024,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       status == .ready,
       !listening,
       displayPages.count > 1,
-      let offset = T3EvenG2Protocol.lensPageOffset(for: gestureKind)
+      let offset = T3EvenG2Protocol.lensPageOffset(for: gestureKind, naturalScrolling: naturalScrolling)
     else { return }
     let nextIndex = min(max(displayPageIndex + offset, 0), displayPages.count - 1)
     guard nextIndex != displayPageIndex else { return }

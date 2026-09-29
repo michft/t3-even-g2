@@ -145,19 +145,13 @@ enum T3EvenG2Protocol {
     return (service: bytes[6], magic: magic)
   }
 
+  private static let gestureNames = [
+    "click", "scrollUp", "scrollDown", "doubleClick", "foregroundEnter", "foregroundExit",
+    "abnormalExit", "systemExit", "imu", "longPress", "longPressRelease",
+  ]
+
   private static func gestureName(_ value: Int) -> String {
-    switch value {
-    case 0: "click"
-    case 1: "scrollUp"
-    case 2: "scrollDown"
-    case 3: "doubleClick"
-    case 4: "foregroundEnter"
-    case 5: "foregroundExit"
-    case 6: "abnormalExit"
-    case 7: "systemExit"
-    case 8: "imu"
-    default: "unknown"
-    }
+    gestureNames.indices.contains(value) ? gestureNames[value] : "unknown"
   }
 
   static func isDictationSource(_ source: String) -> Bool {
@@ -169,10 +163,10 @@ enum T3EvenG2Protocol {
     ["doubleClick", "systemExit", "abnormalExit"].contains(gestureKind)
   }
 
-  static func lensPageOffset(for gestureKind: String) -> Int? {
+  static func lensPageOffset(for gestureKind: String, naturalScrolling: Bool = false) -> Int? {
     switch gestureKind {
-    case "scrollDown": 1
-    case "scrollUp": -1
+    case "scrollDown": naturalScrolling ? -1 : 1
+    case "scrollUp": naturalScrolling ? 1 : -1
     default: nil
     }
   }

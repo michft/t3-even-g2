@@ -10,6 +10,7 @@ public final class T3EvenG2Module: Module {
     "connected": false,
     "listening": false,
     "autoConnect": false,
+    "naturalScrolling": UserDefaults.standard.object(forKey: "T3EvenG2NaturalScrolling") as? Bool ?? true,
   ]
 
   public func definition() -> ModuleDefinition {
@@ -37,6 +38,13 @@ public final class T3EvenG2Module: Module {
     Function("setAutoConnect") { (enabled: Bool) in
       self.performOnMain {
         self.setAutoConnect(enabled)
+      }
+    }
+
+    Function("setNaturalScrolling") { (enabled: Bool) in
+      self.performOnMain {
+        guard #available(iOS 26.0, *) else { return }
+        self.connection()?.setNaturalScrolling(enabled)
       }
     }
 
@@ -190,6 +198,7 @@ public final class T3EvenG2Module: Module {
         "connected": false,
         "listening": false,
         "autoConnect": false,
+        "naturalScrolling": true,
       ]
     }
     if Thread.isMainThread, let connection = connectionStorage as? T3EvenG2Connection {

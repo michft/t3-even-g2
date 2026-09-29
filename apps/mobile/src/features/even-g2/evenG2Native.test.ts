@@ -9,6 +9,7 @@ const native = vi.hoisted(() => ({
     connected: true,
     listening: false,
     autoConnect: true,
+    naturalScrolling: true,
   } as EvenG2Status,
   listener: undefined as ((status: EvenG2Status) => void) | undefined,
 }));
@@ -37,6 +38,7 @@ beforeEach(() => {
     connected: true,
     listening: false,
     autoConnect: true,
+    naturalScrolling: true,
   };
 });
 

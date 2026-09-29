@@ -41,7 +41,9 @@ struct T3EvenG2ThreadPicker {
     // Reserve the title's own rows so long names cannot hide picker controls.
     let title = String(highlighted.title.replacingOccurrences(of: "\n", with: " ").prefix(92))
     let subtitle = String(highlighted.subtitle.replacingOccurrences(of: "\n", with: " ").prefix(46))
-    let instruction = openingKey == nil ? "Swipe to choose · Tap to open" : "Opening thread…"
+    let controls = choices.count > 1
+      ? "Swipe to choose · Tap to open\nLong-press: back" : "Tap to open · Swipe up: back"
+    let instruction = openingKey == nil ? controls : "Opening thread…"
     return "T3 threads \(index + 1)/\(choices.count)\n\n\(title)\n\(subtitle)\n\n\(instruction)"
   }
 }

@@ -18,6 +18,7 @@ export interface EvenG2Status {
   readonly connected: boolean;
   readonly listening: boolean;
   readonly autoConnect: boolean;
+  readonly naturalScrolling: boolean;
 }
 
 export interface EvenG2TranscriptEvent {
@@ -40,6 +41,7 @@ interface EvenG2NativeModule {
   getStatus(): EvenG2Status;
   ensureAutoConnect(): void;
   setAutoConnect(enabled: boolean): void;
+  setNaturalScrolling(enabled: boolean): void;
   connect(): void;
   disconnect(): void;
   resumeDisplay(): void;
@@ -64,6 +66,7 @@ const unavailableStatus: EvenG2Status = {
   connected: false,
   listening: false,
   autoConnect: false,
+  naturalScrolling: true,
 };
 
 let cachedModule: EvenG2NativeModule | null | undefined;
@@ -133,6 +136,10 @@ export function ensureEvenG2AutoConnect(): void {
 
 export function setEvenG2AutoConnect(enabled: boolean): void {
   nativeModule()?.setAutoConnect(enabled);
+}
+
+export function setEvenG2NaturalScrolling(enabled: boolean): void {
+  nativeModule()?.setNaturalScrolling(enabled);
 }
 
 export function connectEvenG2(): void {

@@ -18,6 +18,7 @@ final class T3EvenG2LC3Decoder {
 
 @MainActor
 final class Fixture {
+  static var waitingAtLine = 0
   let connection: T3EvenG2Connection
   let left = CBPeripheral("G2_TEST_L_ARM")
   let right = CBPeripheral("G2_TEST_R_ARM")
@@ -39,6 +40,7 @@ final class Fixture {
   init(connectionTimeout: Duration = .seconds(20), rememberedLeft: CBPeripheral? = nil) {
     connection = T3EvenG2Connection(
       connectionTimeout: connectionTimeout, baseHeartbeatInterval: .milliseconds(20))
+    connection.setNaturalScrolling(false)
     connection.onStatus = { [weak self] state in self?.waiter?(state) }
     connection.onTranscript = { [weak self] event in self?.transcripts.append(event) }
     connection.onThreadSelected = { [weak self] event in
@@ -156,8 +158,9 @@ final class Fixture {
     connection.peripheral(right, didUpdateValueFor: notify, error: nil)
   }
 
-  func wait(_ predicate: @escaping ([String: Any]) -> Bool) async {
+  func wait(line: Int = #line, _ predicate: @escaping ([String: Any]) -> Bool) async {
     if predicate(connection.snapshot) { return }
+    Self.waitingAtLine = line
     await withCheckedContinuation { continuation in
       waiter = { [weak self] state in
         if predicate(state) {
@@ -185,10 +188,13 @@ final class Fixture {
 struct Smoke {
   @MainActor
   static func main() async {
+    let savedScrolling = UserDefaults.standard.object(forKey: "T3EvenG2NaturalScrolling")
+    defer { UserDefaults.standard.set(savedScrolling, forKey: "T3EvenG2NaturalScrolling") }
     let watchdog = Task {
-      try? await Task.sleep(for: .seconds(25))
+      // Covers the full suite's deliberate gesture debounce and firmware deadlines.
+      try? await Task.sleep(for: .seconds(40))
       guard !Task.isCancelled else { return }
-      fatalError("G2 connection test timed out waiting for a lifecycle callback")
+      fatalError("G2 connection test timed out waiting for a lifecycle callback at line \(Fixture.waitingAtLine)")
     }
     defer { watchdog.cancel() }
     var picker = T3EvenG2ThreadPicker()
@@ -300,14 +306,26 @@ struct Smoke {
     precondition(fixture.connection.snapshot["listening"] as? Bool == false)
     fixture.connection.setActiveThread("moorbeef:b", enabled: true)
     fixture.connection.setActiveThread("mini:a", enabled: false)
+    let longReply = (1...25).map { "Reply line \($0)" }.joined(separator: "\n")
+    fixture.connection.displayText(longReply)
     try? await Task.sleep(for: .milliseconds(450))
     fixture.gesture(0, container: true)
     await fixture.wait { $0["listening"] as? Bool == true }
+    let createsBeforeCancel = fixture.createCount
+    fixture.gesture(1)
+    precondition(fixture.connection.snapshot["listening"] as? Bool == false)
+    precondition(fixture.connection.snapshot["status"] as? String == "ready")
+    precondition(fixture.createCount == createsBeforeCancel)
+    precondition(fixture.transcripts.count == 1 && fixture.transcripts[0]["cancelled"] as? Bool == true)
+    try? await Task.sleep(for: .milliseconds(450))
+    fixture.gesture(0)
+    await fixture.wait { $0["listening"] as? Bool == true }
+    // Firmware exits must still stop recording safely, even with swipe-to-cancel.
     fixture.gesture(3)
     precondition(fixture.connection.snapshot["status"] as? String == "paused")
     await fixture.waitForBaseHeartbeat { fixture.baseHeartbeatStates.contains("paused") }
     precondition(
-      fixture.transcripts.count == 1 && fixture.transcripts[0]["cancelled"] as? Bool == true)
+      fixture.transcripts.count == 2 && fixture.transcripts[1]["cancelled"] as? Bool == true)
     await fixture.wait { $0["status"] as? String == "ready" }
     precondition(fixture.connection.snapshot["listening"] as? Bool == false)
     fixture.gesture(0)
@@ -315,13 +333,61 @@ struct Smoke {
     // Let the gesture task finish before explicitly ending this second session.
     await Task.yield()
     await fixture.connection.finishDictation()
-    precondition(fixture.transcripts.count == 2)
-    precondition(fixture.transcripts[1]["text"] as? String == "test dictation")
+    precondition(fixture.transcripts.count == 3)
+    precondition(fixture.transcripts[2]["text"] as? String == "test dictation")
     fixture.gesture(3)
     await fixture.wait { $0["status"] as? String == "ready" }
     fixture.gesture(0)
     precondition(fixture.selectedKeys == ["moorbeef:b", "moorbeef:b"])
     precondition(fixture.connection.snapshot["listening"] as? Bool == false)
+    // A short reply goes Back to the picker. Its multi-item list still scrolls up.
+    fixture.connection.displayText("Short reply")
+    try? await Task.sleep(for: .milliseconds(450))
+    fixture.gesture(1)
+    try? await Task.sleep(for: .milliseconds(450))
+    fixture.gesture(1)
+    try? await Task.sleep(for: .milliseconds(450))
+    fixture.gesture(0)
+    precondition(fixture.selectedKeys.last == "mini:a" && fixture.selectedKeys.count == 3)
+    fixture.connection.setActiveThread("mini:a", enabled: true)
+    fixture.connection.displayText(longReply)
+    try? await Task.sleep(for: .milliseconds(450))
+    fixture.gesture(2)
+    await fixture.wait { ($0["detail"] as? String)?.hasPrefix("G2 page 2 of") == true }
+    try? await Task.sleep(for: .milliseconds(450))
+    fixture.gesture(1)
+    await fixture.wait { ($0["detail"] as? String)?.hasPrefix("G2 page 1 of") == true }
+    // At the first page, another up must stay in the thread rather than go Back.
+    try? await Task.sleep(for: .milliseconds(450))
+    fixture.gesture(1)
+    try? await Task.sleep(for: .milliseconds(450))
+    fixture.gesture(0)
+    await fixture.wait { $0["listening"] as? Bool == true }
+    precondition(fixture.selectedKeys.count == 3)
+    fixture.gesture(1)
+    precondition(fixture.transcripts.count == 4 && fixture.transcripts[3]["cancelled"] as? Bool == true)
+    fixture.connection.setNaturalScrolling(true)
+    precondition(T3EvenG2Connection().snapshot["naturalScrolling"] as? Bool == true)
+    try? await Task.sleep(for: .milliseconds(450))
+    fixture.gesture(1)
+    await fixture.wait { ($0["detail"] as? String)?.hasPrefix("G2 page 2 of") == true }
+    try? await Task.sleep(for: .milliseconds(450))
+    fixture.gesture(9)
+    fixture.gesture(10) // Release must not act as another Back or a tap.
+    try? await Task.sleep(for: .milliseconds(450))
+    fixture.gesture(1) // Natural scrolling moves the picker to the second thread.
+    try? await Task.sleep(for: .milliseconds(450))
+    fixture.gesture(0)
+    precondition(fixture.selectedKeys.last == "moorbeef:b" && fixture.selectedKeys.count == 4)
+    fixture.connection.setActiveThread("moorbeef:b", enabled: true)
+    fixture.connection.showThreadPicker()
+    try? await Task.sleep(for: .milliseconds(450))
+    fixture.gesture(9) // Back from a scrollable picker restores the active thread.
+    try? await Task.sleep(for: .milliseconds(450))
+    fixture.gesture(0)
+    await fixture.wait { $0["listening"] as? Bool == true }
+    fixture.gesture(1) // Natural scrolling must not reverse dictation cancellation.
+    precondition(fixture.transcripts.count == 5 && fixture.transcripts[4]["cancelled"] as? Bool == true)
     fixture.right.state = .disconnected
     fixture.connection.centralManager(
       CBCentralManager.latest, didDisconnectPeripheral: fixture.right, error: nil)

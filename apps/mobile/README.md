@@ -102,7 +102,15 @@ Even on any other phone or tablet using the glasses. In T3 Code, open Settings a
 **G2 + R1**. On the glasses, swipe R1 up/down to choose a thread and tap to open it in T3. The picker
 shows non-archived threads in recent-activity order, with their environment and project labels.
 You can also open a thread directly on the iPhone. Once a thread is open, tap R1 to start dictation,
-tap again to send, or double-tap to cancel. While idle, double-tap returns to the thread picker.
+tap again to send, or swipe up to cancel. Outside dictation, swipe up goes back unless the current
+thread list or reply needs scrolling. Multi-item lists and multi-page replies keep up/down scrolling,
+including at their boundaries; long-press R1 to go back from these scrolling screens. From a
+single-page reply, swipe up returns to the thread picker. In **Settings → Even G2**, **Natural
+scrolling** makes swipe up advance through content; turn it off for swipe down to advance instead.
+This preference is saved on the phone and never reverses the swipe-up Back/Cancel gesture.
+Long-press requires firmware that delivers the Even Hub long-press event; tap-then-hold remains
+the firmware menu gesture.
+While idle, double-tap also returns to the thread picker; firmware exits still cancel active dictation.
 Swipe up or down to page through a long assistant response. If a double-tap returns the glasses to
 Even, T3 automatically restores its display.
 Dictation stays stopped until you tap again; returning to Even does not send your partial transcript.
@@ -139,7 +147,7 @@ Hardware acceptance checks:
 2. From Home or Settings, use R1 to swipe to a thread and tap it. Confirm T3 opens the same thread.
    Tap R1 again, speak, and confirm live text appears in the composer and on the G2.
 3. Tap R1 again and confirm the transcript is sent while any pre-existing typed draft is preserved.
-4. Start another dictation, double-tap R1, and confirm it cancels without sending. Confirm the T3
+4. Start another dictation, swipe up R1, and confirm it cancels without sending. Confirm the T3
    display returns automatically and another tap starts a fresh dictation without reconnecting.
 5. Confirm the next assistant response appears on the G2; for a multi-page response, swipe up and
    down to move between lens-sized text windows. Double-tap while idle, choose a different thread,

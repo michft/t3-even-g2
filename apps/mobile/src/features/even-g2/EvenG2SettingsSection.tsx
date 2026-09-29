@@ -4,12 +4,14 @@ import { Platform, View } from "react-native";
 import { AppText as Text } from "../../components/AppText";
 import { SettingsRow } from "../settings/components/SettingsRow";
 import { SettingsSection } from "../settings/components/SettingsSection";
+import { SettingsSwitchRow } from "../settings/components/SettingsSwitchRow";
 import {
   connectEvenG2,
   disconnectEvenG2,
   ensureEvenG2AutoConnect,
   resumeEvenG2Display,
   setEvenG2AutoConnect,
+  setEvenG2NaturalScrolling,
   useEvenG2Status,
 } from "./evenG2Native";
 
@@ -59,10 +61,18 @@ export function EvenG2SettingsSection() {
         {status.status === "paused" && (
           <SettingsRow icon="eye" label="Resume T3 display" onPress={resumeEvenG2Display} />
         )}
+        <SettingsSwitchRow
+          icon="eye"
+          label="Natural scrolling"
+          subtitle="On: swipe up advances through content. Off: swipe down advances. Back stays swipe up."
+          value={status.naturalScrolling}
+          disabled={status.status === "unsupported"}
+          onValueChange={setEvenG2NaturalScrolling}
+        />
       </SettingsSection>
       <Text className="px-2 text-sm text-foreground-muted">
         {status.detail ||
-          "Quit the Even app first. Swipe R1 to choose a thread, then tap to open it. Tap to start or send dictation. Double-tap cancels dictation, or returns to threads when idle."}
+          "Quit the Even app first. Swipe to choose a thread; tap to open, dictate, or send. Swipe up cancels dictation or goes back on short screens. On scrolling screens, long-press goes back."}
       </Text>
     </View>
   );

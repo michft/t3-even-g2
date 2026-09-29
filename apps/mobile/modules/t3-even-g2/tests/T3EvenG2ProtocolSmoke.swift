@@ -189,6 +189,17 @@ private struct T3EvenG2ProtocolSmoke {
       "tap should not move the lens page"
     )
     try check(
+      T3EvenG2Protocol.lensPageOffset(for: "scrollUp", naturalScrolling: true) == 1
+        && T3EvenG2Protocol.lensPageOffset(for: "scrollDown", naturalScrolling: true) == -1,
+      "natural scrolling should move content with the finger"
+    )
+    for (event, kind) in [(9, "longPress"), (10, "longPressRelease")] {
+      for (field, eventField): (UInt8, UInt8) in [(3, 1), (2, 3), (1, 5)] {
+        let data = packet(payload: [0x08, 0x02] + nested(13, nested(field, [eventField << 3, UInt8(event)])))
+        try check(T3EvenG2Protocol.gesture(from: data)?.kind == kind, "long-press event not decoded")
+      }
+    }
+    try check(
       T3EvenG2Protocol.gesture(from: doubleClick)?.kind == "doubleClick",
       "ring double-click not decoded"
     )
