@@ -5,6 +5,7 @@ struct T3EvenG2ThreadPicker {
     let key: String
     let title: String
     let subtitle: String
+    var isLatestOutput = false
   }
 
   private(set) var choices: [Choice] = []
@@ -19,9 +20,11 @@ struct T3EvenG2ThreadPicker {
 
   /// Replaces choices while preserving the highlighted key or clamping the index.
   mutating func update(_ next: [Choice]) {
-    let key = highlighted?.key
+    let previous = highlighted
     choices = next
-    index = next.firstIndex(where: { $0.key == key }) ?? min(index, max(0, next.count - 1))
+    index = next.firstIndex(where: {
+      $0.key == previous?.key && $0.isLatestOutput == previous?.isLatestOutput
+    }) ?? min(index, max(0, next.count - 1))
     if let openingKey, !next.contains(where: { $0.key == openingKey }) {
       self.openingKey = nil
     }
@@ -35,7 +38,12 @@ struct T3EvenG2ThreadPicker {
 
   /// Selects a matching choice key and leaves the selection unchanged if absent.
   mutating func highlight(_ key: String) {
-    if let next = choices.firstIndex(where: { $0.key == key }) { index = next }
+    if let next = choices.firstIndex(where: { $0.key == key && !$0.isLatestOutput }) { index = next }
+  }
+
+  /// Highlights the current thread's Latest action when that shortcut is available.
+  mutating func highlightLatestOutput() {
+    if let next = choices.firstIndex(where: \.isLatestOutput) { index = next }
   }
 
   /// Builds the display text for the current selection and picker instructions.

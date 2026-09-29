@@ -19,6 +19,7 @@ import type {
   EnvironmentId,
   MessageId,
   ModelSelection,
+  OrchestrationMessage,
   OrchestrationThreadShell,
   ProviderApprovalDecision,
   ProviderInteractionMode,
@@ -117,6 +118,7 @@ export interface ThreadDetailScreenProps {
   readonly worktreeSetup?: WorktreeSetupCardProps | null;
   readonly setupWorkingStartedAt?: string | null;
   readonly selectedThread: OrchestrationThreadShell;
+  readonly threadMessages?: ReadonlyArray<OrchestrationMessage>;
   readonly contentPresentation: ThreadContentPresentation;
   readonly screenTone: StatusTone;
   readonly connectionError: string | null;
@@ -147,7 +149,10 @@ export interface ThreadDetailScreenProps {
   /** Message sync status for the selected thread (drives the composer status pill). */
   readonly threadSyncStatus?: EnvironmentThreadStatus;
   /** Non-null when older turns exist beyond the loaded window. */
-  readonly loadEarlier?: { readonly loading: boolean; readonly onLoadEarlier: () => void } | null;
+  readonly loadEarlier?: {
+    readonly loading: boolean;
+    readonly onLoadEarlier: () => boolean | void;
+  } | null;
   readonly environmentId: EnvironmentId;
   readonly projectWorkspaceRoot: string | null;
   readonly threadCwd: string | null;
@@ -830,7 +835,10 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
   useEvenG2ThreadBridge({
     threadKey: selectedThreadKey,
     enabled: isFocused,
-    feed: props.selectedThreadFeed,
+    messages: props.threadMessages,
+    hasOlderMessages: props.loadEarlier !== null && props.loadEarlier !== undefined,
+    loadingOlderMessages: props.loadEarlier?.loading ?? false,
+    onLoadEarlierMessages: props.loadEarlier?.onLoadEarlier ?? null,
     draftMessage: props.draftMessage,
     onChangeDraftMessage: props.onChangeDraftMessage,
     onSendTextMessage: handleSendDictatedMessage,

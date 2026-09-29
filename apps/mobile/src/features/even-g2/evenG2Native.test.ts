@@ -10,6 +10,7 @@ const native = vi.hoisted(() => ({
     listening: false,
     autoConnect: true,
     naturalScrolling: true,
+    fastBackGesture: false,
   } as EvenG2Status,
   listener: undefined as ((status: EvenG2Status) => void) | undefined,
 }));
@@ -20,6 +21,10 @@ vi.mock("expo", () => ({
   requireOptionalNativeModule: () => ({
     /** Returns the mocked native connection status. */
     getStatus: () => native.status,
+    /** Captures the reply window published by the JavaScript bridge. */
+    setReplyHistory: vi.fn(),
+    /** Stubs the configurable fast-back gesture preference. */
+    setFastBackGesture: vi.fn(),
     /** Stores the listener so the test can model native status changes. */
     addListener: (_name: string, listener: (status: EvenG2Status) => void) => {
       native.listener = listener;
@@ -43,6 +48,7 @@ beforeEach(() => {
     listening: false,
     autoConnect: true,
     naturalScrolling: true,
+    fastBackGesture: false,
   };
 });
 

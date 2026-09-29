@@ -1,17 +1,19 @@
-import { useEffect, useEffectEvent } from "react";
+import { useEffect, useEffectEvent, useRef } from "react";
 
-import type { MessageId } from "@t3tools/contracts";
+import type { MessageId, OrchestrationMessage } from "@t3tools/contracts";
 
-import type { ThreadFeedEntry } from "../../lib/threadActivity";
 import {
-  displayEvenG2Text,
   ensureEvenG2AutoConnect,
   subscribeEvenG2Status,
   subscribeEvenG2Transcripts,
   getEvenG2Status,
   setEvenG2ActiveThread,
+  setEvenG2ReplyHistory,
+  subscribeEvenG2HistoryPositions,
+  subscribeEvenG2HistoryRequests,
 } from "./evenG2Native";
-import { latestAssistantText, mergeDraftWithTranscript } from "./evenG2ThreadBridge.logic";
+import { mergeDraftWithTranscript } from "./evenG2ThreadBridge.logic";
+import { createEvenG2HistoryBridge } from "./evenG2HistoryBridge";
 
 interface EvenG2DictationInput {
   readonly threadKey: string;
@@ -76,15 +78,19 @@ export function subscribeEvenG2Dictation(getInput: () => EvenG2DictationInput): 
   };
 }
 
-/** Connects an active thread's draft, dictation controls, and latest reply to Even G2. */
+/** Connects an active thread's draft, dictation controls, and reply history to Even G2. */
 export function useEvenG2ThreadBridge(
   input: EvenG2DictationInput & {
     readonly enabled: boolean;
-    readonly feed: ReadonlyArray<ThreadFeedEntry>;
+    readonly messages?: ReadonlyArray<OrchestrationMessage>;
+    readonly hasOlderMessages?: boolean;
+    readonly loadingOlderMessages?: boolean;
+    readonly onLoadEarlierMessages?: (() => boolean | void) | null;
   },
 ): void {
   /** Reads current thread input without restarting native subscriptions on every render. */
   const getInput = useEffectEvent(() => input);
+  const historyBridgeRef = useRef<ReturnType<typeof createEvenG2HistoryBridge> | null>(null);
 
   useEffect(() => {
     if (input.enabled) {
@@ -96,11 +102,36 @@ export function useEvenG2ThreadBridge(
     if (input.enabled) setEvenG2ActiveThread(input.threadKey, true);
   }, [input.enabled, input.threadKey]);
 
-  const assistantText = latestAssistantText(input.feed);
   useEffect(() => {
-    if (input.enabled && assistantText) {
-      displayEvenG2Text(assistantText);
-    }
-    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Switching threads clears the native page even when both replies have identical text.
-  }, [assistantText, input.enabled, input.threadKey]);
+    if (!input.enabled) return;
+    const bridge = createEvenG2HistoryBridge({
+      setReplyHistory: setEvenG2ReplyHistory,
+      subscribePositions: subscribeEvenG2HistoryPositions,
+      subscribeRequests: subscribeEvenG2HistoryRequests,
+    });
+    historyBridgeRef.current = bridge;
+    return () => {
+      historyBridgeRef.current = null;
+      bridge.dispose();
+    };
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- A route change reloads the selected thread's cached history.
+  }, [input.enabled, input.threadKey]);
+
+  useEffect(() => {
+    if (!input.enabled) return;
+    historyBridgeRef.current?.update({
+      threadKey: input.threadKey,
+      messages: input.messages,
+      hasOlder: input.hasOlderMessages ?? false,
+      loadingOlder: input.loadingOlderMessages ?? false,
+      loadEarlier: input.onLoadEarlierMessages ?? null,
+    });
+  }, [
+    input.enabled,
+    input.threadKey,
+    input.messages,
+    input.hasOlderMessages,
+    input.loadingOlderMessages,
+    input.onLoadEarlierMessages,
+  ]);
 }

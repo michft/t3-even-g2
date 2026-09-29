@@ -11,12 +11,13 @@ public final class T3EvenG2Module: Module {
     "listening": false,
     "autoConnect": false,
     "naturalScrolling": UserDefaults.standard.object(forKey: "T3EvenG2NaturalScrolling") as? Bool ?? true,
+    "fastBackGesture": UserDefaults.standard.bool(forKey: "T3EvenG2FastBackGesture"),
   ]
 
   /// Registers the native module's events, lifecycle hooks, and JavaScript methods.
   public func definition() -> ModuleDefinition {
     Name("T3EvenG2")
-    Events("onStatus", "onTranscript", "onGesture", "onThreadSelected")
+    Events("onStatus", "onTranscript", "onGesture", "onThreadSelected", "onHistoryPosition", "onHistoryRequest")
 
     OnCreate {
       self.performOnMain { self.ensureAutoConnect() }
@@ -46,6 +47,20 @@ public final class T3EvenG2Module: Module {
       self.performOnMain {
         guard #available(iOS 26.0, *) else { return }
         self.connection()?.setNaturalScrolling(enabled)
+      }
+    }
+
+    Function("setFastBackGesture") { (enabled: Bool) in
+      self.performOnMain {
+        guard #available(iOS 26.0, *) else { return }
+        self.connection()?.setFastBackGesture(enabled)
+      }
+    }
+
+    Function("setReplyHistory") { (snapshot: [String: Any]) in
+      self.performOnMain {
+        guard #available(iOS 26.0, *) else { return }
+        self.connection()?.setReplyHistory(snapshot)
       }
     }
 
@@ -196,6 +211,8 @@ public final class T3EvenG2Module: Module {
     connection.onTranscript = { [weak self] body in self?.sendEvent("onTranscript", body) }
     connection.onGesture = { [weak self] body in self?.sendEvent("onGesture", body) }
     connection.onThreadSelected = { [weak self] body in self?.sendEvent("onThreadSelected", body) }
+    connection.onHistoryPosition = { [weak self] body in self?.sendEvent("onHistoryPosition", body) }
+    connection.onHistoryRequest = { [weak self] body in self?.sendEvent("onHistoryRequest", body) }
     connectionStorage = connection
     cacheStatus(connection.snapshot)
     return connection
@@ -211,6 +228,7 @@ public final class T3EvenG2Module: Module {
         "listening": false,
         "autoConnect": false,
         "naturalScrolling": true,
+        "fastBackGesture": false,
       ]
     }
     if Thread.isMainThread, let connection = connectionStorage as? T3EvenG2Connection {

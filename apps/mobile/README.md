@@ -93,8 +93,8 @@ vp run ios:release
 ### Even G2 + R1 direct mode
 
 The iOS 26 build can connect directly to both Even G2 arms. It uses the G2 microphone for
-on-device dictation, the R1 ring for start/send/cancel gestures, and the G2 display for the latest
-assistant response. This is an experimental, unofficial protocol integration and may need updates
+on-device dictation, the R1 ring for start/send/cancel gestures, and the G2 display for assistant
+reply history. This is an experimental, unofficial protocol integration and may need updates
 after glasses firmware changes.
 
 Before connecting, quit the Even app so it releases the glasses. Disconnect G2 from T3 and quit
@@ -111,10 +111,24 @@ second gesture, then scrolls normally; down alone scrolls immediately. Hold (lon
 an alternative when the glasses deliver that event. In **Settings → Even G2**, **Natural
 scrolling** makes swipe up advance through content; turn it off for swipe down to advance instead.
 This preference is saved on the phone and does not reverse the physical up-then-down Back/Cancel sequence.
+Turn on **Fast Back gesture** beside it to require the two swipes within 350 ms instead of 650 ms,
+reducing accidental Back actions when changing scroll direction.
 Long-press requires firmware that delivers the Even Hub long-press event; tap-then-hold remains
 the firmware menu gesture.
 While idle, double-tap also returns to the thread picker; firmware exits still cancel active dictation.
-Swipe up or down to page through a long assistant response. If a double-tap returns the glasses to
+Scroll backward through a reply to reach the previous reply's last page; scroll forward to read
+newer replies. Each reply includes a short prompt label and a reply/page position. Older replies load
+as you reach the edge of available history. If loading is unavailable, keep reading cached output or
+swipe again to retry. Reading older output does not change which thread receives dictation.
+
+New text preserves your reading position. New replies appear automatically while you are on the
+first page of the latest reply; while you are reading older output or dictating, a new-reply marker
+appears instead. Back opens the thread picker with **Latest output** highlighted; tap to jump to
+the newest reply, or Back again to return to your previous reading position. Recent thread positions
+and output remain available during this app session, including while the phone is locked; uncached
+history needs a live environment connection. Restarting T3 requires loading the thread again.
+
+If a double-tap returns the glasses to
 Even, T3 automatically restores its display.
 Dictation stays stopped until you tap again; returning to Even does not send your partial transcript.
 If recovery fails, tap R1 to retry or use **Settings → Even G2 → Resume T3 display**.

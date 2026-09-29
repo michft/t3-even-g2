@@ -11,14 +11,18 @@ const native = vi.hoisted(() => ({
 }));
 
 vi.mock("./evenG2Native", () => ({
-  /** Records display requests from the bridge under test. */
-  displayEvenG2Text: vi.fn(),
   /** Records auto-connect requests from the bridge under test. */
   ensureEvenG2AutoConnect: vi.fn(),
   /** Records which thread the bridge marks active. */
   setEvenG2ActiveThread: vi.fn(),
   /** Exposes the current mock listening flag to the bridge. */
   getEvenG2Status: () => ({ listening: native.listening }),
+  /** Stubs history snapshot writes; this suite exercises dictation only. */
+  setEvenG2ReplyHistory: vi.fn(),
+  /** Provides an inert position subscription for dictation-only tests. */
+  subscribeEvenG2HistoryPositions: vi.fn(() => () => {}),
+  /** Provides an inert request subscription for dictation-only tests. */
+  subscribeEvenG2HistoryRequests: vi.fn(() => () => {}),
   /** Tracks active status listeners and removes each one on cleanup. */
   subscribeEvenG2Status: (listener: () => void) => {
     native.statusListeners.add(listener);

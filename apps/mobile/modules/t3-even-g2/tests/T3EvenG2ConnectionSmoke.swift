@@ -36,6 +36,8 @@ final class Fixture {
   let right = CBPeripheral("G2_TEST_R_ARM")
   var transcripts: [[String: Any]] = []
   var selectedKeys: [String] = []
+  var historyRequests: [[String: Any]] = []
+  var historyWaiter: (() -> Void)?
   var waiter: (([String: Any]) -> Void)?
   var pageOccupied = true
   var sessionLaunched = false
@@ -80,10 +82,15 @@ final class Fixture {
       self.baseHeartbeatTaskWaiter?()
     }
     connection.setNaturalScrolling(false)
+    connection.setFastBackGesture(false)
     connection.onStatus = { [weak self] state in self?.waiter?(state) }
     connection.onTranscript = { [weak self] event in self?.transcripts.append(event) }
     connection.onThreadSelected = { [weak self] event in
       if let key = event["key"] as? String { self?.selectedKeys.append(key) }
+    }
+    connection.onHistoryRequest = { [weak self] event in
+      self?.historyRequests.append(event)
+      self?.historyWaiter?()
     }
     connection.connect()
     if let rememberedLeft {
@@ -294,6 +301,18 @@ final class Fixture {
       }
     }
   }
+
+  /// Waits for a boundary gesture to request another history window.
+  func waitForHistoryRequest(_ count: Int) async {
+    if historyRequests.count >= count { return }
+    await withCheckedContinuation { continuation in
+      historyWaiter = { [weak self] in
+        guard let self, self.historyRequests.count >= count else { return }
+        self.historyWaiter = nil
+        continuation.resume()
+      }
+    }
+  }
 }
 
 @main
@@ -303,6 +322,8 @@ struct Smoke {
   static func main() async {
     let savedScrolling = UserDefaults.standard.object(forKey: "T3EvenG2NaturalScrolling")
     defer { UserDefaults.standard.set(savedScrolling, forKey: "T3EvenG2NaturalScrolling") }
+    let savedFastBack = UserDefaults.standard.object(forKey: "T3EvenG2FastBackGesture")
+    defer { UserDefaults.standard.set(savedFastBack, forKey: "T3EvenG2FastBackGesture") }
     let watchdog = Task {
       // Covers the full suite's deliberate gesture debounce and firmware deadlines.
       try? await Task.sleep(for: .seconds(40))
@@ -313,6 +334,11 @@ struct Smoke {
     if CommandLine.arguments.contains("--heartbeats") {
       await verifyHeartbeats()
       print("G2 heartbeat restart, stale-task cleanup, and consecutive ACK checks passed")
+      return
+    }
+    if CommandLine.arguments.contains("--history") {
+      await verifyReplyHistory()
+      print("G2 history paging, modal return, Latest shortcut, and stale-window checks passed")
       return
     }
     var picker = T3EvenG2ThreadPicker()
@@ -610,6 +636,121 @@ struct Smoke {
     print(
       "G2 native driver: per-arm auth, base heartbeats, occupied-page reset, readiness deadlines, stale arm replacement, late recovery, cancellation, thread picker, dictation, and reconnect passed"
     )
+  }
+
+  /// Exercises history through real ring events and firmware display writes.
+  @MainActor
+  private static func verifyReplyHistory() async {
+    let fixture = Fixture()
+    fixture.pageOccupied = false
+    fixture.subscribe(fixture.left)
+    fixture.subscribe(fixture.right)
+    await fixture.wait { $0["status"] as? String == "ready" }
+    fixture.connection.setActiveThread("mini:history", enabled: true)
+    let longReply = (1...17).map { "Older line \($0)" }.joined(separator: "\n")
+    var replies = [
+      ["id": "old", "text": longReply, "prompt": "Earlier question"],
+      ["id": "latest", "text": "Latest original reply", "prompt": "Current question"],
+    ]
+    fixture.connection.setReplyHistory(historyPayload(replies))
+    await fixture.waitForDisplay("Latest original reply")
+    fixture.gesture(1)
+    await fixture.waitForDisplay("Older line 17")
+    await fixture.connection.beginDictation()
+    replies.append(["id": "new", "text": "New arrival", "prompt": "Next question"])
+    fixture.connection.setReplyHistory(historyPayload(replies))
+    await fixture.connection.cancelDictation()
+    await fixture.waitForDisplay("Older line 17")
+    T3EvenG2SpeechTranscriber.finalText = ""
+    await fixture.connection.beginDictation()
+    await fixture.connection.finishDictation()
+    await fixture.waitForDisplay("No speech recognized")
+    fixture.swipeBack()
+    await fixture.waitForDisplay("Older line 17")
+    // These are separate user gestures, outside the hardware debounce.
+    try? await Task.sleep(for: .milliseconds(450))
+    fixture.swipeBack()
+    await fixture.waitForDisplay("Latest output")
+    try? await Task.sleep(for: .milliseconds(450))
+    fixture.gesture(0)
+    await fixture.waitForDisplay("New arrival")
+    precondition(fixture.selectedKeys.isEmpty, "Latest must not navigate to a synthetic thread")
+
+    fixture.connection.setActiveThread("mini:window", enabled: true)
+    let current = ["id": "20", "text": "Window anchor", "prompt": ""]
+    var window = historyPayload([current], key: "mini:window")
+    window["startIndex"] = 20
+    window["totalReplies"] = 21
+    window["hasOlder"] = true
+    fixture.connection.setReplyHistory(window)
+    await fixture.waitForDisplay("Window anchor")
+    try? await Task.sleep(for: .milliseconds(450))
+    fixture.gesture(1)
+    await fixture.waitForHistoryRequest(1)
+    let request = fixture.historyRequests[0]
+    precondition(request["direction"] as? String == "older")
+    var loaded = historyPayload([
+      ["id": "19", "text": "Loaded older reply", "prompt": ""], current,
+    ], key: "mini:window")
+    loaded["startIndex"] = 19
+    loaded["totalReplies"] = 21
+    loaded["hasOlder"] = true
+    loaded["requestId"] = request["requestId"]
+    fixture.connection.setReplyHistory(loaded)
+    await fixture.waitForDisplay("Loaded older reply")
+    fixture.gesture(1)
+    await fixture.waitForHistoryRequest(2)
+    await fixture.connection.beginDictation() // Cancels the pending window request.
+    loaded["replies"] = [["id": "wrong", "text": "STALE", "prompt": ""]]
+    loaded["requestId"] = fixture.historyRequests[1]["requestId"]
+    fixture.connection.setReplyHistory(loaded)
+    await fixture.connection.cancelDictation()
+    await fixture.waitForDisplay("Loaded older reply")
+    fixture.connection.setActiveThread("mini:history", enabled: true)
+    await fixture.waitForDisplay("New arrival")
+    // A late snapshot from another environment/thread must not replace this output.
+    fixture.connection.setReplyHistory(loaded)
+    fixture.connection.setActiveThread("mini:empty", enabled: true)
+    var emptyWindow = historyPayload([], key: "mini:empty")
+    emptyWindow["hasOlder"] = true
+    fixture.connection.setReplyHistory(emptyWindow)
+    await fixture.waitForDisplay("No replies available")
+    fixture.gesture(1)
+    await fixture.waitForHistoryRequest(3)
+    var firstLoaded = historyPayload([
+      ["id": "older-empty", "text": "Earlier fetched reply", "prompt": ""],
+      ["id": "latest-empty", "text": "Closest fetched reply", "prompt": ""],
+    ], key: "mini:empty")
+    firstLoaded["requestId"] = fixture.historyRequests[2]["requestId"]
+    fixture.connection.setReplyHistory(firstLoaded)
+    await fixture.waitForDisplay("Closest fetched reply")
+    firstLoaded.removeValue(forKey: "requestId")
+    firstLoaded["latestReplyId"] = "beyond-window"
+    firstLoaded["totalReplies"] = 3
+    firstLoaded["hasNewer"] = true
+    fixture.connection.setReplyHistory(firstLoaded)
+    await fixture.waitForHistoryRequest(4)
+    precondition(fixture.historyRequests[3]["direction"] as? String == "latest")
+    var newest = historyPayload([
+      ["id": "latest-empty", "text": "Closest fetched reply", "prompt": ""],
+      ["id": "beyond-window", "text": "Live reply beyond window", "prompt": ""],
+    ], key: "mini:empty")
+    newest["startIndex"] = 1
+    newest["totalReplies"] = 3
+    newest["hasOlder"] = true
+    newest["requestId"] = fixture.historyRequests[3]["requestId"]
+    fixture.connection.setReplyHistory(newest)
+    await fixture.waitForDisplay("Live reply beyond window")
+    fixture.connection.setFastBackGesture(true)
+    precondition(T3EvenG2Connection().snapshot["fastBackGesture"] as? Bool == true)
+    fixture.connection.disconnect()
+    T3EvenG2SpeechTranscriber.finalText = "test dictation"
+  }
+
+  /// Builds a native history snapshot for a complete test reply window.
+  private static func historyPayload(_ replies: [[String: String]], key: String = "mini:history") -> [String: Any] {
+    ["threadKey": key, "replies": replies, "startIndex": 0, "totalReplies": replies.count,
+     "hasOlder": false, "hasNewer": false, "latestReplyId": replies.last?["id"] ?? "", "loading": false]
   }
 
   /// Verifies task replacement and missed-ACK recovery separately from navigation timing checks.

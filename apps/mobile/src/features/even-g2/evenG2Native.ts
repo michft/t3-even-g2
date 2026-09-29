@@ -19,6 +19,7 @@ export interface EvenG2Status {
   readonly listening: boolean;
   readonly autoConnect: boolean;
   readonly naturalScrolling: boolean;
+  readonly fastBackGesture: boolean;
 }
 
 export interface EvenG2TranscriptEvent {
@@ -31,6 +32,36 @@ export interface EvenG2ThreadChoice {
   readonly key: string;
   readonly title: string;
   readonly subtitle: string;
+}
+
+export interface EvenG2ReplyHistoryItem {
+  readonly id: string;
+  readonly text: string;
+  readonly prompt: string;
+}
+
+export interface EvenG2ReplyHistorySnapshot {
+  readonly threadKey: string;
+  readonly replies: ReadonlyArray<EvenG2ReplyHistoryItem>;
+  readonly startIndex: number;
+  readonly totalReplies: number;
+  readonly hasOlder: boolean;
+  readonly hasNewer: boolean;
+  readonly latestReplyId: string;
+  readonly loading: boolean;
+  readonly requestId?: string;
+}
+
+export interface EvenG2HistoryPosition {
+  readonly threadKey: string;
+  readonly messageId: string;
+}
+
+export interface EvenG2HistoryRequest {
+  readonly threadKey: string;
+  readonly anchorId: string;
+  readonly requestId: string;
+  readonly direction: "older" | "newer" | "latest";
 }
 
 interface EventSubscription {
@@ -47,6 +78,8 @@ interface EvenG2NativeModule {
   setAutoConnect(enabled: boolean): void;
   /** Sets the direction used to advance through displayed content. */
   setNaturalScrolling(enabled: boolean): void;
+  /** Sets the shorter gesture window used to reverse direction and go back. */
+  setFastBackGesture(enabled: boolean): void;
   /** Starts a connection to the glasses. */
   connect(): void;
   /** Closes the current glasses connection. */
@@ -63,6 +96,8 @@ interface EvenG2NativeModule {
   setActiveThread(key: string, enabled: boolean): void;
   /** Replaces the thread choices shown by the glasses. */
   setThreadChoices(choices: ReadonlyArray<EvenG2ThreadChoice>): void;
+  /** Replaces the bounded reply window and its navigation metadata. */
+  setReplyHistory(snapshot: EvenG2ReplyHistorySnapshot): void;
   /** Opens the glasses' thread picker. */
   showThreadPicker(): void;
   /** Starts speech recognition for the current dictation session. */
@@ -85,6 +120,7 @@ const unavailableStatus: EvenG2Status = {
   listening: false,
   autoConnect: false,
   naturalScrolling: true,
+  fastBackGesture: false,
 };
 
 let cachedModule: EvenG2NativeModule | null | undefined;
@@ -170,6 +206,11 @@ export function setEvenG2NaturalScrolling(enabled: boolean): void {
   nativeModule()?.setNaturalScrolling(enabled);
 }
 
+/** Enables the shorter swipe-reversal window for returning to the prior page. */
+export function setEvenG2FastBackGesture(enabled: boolean): void {
+  nativeModule()?.setFastBackGesture(enabled);
+}
+
 /** Starts connecting to the Even glasses. */
 export function connectEvenG2(): void {
   nativeModule()?.connect();
@@ -205,6 +246,11 @@ export function setEvenG2ThreadChoices(choices: ReadonlyArray<EvenG2ThreadChoice
   nativeModule()?.setThreadChoices(choices);
 }
 
+/** Sends a thread's current reply window and pagination state to native. */
+export function setEvenG2ReplyHistory(snapshot: EvenG2ReplyHistorySnapshot): void {
+  nativeModule()?.setReplyHistory(snapshot);
+}
+
 /** Opens the native picker, including when its current choice list is stale. */
 export function showEvenG2ThreadPicker(): void {
   nativeModule()?.showThreadPicker();
@@ -215,5 +261,21 @@ export function subscribeEvenG2ThreadSelections(
   listener: (event: { readonly key: string }) => void,
 ): () => void {
   const subscription = nativeModule()?.addListener("onThreadSelected", listener);
+  return () => subscription?.remove();
+}
+
+/** Subscribes to native changes in the reply currently shown on the glasses. */
+export function subscribeEvenG2HistoryPositions(
+  listener: (event: EvenG2HistoryPosition) => void,
+): () => void {
+  const subscription = nativeModule()?.addListener("onHistoryPosition", listener);
+  return () => subscription?.remove();
+}
+
+/** Subscribes to requests to browse older, newer, or latest replies. */
+export function subscribeEvenG2HistoryRequests(
+  listener: (event: EvenG2HistoryRequest) => void,
+): () => void {
+  const subscription = nativeModule()?.addListener("onHistoryRequest", listener);
   return () => subscription?.remove();
 }

@@ -12,6 +12,7 @@ import {
   resumeEvenG2Display,
   setEvenG2AutoConnect,
   setEvenG2NaturalScrolling,
+  setEvenG2FastBackGesture,
   useEvenG2Status,
 } from "./evenG2Native";
 
@@ -70,6 +71,14 @@ export function EvenG2SettingsSection() {
           value={status.naturalScrolling}
           disabled={status.status === "unsupported"}
           onValueChange={setEvenG2NaturalScrolling}
+        />
+        <SettingsSwitchRow
+          icon="eye"
+          label="Fast Back gesture"
+          subtitle="Require up then down within 350 ms instead of 650 ms. Helps avoid going Back when reversing scroll direction."
+          value={status.fastBackGesture}
+          disabled={status.status === "unsupported"}
+          onValueChange={setEvenG2FastBackGesture}
         />
       </SettingsSection>
       <Text className="px-2 text-sm text-foreground-muted">

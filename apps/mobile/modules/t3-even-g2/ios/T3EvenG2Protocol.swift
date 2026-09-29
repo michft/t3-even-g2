@@ -190,7 +190,8 @@ enum T3EvenG2Protocol {
     _ text: String,
     columns: Int = 46,
     rows: Int = 9,
-    maxBytes: Int = 820
+    maxBytes: Int = 820,
+    includeFooter: Bool = true
   ) -> [String] {
     let safeColumns = max(1, columns)
     let safeRows = max(1, rows)
@@ -206,11 +207,11 @@ enum T3EvenG2Protocol {
 
       var remaining = rawLine
       while !remaining.isEmpty {
-        guard remaining.count > safeColumns else {
+        let hardEnd = wrappedLineEnd(in: remaining, columns: safeColumns, maxBytes: safeMaxBytes)
+        guard hardEnd < remaining.endIndex else {
           wrappedLines.append(remaining)
           break
         }
-        let hardEnd = remaining.index(remaining.startIndex, offsetBy: safeColumns)
         let candidate = remaining[..<hardEnd]
         let breakIndex = candidate.lastIndex(where: \.isWhitespace)
         let end = if let breakIndex, breakIndex > remaining.startIndex {
@@ -227,7 +228,7 @@ enum T3EvenG2Protocol {
     if wrappedLines.count <= safeRows, singlePage.utf8.count <= safeMaxBytes {
       return [singlePage]
     }
-    let contentRows = max(1, safeRows - 1)
+    let contentRows = max(1, safeRows - (includeFooter ? 1 : 0))
     var pageLines: [[String]] = []
     var currentLines: [String] = []
     var currentBytes = 0
@@ -246,12 +247,35 @@ enum T3EvenG2Protocol {
       pageLines.append(currentLines)
     }
 
-    guard pageLines.count > 1 else {
-      return [pageLines[0].joined(separator: "\n")]
+    guard includeFooter, pageLines.count > 1 else {
+      return pageLines.map { $0.joined(separator: "\n") }
     }
     return pageLines.enumerated().map { index, lines in
       "\(lines.joined(separator: "\n"))\n\(index + 1)/\(pageLines.count) · swipe ↑↓"
     }
+  }
+
+  /// Finds a character or scalar boundary that fits one display line and its byte budget.
+  private static func wrappedLineEnd(in text: String, columns: Int, maxBytes: Int) -> String.Index {
+    var hardEnd = text.startIndex
+    var lineBytes = 0
+    for _ in 0..<columns {
+      guard hardEnd < text.endIndex else { break }
+      let next = text.index(after: hardEnd)
+      let count = text[hardEnd..<next].utf8.count
+      guard lineBytes + count <= maxBytes else { break }
+      lineBytes += count
+      hardEnd = next
+    }
+    // Split oversized combining sequences at scalar boundaries without dropping text.
+    if hardEnd == text.startIndex {
+      for scalar in text.unicodeScalars {
+        guard lineBytes + scalar.utf8.count <= maxBytes else { break }
+        lineBytes += scalar.utf8.count
+        hardEnd = text.unicodeScalars.index(after: hardEnd)
+      }
+    }
+    return hardEnd
   }
 
   /// Maps a protocol input-source number to its JavaScript-facing name.
