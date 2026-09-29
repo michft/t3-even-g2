@@ -345,9 +345,7 @@ function ThreadRouteContent(
       loading:
         selectedThreadDetailState.page._tag === "Some" &&
         selectedThreadDetailState.page.value.loadingOlder,
-      onLoadEarlier: () => {
-        requestOlderThreadTurns(selectedThread.environmentId, selectedThread.id);
-      },
+      onLoadEarlier: () => requestOlderThreadTurns(selectedThread.environmentId, selectedThread.id),
     };
   }, [selectedThread, selectedThreadDetailState]);
   const { selectedThreadCwd } = useSelectedThreadWorktree();
@@ -959,6 +957,7 @@ function ThreadRouteContent(
       <View className="flex-1 bg-screen android:overflow-hidden android:rounded-t-[28px] android:bg-thread-canvas">
         <ThreadDetailScreen
           selectedThread={selectedThreadWithDraftSettings ?? selectedThread}
+          threadMessages={selectedThreadDetail?.messages}
           contentPresentation={contentPresentation}
           screenTone={connectionTone(routeConnectionState)}
           connectionError={routeConnectionError}

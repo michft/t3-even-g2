@@ -9,7 +9,8 @@ body:
     attributes:
       value: |
         Use this form for broken behavior, regressions, crashes, or reliability problems.
-        Feature requests belong in [Discussions](https://github.com/pingdotgg/t3code/discussions/categories/ideas).
+        G2 integration bugs belong in this fork. Upstream feature requests belong in
+        [Discussions](https://github.com/pingdotgg/t3code/discussions/categories/ideas).
         Search existing issues first and keep the report focused on one problem.
 
   - type: checkboxes
@@ -32,6 +33,7 @@ body:
         - apps/server
         - apps/desktop
         - apps/mobile
+        - Even G2 glasses / R1 ring
         - packages/contracts or packages/shared
         - Build, CI, or release tooling
         - Docs
@@ -94,6 +96,20 @@ body:
       label: Environment
       description: OS, browser or desktop app version, Node/Bun version, provider/model if relevant.
       placeholder: macOS 15.3, Chrome 135, Bun 1.3.9, Codex app-server ...
+
+  - type: textarea
+    id: glasses
+    attributes:
+      label: Even G2 details (if applicable)
+      description: Include iOS version, G2/R1 firmware, native build commit, input source, Natural scrolling setting, and whether the phone was locked. Describe the page before and after each gesture.
+      placeholder: |
+        iOS / G2 firmware / R1 firmware:
+        Native build commit:
+        Input: R1 ring / left arm / right arm
+        Natural scrolling: on / off
+        Phone: unlocked / locked / app backgrounded
+        Page and gesture: Thinking -> swipe up -> ...
+        Logs: export with scripts/g2-diagnostics.ts from a G2-enabled checkout.
 
   - type: textarea
     id: logs

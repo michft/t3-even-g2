@@ -17,6 +17,18 @@ xcrun swiftc -module-cache-path "$g2_test_dir/cache" \
   "$g2_module_dir/ios/T3EvenG2Connection.swift" \
   "$g2_module_dir/ios/T3EvenG2Protocol.swift" \
   "$g2_module_dir/ios/T3EvenG2ThreadPicker.swift" \
+  "$g2_module_dir/ios/T3EvenG2History.swift" \
   "$g2_module_dir/tests/T3EvenG2ConnectionSmoke.swift" \
   -o "$g2_test_dir/t3-g2-connection-smoke"
+# Keep real firmware deadlines bounded independently for each regression group.
+if [[ $# -gt 0 ]]; then
+  "$g2_test_dir/t3-g2-connection-smoke" "$@"
+  exit
+fi
+"$g2_test_dir/t3-g2-connection-smoke" --startup-input
+"$g2_test_dir/t3-g2-connection-smoke" --diagnostics
+"$g2_test_dir/t3-g2-connection-smoke" --listening
+"$g2_test_dir/t3-g2-connection-smoke" --heartbeats
+"$g2_test_dir/t3-g2-connection-smoke" --history
+"$g2_test_dir/t3-g2-connection-smoke" --sending
 "$g2_test_dir/t3-g2-connection-smoke"

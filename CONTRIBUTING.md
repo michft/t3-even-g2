@@ -1,5 +1,17 @@
 # Contributing
 
+## Even G2 fork
+
+G2-specific bugs belong in [michft/t3-even-g2](https://github.com/michft/t3-even-g2/issues).
+Include the fork commit, iOS version, glasses/ring firmware, input source (R1, left arm, or right
+arm), Natural scrolling setting, and whether the phone was locked. See the
+[G2 runbook](docs/operations/even-g2.md) for focused checks and diagnostic export.
+
+Keep fork changes separate from unrelated upstream work. State whether validation used simulated
+Bluetooth or physical glasses; passing native smoke tests is not hardware verification.
+The upstream contribution guidance below applies when proposing changes to
+[pingdotgg/t3code](https://github.com/pingdotgg/t3code).
+
 ## Developer Setup
 
 See the [development runbook](docs/operations/development.md#first-checkout) for the initial checkout,

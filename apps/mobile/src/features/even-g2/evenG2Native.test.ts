@@ -16,11 +16,18 @@ const native = vi.hoisted(() => ({
 
 vi.mock("react-native", () => ({ Platform: { OS: "ios" } }));
 vi.mock("expo", () => ({
+  /** Supplies the simulated native module to the bridge under test. */
   requireOptionalNativeModule: () => ({
+    /** Returns the mocked native connection status. */
     getStatus: () => native.status,
+    /** Captures the reply window published by the JavaScript bridge. */
+    setReplyHistory: vi.fn(),
+    /** Stubs the configurable fast-back gesture preference. */
+    /** Stores the listener so the test can model native status changes. */
     addListener: (_name: string, listener: (status: EvenG2Status) => void) => {
       native.listener = listener;
       return {
+        /** Clears the stored listener as native subscription cleanup would. */
         remove: () => {
           native.listener = undefined;
         },

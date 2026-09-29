@@ -26,6 +26,7 @@ const statusLabels = {
   unsupported: "Unavailable",
 } as const;
 
+/** Shows Even G2 connection, display recovery, and scrolling controls on iOS. */
 export function EvenG2SettingsSection() {
   const status = useEvenG2Status();
 
@@ -38,6 +39,7 @@ export function EvenG2SettingsSection() {
   }
 
   const active = status.connected || ["scanning", "connecting", "starting"].includes(status.status);
+  /** Connects or disconnects the glasses while keeping the auto-connect choice in sync. */
   const toggleConnection = () => {
     if (active) {
       setEvenG2AutoConnect(false);
@@ -64,7 +66,7 @@ export function EvenG2SettingsSection() {
         <SettingsSwitchRow
           icon="eye"
           label="Natural scrolling"
-          subtitle="On: swipe up advances through content. Off: swipe down advances. Quickly swipe up then down to go back."
+          subtitle="On: swipe up advances through content. Off: swipe down advances."
           value={status.naturalScrolling}
           disabled={status.status === "unsupported"}
           onValueChange={setEvenG2NaturalScrolling}
@@ -72,7 +74,7 @@ export function EvenG2SettingsSection() {
       </SettingsSection>
       <Text className="px-2 text-sm text-foreground-muted">
         {status.detail ||
-          "Quit the Even app first. Tap to open a thread, dictate, or send. Quickly swipe up then down to cancel or go back. A lone up swipe scrolls after a short pause. Hold also works if supported by your glasses."}
+          "Quit the Even app first. Tap R1 or the right G2 arm to open a thread, dictate, or send. Tap the left G2 arm to go back or cancel dictation. Swipes scroll only; they never cancel dictation."}
       </Text>
     </View>
   );

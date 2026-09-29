@@ -1,28 +1,34 @@
-import { useEffect, useEffectEvent } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 
-import type { MessageId } from "@t3tools/contracts";
+import type { MessageId, OrchestrationMessage } from "@t3tools/contracts";
 
-import type { ThreadFeedEntry } from "../../lib/threadActivity";
 import {
-  displayEvenG2Text,
   ensureEvenG2AutoConnect,
   subscribeEvenG2Status,
   subscribeEvenG2Transcripts,
   getEvenG2Status,
   setEvenG2ActiveThread,
+  setEvenG2ThreadActivity,
+  setEvenG2ReplyHistory,
+  subscribeEvenG2HistoryPositions,
+  subscribeEvenG2HistoryRequests,
 } from "./evenG2Native";
-import { latestAssistantText, mergeDraftWithTranscript } from "./evenG2ThreadBridge.logic";
+import { mergeDraftWithTranscript } from "./evenG2ThreadBridge.logic";
+import { createEvenG2HistoryBridge } from "./evenG2HistoryBridge";
 
 interface EvenG2DictationInput {
   readonly threadKey: string;
   readonly draftMessage: string;
+  /** Updates the originating thread's draft during dictation and restoration. */
   readonly onChangeDraftMessage: (value: string) => void;
+  /** Queues dictated text, returning null when the thread cannot accept a message. */
   readonly onSendTextMessage: (text: string) => Promise<MessageId | null>;
 }
 
-/** Keep a native dictation session attached to the thread where it began. */
+/** Keeps dictation attached to its starting thread and sends completed speech there. */
 export function subscribeEvenG2Dictation(getInput: () => EvenG2DictationInput): () => void {
   let session: EvenG2DictationInput | null = null;
+  /** Pins first dictation input to its thread, while refreshing callbacks on that thread. */
   const captureSession = () => {
     const { threadKey, draftMessage, onChangeDraftMessage, onSendTextMessage } = getInput();
     if (session === null) {
@@ -49,10 +55,14 @@ export function subscribeEvenG2Dictation(getInput: () => EvenG2DictationInput): 
       return;
     }
 
-    origin.onChangeDraftMessage(origin.draftMessage);
+    origin.onChangeDraftMessage(
+      event.interrupted
+        ? mergeDraftWithTranscript(origin.draftMessage, event.text)
+        : origin.draftMessage,
+    );
     session = null;
     const command = event.text.trim();
-    if (!event.cancelled && command.length > 0) {
+    if (!event.cancelled && !event.interrupted && command.length > 0) {
       void origin.onSendTextMessage(command).catch((error: unknown) => {
         console.error("[even-g2] Failed to send dictated message", origin.threadKey, error);
       });
@@ -73,17 +83,29 @@ export function subscribeEvenG2Dictation(getInput: () => EvenG2DictationInput): 
   };
 }
 
+/** Connects an active thread's draft, dictation controls, and reply history to Even G2. */
 export function useEvenG2ThreadBridge(
   input: EvenG2DictationInput & {
     readonly enabled: boolean;
-    readonly feed: ReadonlyArray<ThreadFeedEntry>;
+    readonly activityText?: string;
+    readonly messages?: ReadonlyArray<OrchestrationMessage>;
+    readonly hasOlderMessages?: boolean;
+    readonly loadingOlderMessages?: boolean;
+    readonly onLoadEarlierMessages?: (() => boolean | void) | null;
   },
 ): void {
-  const getInput = useEffectEvent(() => input);
+  // React 19.2's useEffectEvent retains first-render input inside the memoized
+  // ThreadDetailScreen: https://github.com/facebook/react/issues/34818.
+  // Refresh committed input before native events without restarting subscriptions.
+  const inputRef = useRef(input);
+  useLayoutEffect(() => {
+    inputRef.current = input;
+  }, [input]);
+  const historyBridgeRef = useRef<ReturnType<typeof createEvenG2HistoryBridge> | null>(null);
 
   useEffect(() => {
     if (input.enabled) {
-      return subscribeEvenG2Dictation(getInput);
+      return subscribeEvenG2Dictation(() => inputRef.current);
     }
   }, [input.enabled]);
 
@@ -91,11 +113,40 @@ export function useEvenG2ThreadBridge(
     if (input.enabled) setEvenG2ActiveThread(input.threadKey, true);
   }, [input.enabled, input.threadKey]);
 
-  const assistantText = latestAssistantText(input.feed);
   useEffect(() => {
-    if (input.enabled && assistantText) {
-      displayEvenG2Text(assistantText);
-    }
-    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Switching threads clears the native page even when both replies have identical text.
-  }, [assistantText, input.enabled, input.threadKey]);
+    if (input.enabled) setEvenG2ThreadActivity(input.threadKey, input.activityText ?? "");
+  }, [input.enabled, input.threadKey, input.activityText]);
+
+  useEffect(() => {
+    if (!input.enabled) return;
+    const bridge = createEvenG2HistoryBridge({
+      setReplyHistory: setEvenG2ReplyHistory,
+      subscribePositions: subscribeEvenG2HistoryPositions,
+      subscribeRequests: subscribeEvenG2HistoryRequests,
+    });
+    historyBridgeRef.current = bridge;
+    return () => {
+      historyBridgeRef.current = null;
+      bridge.dispose();
+    };
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- A route change reloads the selected thread's cached history.
+  }, [input.enabled, input.threadKey]);
+
+  useEffect(() => {
+    if (!input.enabled) return;
+    historyBridgeRef.current?.update({
+      threadKey: input.threadKey,
+      messages: input.messages,
+      hasOlder: input.hasOlderMessages ?? false,
+      loadingOlder: input.loadingOlderMessages ?? false,
+      loadEarlier: input.onLoadEarlierMessages ?? null,
+    });
+  }, [
+    input.enabled,
+    input.threadKey,
+    input.messages,
+    input.hasOlderMessages,
+    input.loadingOlderMessages,
+    input.onLoadEarlierMessages,
+  ]);
 }

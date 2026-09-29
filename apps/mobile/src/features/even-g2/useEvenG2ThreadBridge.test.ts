@@ -1,8 +1,12 @@
+// @vitest-environment jsdom
+
+import { act, createElement, memo } from "react";
+import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import type { MessageId } from "@t3tools/contracts";
 
 import type { EvenG2TranscriptEvent } from "./evenG2Native";
-import { subscribeEvenG2Dictation } from "./useEvenG2ThreadBridge";
+import { subscribeEvenG2Dictation, useEvenG2ThreadBridge } from "./useEvenG2ThreadBridge";
 
 const native = vi.hoisted(() => ({
   listening: false,
@@ -11,14 +15,25 @@ const native = vi.hoisted(() => ({
 }));
 
 vi.mock("./evenG2Native", () => ({
-  displayEvenG2Text: vi.fn(),
+  /** Records auto-connect requests from the bridge under test. */
   ensureEvenG2AutoConnect: vi.fn(),
+  /** Records which thread the bridge marks active. */
   setEvenG2ActiveThread: vi.fn(),
+  setEvenG2ThreadActivity: vi.fn(),
+  /** Exposes the current mock listening flag to the bridge. */
   getEvenG2Status: () => ({ listening: native.listening }),
+  /** Stubs history snapshot writes; this suite exercises dictation only. */
+  setEvenG2ReplyHistory: vi.fn(),
+  /** Provides an inert position subscription for dictation-only tests. */
+  subscribeEvenG2HistoryPositions: vi.fn(() => () => {}),
+  /** Provides an inert request subscription for dictation-only tests. */
+  subscribeEvenG2HistoryRequests: vi.fn(() => () => {}),
+  /** Tracks active status listeners and removes each one on cleanup. */
   subscribeEvenG2Status: (listener: () => void) => {
     native.statusListeners.add(listener);
     return () => native.statusListeners.delete(listener);
   },
+  /** Tracks transcript listeners until their subscriptions are cleaned up. */
   subscribeEvenG2Transcripts: (listener: (event: EvenG2TranscriptEvent) => void) => {
     native.transcriptListeners.add(listener);
     return () => native.transcriptListeners.delete(listener);
@@ -29,12 +44,15 @@ const drafts = new Map<string, string>();
 const sent: Array<{ threadKey: string; text: string }> = [];
 let unsubscribe: (() => void) | undefined;
 
+/** Creates a thread input whose draft and send handler are tracked by thread key. */
 function thread(threadKey: string, draftMessage: string) {
   drafts.set(threadKey, draftMessage);
   return {
     threadKey,
     draftMessage,
+    /** Stores draft changes against this fixture's originating thread. */
     onChangeDraftMessage: (text: string) => drafts.set(threadKey, text),
+    /** Records dictated messages without creating a real outbox entry. */
     onSendTextMessage: async (text: string): Promise<MessageId | null> => {
       sent.push({ threadKey, text });
       return null;
@@ -42,11 +60,13 @@ function thread(threadKey: string, draftMessage: string) {
   };
 }
 
+/** Simulates the native status event that starts a dictation session. */
 function startListening() {
   native.listening = true;
   native.statusListeners.forEach((listener) => listener());
 }
 
+/** Sends a test transcript through every active native transcript listener. */
 function transcript(event: EvenG2TranscriptEvent) {
   native.transcriptListeners.forEach((listener) => listener(event));
 }
@@ -64,9 +84,49 @@ afterEach(() => {
 });
 
 describe("Even G2 dictation sessions", () => {
+  it("updates dictation's target when a memoized thread screen changes threads", async () => {
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    const root = createRoot(document.createElement("div"));
+    const Screen = memo(function Screen(input: Parameters<typeof useEvenG2ThreadBridge>[0]) {
+      useEvenG2ThreadBridge(input);
+      return null;
+    });
+    try {
+      await act(() => {
+        root.render(createElement(Screen, { ...thread("a", "draft A"), enabled: true }));
+      });
+      startListening();
+      native.listening = false;
+      native.statusListeners.forEach((listener) => listener());
+      transcript({ text: "fresh draft check", isFinal: true });
+
+      await act(() => {
+        root.render(createElement(Screen, { ...thread("b", "draft B"), enabled: true }));
+      });
+      startListening();
+      transcript({ text: "Moorbeef draft check", isFinal: false });
+      const firstThreadDraft = drafts.get("a");
+      const secondThreadDraft = drafts.get("b");
+      native.listening = false;
+      native.statusListeners.forEach((listener) => listener());
+      transcript({ text: "Moorbeef draft check", isFinal: true });
+      expect(sent).toEqual([
+        { threadKey: "a", text: "fresh draft check" },
+        { threadKey: "b", text: "Moorbeef draft check" },
+      ]);
+      expect(firstThreadDraft).toBe("draft A");
+      expect(secondThreadDraft).toBe("draft B\n\nMoorbeef draft check");
+      expect(drafts.get("b")).toBe("draft B");
+    } finally {
+      await act(() => root.unmount());
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("uses an established thread's send handler while preserving the session's original draft", () => {
     let input: ReturnType<typeof thread> = {
       ...thread("a", "draft A"),
+      /** Models a pending thread that cannot yet accept a message. */
       onSendTextMessage: async () => null,
     };
     unsubscribe = subscribeEvenG2Dictation(() => input);
@@ -125,23 +185,23 @@ describe("Even G2 dictation sessions", () => {
     expect(sent).toEqual([]);
   });
 
-  it("starts a fresh dictation after a page-exit cancellation without sending the abandoned partial", () => {
+  it("keeps interrupted words in the originating draft without sending", () => {
     let input = thread("a", "original draft");
     unsubscribe = subscribeEvenG2Dictation(() => input);
     startListening();
-    transcript({ text: "abandoned partial", isFinal: false });
+    transcript({ text: "keep these words", isFinal: false });
+    input = thread("b", "other draft");
     native.listening = false;
-    transcript({ text: "", isFinal: true, cancelled: true });
+    transcript({ text: "keep these words", isFinal: true, cancelled: true, interrupted: true });
 
-    expect(drafts.get("a")).toBe("original draft");
+    expect(drafts.get("a")).toBe("original draft\n\nkeep these words");
+    expect(drafts.get("b")).toBe("other draft");
     expect(sent).toEqual([]);
 
-    input = thread("a", "edited after recovery");
+    input = thread("a", drafts.get("a") ?? "");
     startListening();
-    transcript({ text: "new dictation", isFinal: true });
-
-    expect(drafts.get("a")).toBe("edited after recovery");
-    expect(sent).toEqual([{ threadKey: "a", text: "new dictation" }]);
+    transcript({ text: "next words", isFinal: false });
+    expect(drafts.get("a")).toBe("original draft\n\nkeep these words\n\nnext words");
   });
 
   it("handles send rejection without blocking the next dictation session", async () => {
@@ -149,6 +209,7 @@ describe("Even G2 dictation sessions", () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     let input: ReturnType<typeof thread> = {
       ...thread("a", "draft A"),
+      /** Holds submission open so the test can reject it after a new session starts. */
       onSendTextMessage: () => pending.promise,
     };
     unsubscribe = subscribeEvenG2Dictation(() => input);

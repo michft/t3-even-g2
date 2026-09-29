@@ -130,6 +130,10 @@ and use **Attach again** or remove the missing file before sending.
 
 ## Voice input on iPhone
 
+For the fork's glasses microphone, see [Even G2 dictation](./even-g2.md#dictate-and-send).
+G2 dictation sends on the second R1/right-arm tap; the phone microphone flow below inserts an
+editable draft and requires a separate Send action.
+
 On supported iPhones with iOS 26 or later, use the composer's microphone to record,
 then confirm to transcribe. Text is inserted where your selection was when
 recording started, ready for you to review and edit before sending.

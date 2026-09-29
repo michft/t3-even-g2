@@ -19,6 +19,7 @@ import type {
   EnvironmentId,
   MessageId,
   ModelSelection,
+  OrchestrationMessage,
   OrchestrationThreadShell,
   ProviderApprovalDecision,
   ProviderInteractionMode,
@@ -68,6 +69,7 @@ import { useWorkspaceContentWidth } from "../layout/workspace-content-width";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { collectProviderUsageLimits } from "@t3tools/shared/usageLimits";
 import { useEvenG2ThreadBridge } from "../even-g2/useEvenG2ThreadBridge";
+import { evenG2ThreadActivityText } from "../even-g2/evenG2ThreadBridge.logic";
 import type { ComposerEditorHandle } from "../../components/ComposerEditor";
 import type { StatusTone } from "../../components/StatusPill";
 import type { DraftComposerAttachment } from "../../lib/composerImages";
@@ -117,6 +119,7 @@ export interface ThreadDetailScreenProps {
   readonly worktreeSetup?: WorktreeSetupCardProps | null;
   readonly setupWorkingStartedAt?: string | null;
   readonly selectedThread: OrchestrationThreadShell;
+  readonly threadMessages?: ReadonlyArray<OrchestrationMessage>;
   readonly contentPresentation: ThreadContentPresentation;
   readonly screenTone: StatusTone;
   readonly connectionError: string | null;
@@ -147,7 +150,10 @@ export interface ThreadDetailScreenProps {
   /** Message sync status for the selected thread (drives the composer status pill). */
   readonly threadSyncStatus?: EnvironmentThreadStatus;
   /** Non-null when older turns exist beyond the loaded window. */
-  readonly loadEarlier?: { readonly loading: boolean; readonly onLoadEarlier: () => void } | null;
+  readonly loadEarlier?: {
+    readonly loading: boolean;
+    readonly onLoadEarlier: () => boolean | void;
+  } | null;
   readonly environmentId: EnvironmentId;
   readonly projectWorkspaceRoot: string | null;
   readonly threadCwd: string | null;
@@ -167,6 +173,7 @@ export interface ThreadDetailScreenProps {
   readonly onRemoveDraftImage: (imageId: string) => void;
   readonly onStopThread: () => void;
   readonly onSendMessage: () => Promise<MessageId | null>;
+  /** Queues dictated text separately from composer attachments, or returns null if unavailable. */
   readonly onSendTextMessage: (text: string) => Promise<MessageId | null>;
   readonly onReconnectEnvironment: () => void;
   readonly onUpdateThreadModelSelection: (modelSelection: ModelSelection) => void;
@@ -772,6 +779,7 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
     selectedThreadKey,
   ]);
 
+  /** Updates submission and scroll anchors for a message sent to this thread. */
   const recordSubmittedMessage = useCallback(
     (messageId: MessageId, targetThreadKey: string) => {
       if (selectedThreadKeyRef.current !== targetThreadKey) {
@@ -811,6 +819,7 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
     return messageId;
   }, [clearUsageLimitsFor, props.onSendMessage, recordSubmittedMessage, selectedThreadKey]);
 
+  /** Sends dictated text and applies the same usage and scroll updates as a typed send. */
   const handleSendDictatedMessage = useCallback(
     async (text: string) => {
       const targetThreadKey = selectedThreadKey;
@@ -827,7 +836,18 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
   useEvenG2ThreadBridge({
     threadKey: selectedThreadKey,
     enabled: isFocused,
-    feed: props.selectedThreadFeed,
+    activityText: evenG2ThreadActivityText({
+      connected: props.connectionStateLabel === "connected",
+      hasError: props.connectionError !== null,
+      needsApproval: props.activePendingApproval !== null,
+      needsInput: props.activePendingUserInput !== null,
+      queued: props.selectedThreadQueueCount > 0,
+      working: props.activeWorkStartedAt !== null,
+    }),
+    messages: props.threadMessages,
+    hasOlderMessages: props.loadEarlier !== null && props.loadEarlier !== undefined,
+    loadingOlderMessages: props.loadEarlier?.loading ?? false,
+    onLoadEarlierMessages: props.loadEarlier?.onLoadEarlier ?? null,
     draftMessage: props.draftMessage,
     onChangeDraftMessage: props.onChangeDraftMessage,
     onSendTextMessage: handleSendDictatedMessage,

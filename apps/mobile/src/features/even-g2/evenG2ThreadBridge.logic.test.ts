@@ -3,8 +3,13 @@ import { describe, expect, it } from "vite-plus/test";
 import { MessageId, type OrchestrationMessageRole } from "@t3tools/contracts";
 
 import type { ThreadFeedEntry } from "../../lib/threadActivity";
-import { latestAssistantText, mergeDraftWithTranscript } from "./evenG2ThreadBridge.logic";
+import {
+  evenG2ThreadActivityText,
+  latestAssistantText,
+  mergeDraftWithTranscript,
+} from "./evenG2ThreadBridge.logic";
 
+/** Builds a feed message for checking which reply text reaches the bridge. */
 function messageEntry(id: string, role: OrchestrationMessageRole, text: string): ThreadFeedEntry {
   const messageId = MessageId.make(id);
   return {
@@ -24,6 +29,35 @@ function messageEntry(id: string, role: OrchestrationMessageRole, text: string):
 }
 
 describe("Even G2 thread bridge", () => {
+  it("shows submission, work, and blocking states without waiting for an assistant message", () => {
+    const idle = {
+      connected: true,
+      hasError: false,
+      needsApproval: false,
+      needsInput: false,
+      queued: false,
+      working: false,
+    };
+    expect(evenG2ThreadActivityText({ ...idle, queued: true })).toBe("Sending to T3 Code…");
+    expect(evenG2ThreadActivityText({ ...idle, working: true })).toBe("Thinking…");
+    expect(evenG2ThreadActivityText({ ...idle, queued: true, working: true })).toBe(
+      "Sending to T3 Code…",
+    );
+    expect(evenG2ThreadActivityText({ ...idle, working: true, connected: false })).toBe(
+      "Waiting for connection…",
+    );
+    expect(evenG2ThreadActivityText({ ...idle, working: true, hasError: true })).toBe(
+      "Check error on phone",
+    );
+    expect(evenG2ThreadActivityText({ ...idle, working: true, needsApproval: true })).toBe(
+      "Approval needed on phone",
+    );
+    expect(evenG2ThreadActivityText({ ...idle, working: true, needsInput: true })).toBe(
+      "Answer needed on phone",
+    );
+    expect(evenG2ThreadActivityText(idle)).toBe("");
+  });
+
   it("selects the latest non-empty assistant text", () => {
     const feed = [
       messageEntry("assistant-1", "assistant", "First answer"),

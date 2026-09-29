@@ -486,6 +486,7 @@ export function useThreadComposerState() {
     uploadThreadFeedback,
   ]);
 
+  /** Queues dictated text as a message without attaching the current composer files. */
   const onSendTextMessage = useCallback(
     async (textInput: string) => {
       const text = textInput.trim();

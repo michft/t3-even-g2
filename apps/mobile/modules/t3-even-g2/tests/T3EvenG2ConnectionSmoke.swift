@@ -3,23 +3,32 @@ import Foundation
 
 @MainActor
 final class T3EvenG2SpeechTranscriber {
+  static weak var current: T3EvenG2SpeechTranscriber?
   static var finalText = "test dictation"
   static var startCount = 0
   static var beforeFinish: (() async -> Void)?
   private var update: ((String, Bool) -> Void)?
+  /// Captures the transcript callback and records recognition starts.
   func start(onUpdate: @escaping (String, Bool) -> Void) async throws {
+    Self.current = self
     Self.startCount += 1
     update = onUpdate
   }
+  /// Emits recognized words through the same callback as the device recognizer.
+  func publish(_ text: String) { update?(text, false) }
+  /// Accepts audio without decoding it in the speech fixture.
   func appendPCM(_ pcm: Data) throws {}
+  /// Waits for the optional test gate, then publishes the configured final transcript.
   func finish() async throws -> String {
     await Self.beforeFinish?()
     update?(Self.finalText, true)
     return Self.finalText
   }
+  /// Detaches transcript delivery for a cancelled fixture session.
   func cancel() async { update = nil }
 }
 final class T3EvenG2LC3Decoder {
+  /// Returns empty PCM because these checks exercise connection state, not codec output.
   func decodePacket(_ packet: Data) throws -> Data { Data() }
 }
 
@@ -27,10 +36,14 @@ final class T3EvenG2LC3Decoder {
 final class Fixture {
   static var waitingAtLine = 0
   let connection: T3EvenG2Connection
+  let diagnostics = T3EvenG2Diagnostics(
+    directory: FileManager.default.temporaryDirectory.appendingPathComponent("g2-test-\(UUID().uuidString)"))
   let left = CBPeripheral("G2_TEST_L_ARM")
   let right = CBPeripheral("G2_TEST_R_ARM")
   var transcripts: [[String: Any]] = []
   var selectedKeys: [String] = []
+  var historyRequests: [[String: Any]] = []
+  var historyWaiter: (() -> Void)?
   var waiter: (([String: Any]) -> Void)?
   var pageOccupied = true
   var sessionLaunched = false
@@ -43,15 +56,48 @@ final class Fixture {
   var baseHeartbeatCounts: [String: Int] = [:]
   var baseHeartbeatStates: Set<String> = []
   var baseHeartbeatWaiter: (() -> Void)?
+  var baseHeartbeatTaskStarts = 0
+  var baseHeartbeatTaskEnds = 0
+  var baseHeartbeatTaskWaiter: (() -> Void)?
+  var pageHeartbeatResponses: [Bool] = []
+  var pageHeartbeatAttempts = 0
+  var pageHeartbeatAcks = 0
+  var pageHeartbeatWaiter: (() -> Void)?
+  var displayFrame: [UInt8] = []
+  var lastDisplayPayload = Data()
+  var displayPayloads: [Data] = []
+  var displayWaiter: (() -> Void)?
 
-  init(connectionTimeout: Duration = .seconds(20), rememberedLeft: CBPeripheral? = nil) {
+  /// Connects simulated arms and scripts firmware acknowledgements with configurable heartbeat timing.
+  init(
+    connectionTimeout: Duration = .seconds(20),
+    baseHeartbeatInterval: Duration = .milliseconds(20),
+    pageHeartbeatInterval: Duration = .seconds(30),
+    pageHeartbeatTimeout: Duration = .seconds(20),
+    rememberedLeft: CBPeripheral? = nil
+  ) {
     connection = T3EvenG2Connection(
-      connectionTimeout: connectionTimeout, baseHeartbeatInterval: .milliseconds(20))
+      connectionTimeout: connectionTimeout,
+      baseHeartbeatInterval: baseHeartbeatInterval,
+      pageHeartbeatInterval: pageHeartbeatInterval,
+      pageHeartbeatTimeout: pageHeartbeatTimeout,
+      diagnostics: diagnostics
+    )
+    connection.onBaseHeartbeatTaskStart = { [weak self] in self?.baseHeartbeatTaskStarts += 1 }
+    connection.onBaseHeartbeatTaskEnd = { [weak self] in
+      guard let self else { return }
+      self.baseHeartbeatTaskEnds += 1
+      self.baseHeartbeatTaskWaiter?()
+    }
     connection.setNaturalScrolling(false)
     connection.onStatus = { [weak self] state in self?.waiter?(state) }
     connection.onTranscript = { [weak self] event in self?.transcripts.append(event) }
     connection.onThreadSelected = { [weak self] event in
       if let key = event["key"] as? String { self?.selectedKeys.append(key) }
+    }
+    connection.onHistoryRequest = { [weak self] event in
+      self?.historyRequests.append(event)
+      self?.historyWaiter?()
     }
     connection.connect()
     if let rememberedLeft {
@@ -67,6 +113,19 @@ final class Fixture {
       peripheral.onWrite = { [weak self, weak peripheral] frame in
         guard let self, let peripheral else { return }
         let bytes = Array(frame)
+        if bytes.count > 9, bytes[6] == 0xE0 {
+          if bytes[5] == 1 {
+            self.displayFrame = bytes[8] == 8 && bytes[9] == 7 ? Array(bytes.dropFirst(8)) : []
+          } else if !self.displayFrame.isEmpty {
+            self.displayFrame += bytes.dropFirst(8)
+          }
+          if bytes[4] == bytes[5], !self.displayFrame.isEmpty {
+            self.lastDisplayPayload = Data(self.displayFrame)
+            self.displayPayloads.append(self.lastDisplayPayload)
+            self.displayFrame = []
+            self.displayWaiter?()
+          }
+        }
         if bytes.count >= 14, bytes[6] == 0x80 {
           precondition(bytes[7] == 0 && bytes[8] == 8)
           let side = peripheral === self.left ? "L" : "R"
@@ -95,6 +154,14 @@ final class Fixture {
         // Transport ACK echoes the command's magic, including the fixed prelude.
         guard bytes.count > 12, bytes[4] == 1, let offset = bytes[8...].firstIndex(of: 0x10) else {
           return
+        }
+        let pageHeartbeat = bytes[6] == 0xE0 && bytes[9] == 12
+        if pageHeartbeat {
+          self.pageHeartbeatAttempts += 1
+          self.pageHeartbeatWaiter?()
+          if !self.pageHeartbeatResponses.isEmpty, !self.pageHeartbeatResponses.removeFirst() {
+            return
+          }
         }
         if bytes[6] == 0x01 {
           guard !self.shutdownPending else { return }
@@ -131,11 +198,21 @@ final class Fixture {
         notify.value = Data(
           [0xAA, 0x12, 0, UInt8(payload.count + 2), 1, 1, bytes[6], 0x20] + payload + [0, 0])
         self.connection.peripheral(peripheral, didUpdateValueFor: notify, error: nil)
+        if pageHeartbeat {
+          self.pageHeartbeatAcks += 1
+          self.pageHeartbeatWaiter?()
+        }
       }
       discover(peripheral)
     }
   }
 
+  deinit {
+    diagnostics.flush()
+    try? FileManager.default.removeItem(at: diagnostics.directory)
+  }
+
+  /// Completes connection and characteristic discovery for one simulated arm.
   func discover(_ peripheral: CBPeripheral) {
     peripheral.state = .connected
     connection.centralManager(CBCentralManager.latest, didConnect: peripheral)
@@ -149,6 +226,7 @@ final class Fixture {
     connection.peripheral(peripheral, didDiscoverCharacteristicsFor: service, error: nil)
   }
 
+  /// Confirms notification subscriptions so the driver can mark an arm ready.
   func subscribe(_ peripheral: CBPeripheral) {
     for characteristic in peripheral.services![0].characteristics!.dropFirst() {
       characteristic.isNotifying = true
@@ -156,8 +234,9 @@ final class Fixture {
     }
   }
 
-  func gesture(_ event: UInt8, container: Bool = false) {
-    let inner: [UInt8] = container ? [0x12, 2, 0x18, event] : [0x1A, 4, 0x08, event, 0x10, 2]
+  /// Delivers a firmware gesture through the real notification parser.
+  func gesture(_ event: UInt8, container: Bool = false, source: UInt8 = 2) {
+    let inner: [UInt8] = container ? [0x12, 2, 0x18, event] : [0x1A, 4, 0x08, event, 0x10, source]
     let payload: [UInt8] = [0x08, 2, 0x6A, UInt8(inner.count)] + inner
     let notify = right.services![0].characteristics![1]
     notify.value = Data(
@@ -165,6 +244,7 @@ final class Fixture {
     connection.peripheral(right, didUpdateValueFor: notify, error: nil)
   }
 
+  /// Waits for a matching status callback, recording the caller for watchdog diagnostics.
   func wait(line: Int = #line, _ predicate: @escaping ([String: Any]) -> Bool) async {
     if predicate(connection.snapshot) { return }
     Self.waitingAtLine = line
@@ -178,11 +258,37 @@ final class Fixture {
     }
   }
 
-  func swipeBack() {
-    gesture(1)
-    gesture(2)
+  /// Delivers a left-arm tap through the right-arm Bluetooth connection.
+  func tapBack() { gesture(0, source: 3) }
+
+  /// Waits for the next completed lens frame after a transcript update.
+  func waitForNextDisplay(after count: Int, line: Int = #line) async {
+    if displayPayloads.count > count { return }
+    Self.waitingAtLine = line
+    await withCheckedContinuation { continuation in
+      displayWaiter = { [weak self] in
+        guard let self, self.displayPayloads.count > count else { return }
+        self.displayWaiter = nil
+        continuation.resume()
+      }
+    }
   }
 
+  /// Waits until a completed text frame contains the expected visible text.
+  func waitForDisplay(_ text: String, line: Int = #line) async {
+    let expected = Data(text.utf8)
+    if lastDisplayPayload.range(of: expected) != nil { return }
+    Self.waitingAtLine = line
+    await withCheckedContinuation { continuation in
+      displayWaiter = { [weak self] in
+        guard let self, self.lastDisplayPayload.range(of: expected) != nil else { return }
+        self.displayWaiter = nil
+        continuation.resume()
+      }
+    }
+  }
+
+  /// Waits for an arm heartbeat write that satisfies the supplied condition.
   func waitForBaseHeartbeat(_ predicate: @escaping () -> Bool) async {
     if predicate() { return }
     await withCheckedContinuation { continuation in
@@ -194,12 +300,50 @@ final class Fixture {
       }
     }
   }
+
+  /// Waits for the requested number of heartbeat tasks to finish cleanup.
+  func waitForBaseHeartbeatTaskEnd(_ count: Int) async {
+    if baseHeartbeatTaskEnds >= count { return }
+    await withCheckedContinuation { continuation in
+      baseHeartbeatTaskWaiter = { [weak self] in
+        guard let self, self.baseHeartbeatTaskEnds >= count else { return }
+        self.baseHeartbeatTaskWaiter = nil
+        continuation.resume()
+      }
+    }
+  }
+
+  /// Waits for a scripted page heartbeat attempt or acknowledgement.
+  func waitForPageHeartbeat(_ predicate: @escaping () -> Bool) async {
+    if predicate() { return }
+    await withCheckedContinuation { continuation in
+      pageHeartbeatWaiter = { [weak self] in
+        if predicate() {
+          self?.pageHeartbeatWaiter = nil
+          continuation.resume()
+        }
+      }
+    }
+  }
+
+  /// Waits for a boundary gesture to request another history window.
+  func waitForHistoryRequest(_ count: Int) async {
+    if historyRequests.count >= count { return }
+    await withCheckedContinuation { continuation in
+      historyWaiter = { [weak self] in
+        guard let self, self.historyRequests.count >= count else { return }
+        self.historyWaiter = nil
+        continuation.resume()
+      }
+    }
+  }
 }
 
 @main
 struct Smoke {
+  /// Exercises real connection, recovery, dictation, and navigation behavior with simulated firmware.
   @MainActor
-  static func main() async {
+  static func main() async throws {
     let savedScrolling = UserDefaults.standard.object(forKey: "T3EvenG2NaturalScrolling")
     defer { UserDefaults.standard.set(savedScrolling, forKey: "T3EvenG2NaturalScrolling") }
     let watchdog = Task {
@@ -209,6 +353,37 @@ struct Smoke {
       fatalError("G2 connection test timed out waiting for a lifecycle callback at line \(Fixture.waitingAtLine)")
     }
     defer { watchdog.cancel() }
+    if CommandLine.arguments.contains("--sending") {
+      await verifySendingNavigation()
+      print("G2 sending progress and navigation checks passed")
+      return
+    }
+    if CommandLine.arguments.contains("--listening") {
+      await verifyListeningTranscript()
+      print("G2 transcript tail, swipe isolation, full send, and interruption checks passed")
+      return
+    }
+    if CommandLine.arguments.contains("--heartbeats") {
+      await verifyHeartbeats()
+      print("G2 heartbeat restart, stale-task cleanup, and consecutive ACK checks passed")
+      return
+    }
+    if CommandLine.arguments.contains("--history") {
+      await verifyReplyHistory()
+      await verifyOpenAtLatest()
+      print("G2 history paging, modal return, Latest shortcut, and stale-window checks passed")
+      return
+    }
+    if CommandLine.arguments.contains("--startup-input") {
+      try await verifyStartupSwipeBack()
+      print("G2 startup swipes and explicit Back checks passed")
+      return
+    }
+    if CommandLine.arguments.contains("--diagnostics") {
+      try verifyDiagnostics()
+      print("G2 diagnostic persistence, rotation, and restart checks passed")
+      return
+    }
     var picker = T3EvenG2ThreadPicker()
     let first = T3EvenG2ThreadPicker.Choice(key: "mini:a", title: "First", subtitle: "Mini")
     let second = T3EvenG2ThreadPicker.Choice(key: "moorbeef:a", title: "Second", subtitle: "Moorbeef")
@@ -310,6 +485,7 @@ struct Smoke {
     precondition(fixture.baseHeartbeatStates.contains("starting"))
     precondition(cancelled.connection.snapshot["status"] as? String == "disconnected")
     precondition(fixture.shutdownCount == 1 && fixture.preludeCount == 2 && fixture.createCount == 1)
+
     fixture.gesture(2, container: true)
     // Simulate deliberate, separate gestures outside the hardware debounce.
     try? await Task.sleep(for: .milliseconds(450))
@@ -324,17 +500,20 @@ struct Smoke {
     fixture.gesture(0, container: true)
     await fixture.wait { $0["listening"] as? Bool == true }
     let createsBeforeCancel = fixture.createCount
+    fixture.gesture(9)
+    precondition(fixture.connection.snapshot["listening"] as? Bool == true,
+                 "Long-press must no longer cancel dictation")
     fixture.gesture(1)
     precondition(fixture.connection.snapshot["listening"] as? Bool == true)
-    fixture.gesture(2) // The escape pair must bypass the normal 400 ms debounce.
+    fixture.tapBack() // Explicit Back cancels without waiting for debounce.
     precondition(fixture.connection.snapshot["listening"] as? Bool == false)
     precondition(fixture.connection.snapshot["status"] as? String == "ready")
     precondition(fixture.createCount == createsBeforeCancel)
     precondition(fixture.transcripts.count == 1 && fixture.transcripts[0]["cancelled"] as? Bool == true)
     try? await Task.sleep(for: .milliseconds(450))
-    fixture.gesture(0)
+    fixture.gesture(0, source: 1)
     await fixture.wait { $0["listening"] as? Bool == true }
-    // Firmware exits must still stop recording safely, even with swipe escape.
+    // Firmware exits must still stop recording safely, while dictating.
     fixture.gesture(3)
     precondition(fixture.connection.snapshot["status"] as? String == "paused")
     await fixture.waitForBaseHeartbeat { fixture.baseHeartbeatStates.contains("paused") }
@@ -354,12 +533,12 @@ struct Smoke {
     fixture.gesture(0)
     precondition(fixture.selectedKeys == ["moorbeef:b", "moorbeef:b"])
     precondition(fixture.connection.snapshot["listening"] as? Bool == false)
-    // Swiping a short reply stays there; holding goes Back. The picker still scrolls.
+    // Swiping a short reply stays there; left-arm tap goes Back. The picker still scrolls.
     fixture.connection.displayText("Short reply")
     try? await Task.sleep(for: .milliseconds(450))
     fixture.gesture(1)
     try? await Task.sleep(for: .milliseconds(450))
-    fixture.gesture(9)
+    fixture.tapBack()
     try? await Task.sleep(for: .milliseconds(450))
     fixture.gesture(1)
     try? await Task.sleep(for: .milliseconds(450))
@@ -380,15 +559,15 @@ struct Smoke {
     fixture.gesture(0)
     await fixture.wait { $0["listening"] as? Bool == true }
     precondition(fixture.selectedKeys.count == 3)
-    fixture.gesture(9)
+    fixture.tapBack()
     precondition(fixture.transcripts.count == 4 && fixture.transcripts[3]["cancelled"] as? Bool == true)
     fixture.connection.setNaturalScrolling(true)
-    precondition(T3EvenG2Connection().snapshot["naturalScrolling"] as? Bool == true)
+    precondition(T3EvenG2Connection(diagnostics: fixture.diagnostics).snapshot["naturalScrolling"] as? Bool == true)
     try? await Task.sleep(for: .milliseconds(450))
     fixture.gesture(1)
     await fixture.wait { ($0["detail"] as? String)?.hasPrefix("G2 page 2 of") == true }
     try? await Task.sleep(for: .milliseconds(450))
-    fixture.swipeBack()
+    fixture.tapBack()
     fixture.gesture(10) // Release must not act as another Back or a tap.
     try? await Task.sleep(for: .milliseconds(450))
     fixture.gesture(1) // Natural scrolling moves the picker to the second thread.
@@ -398,25 +577,37 @@ struct Smoke {
     fixture.connection.setActiveThread("moorbeef:b", enabled: true)
     fixture.connection.showThreadPicker()
     try? await Task.sleep(for: .milliseconds(450))
-    fixture.swipeBack() // Back from a scrollable picker restores the active thread.
+    fixture.tapBack() // Back from a scrollable picker restores the active thread.
     try? await Task.sleep(for: .milliseconds(450))
     fixture.gesture(0)
     await fixture.wait { $0["listening"] as? Bool == true }
     fixture.gesture(1)
     try? await Task.sleep(for: .milliseconds(450))
-    fixture.gesture(2) // Natural scrolling must not reverse the physical escape pair.
+    fixture.tapBack() // Explicit Back is independent of scrolling direction.
     precondition(fixture.transcripts.count == 5 && fixture.transcripts[4]["cancelled"] as? Bool == true)
-    // Empty recognition shows a short retry page; the escape pair must exit it.
+    // Dictation errors are one level above the same reply and reading position.
     try? await Task.sleep(for: .milliseconds(450))
+    fixture.connection.displayText(longReply)
+    fixture.gesture(1)
+    await fixture.wait { ($0["detail"] as? String)?.hasPrefix("G2 page 2 of") == true }
+    let secondPage = T3EvenG2Protocol.lensTextPages(longReply)[1]
+    await fixture.waitForDisplay(secondPage)
     T3EvenG2SpeechTranscriber.finalText = ""
     await fixture.connection.beginDictation()
     await fixture.connection.finishDictation()
+    await fixture.waitForDisplay("No speech recognized")
     T3EvenG2SpeechTranscriber.finalText = "test dictation"
-    fixture.swipeBack()
+    fixture.tapBack()
     fixture.gesture(10)
+    await fixture.waitForDisplay(secondPage)
+    precondition(fixture.selectedKeys.count == 4)
+    // A second Back goes to selection; Back there returns to the same output.
     try? await Task.sleep(for: .milliseconds(450))
-    fixture.gesture(0)
-    precondition(fixture.selectedKeys.count == 5 && fixture.selectedKeys.last == "moorbeef:b")
+    fixture.tapBack()
+    await fixture.waitForDisplay("T3 threads")
+    try? await Task.sleep(for: .milliseconds(450))
+    fixture.tapBack()
+    await fixture.waitForDisplay(secondPage)
     precondition(fixture.connection.snapshot["listening"] as? Bool == false)
     // Back must invalidate a direct start before its first display write finishes.
     try? await Task.sleep(for: .milliseconds(450))
@@ -424,7 +615,7 @@ struct Smoke {
     let startsBeforeBack = T3EvenG2SpeechTranscriber.startCount
     let preparing = Task { await fixture.connection.beginDictation() }
     await fixture.wait { $0["detail"] as? String == "Preparing on-device speech" }
-    fixture.swipeBack()
+    fixture.tapBack()
     fixture.right.canSendWriteWithoutResponse = true
     await preparing.value
     precondition(T3EvenG2SpeechTranscriber.startCount == startsBeforeBack)
@@ -443,7 +634,7 @@ struct Smoke {
       }
       oldFinish = Task { await fixture.connection.finishDictation() }
     }
-    fixture.swipeBack()
+    fixture.tapBack()
     T3EvenG2SpeechTranscriber.beforeFinish = nil
     await fixture.connection.beginDictation()
     precondition(fixture.connection.snapshot["listening"] as? Bool == true)
@@ -467,7 +658,7 @@ struct Smoke {
         && fixture.baseHeartbeatCounts["R", default: 0] > failedPageCounts["R", default: 0]
     }
     fixture.rejectPageCreation = false
-    fixture.swipeBack()
+    fixture.tapBack()
     await fixture.wait { $0["status"] as? String == "ready" }
     // The base connection timer also ends when Bluetooth powers off.
     let poweredOffCounts = fixture.baseHeartbeatCounts
@@ -491,5 +682,451 @@ struct Smoke {
     print(
       "G2 native driver: per-arm auth, base heartbeats, occupied-page reset, readiness deadlines, stale arm replacement, late recovery, cancellation, thread picker, dictation, and reconnect passed"
     )
+  }
+
+  /// Leaves the waiting screen without cancelling the submitted message.
+  @MainActor
+  private static func verifySendingNavigation() async {
+    let fixture = Fixture()
+    fixture.pageOccupied = false
+    fixture.subscribe(fixture.left)
+    fixture.subscribe(fixture.right)
+    await fixture.wait { $0["status"] as? String == "ready" }
+    fixture.connection.setActiveThread("mini:sending", enabled: true)
+    let previous = historyPayload([
+      ["id": "previous", "text": "Previous reply", "prompt": "Earlier question"],
+    ], key: "mini:sending")
+    fixture.connection.setReplyHistory(previous)
+    await fixture.waitForDisplay("Previous reply")
+    // Waiting-screen navigation uses physical swipe up under either scroll preference.
+    for natural in [false, true] {
+      fixture.connection.setNaturalScrolling(natural)
+      fixture.connection.setThreadActivity("mini:sending", text: "")
+      await fixture.connection.beginDictation()
+      await fixture.connection.finishDictation()
+      await fixture.waitForDisplay("Sending to T3 Code")
+      fixture.gesture(1)
+      await fixture.waitForDisplay("Previous reply")
+      precondition(fixture.transcripts.last?["isFinal"] as? Bool == true)
+      precondition(fixture.transcripts.last?["cancelled"] as? Bool != true)
+      let count = fixture.displayPayloads.count
+      fixture.connection.setThreadActivity("mini:sending", text: "Thinking…")
+      fixture.connection.setReplyHistory(previous)
+      await fixture.waitForNextDisplay(after: count)
+      precondition(fixture.lastDisplayPayload.range(of: Data("Previous reply".utf8)) != nil,
+                   "Activity must not reopen a dismissed waiting screen")
+    }
+    fixture.connection.setThreadActivity("mini:sending", text: "Sending to T3 Code…")
+    await fixture.connection.beginDictation()
+    await fixture.connection.finishDictation()
+    await fixture.waitForDisplay("Sending to T3 Code")
+    fixture.connection.setThreadActivity("mini:sending", text: "Thinking…")
+    await fixture.waitForDisplay("Thinking…")
+    fixture.connection.setThreadActivity("other:thread", text: "Wrong thread status")
+    fixture.connection.setReplyHistory(previous)
+    await fixture.waitForDisplay("Swipe up: replies")
+    fixture.gesture(1)
+    await fixture.waitForDisplay("Previous reply")
+    // Back can leave the thread while its reply is pending, without sending again.
+    await fixture.connection.beginDictation()
+    await fixture.connection.finishDictation()
+    await fixture.waitForDisplay("Thinking…")
+    let submissions = fixture.transcripts.count
+    fixture.tapBack()
+    await fixture.waitForDisplay("Latest output")
+    precondition(fixture.transcripts.count == submissions)
+    fixture.connection.setThreadActivity("mini:sending", text: "Approval needed on phone")
+    let count = fixture.displayPayloads.count
+    fixture.connection.setReplyHistory(previous)
+    await fixture.waitForNextDisplay(after: count)
+    precondition(fixture.lastDisplayPayload.range(of: Data("Latest output".utf8)) != nil)
+    // Finishing without an assistant message must not leave Thinking stuck.
+    fixture.connection.setActiveThread("mini:sending", enabled: true)
+    fixture.connection.setThreadActivity("mini:sending", text: "Thinking…")
+    await fixture.connection.beginDictation()
+    await fixture.connection.finishDictation()
+    await fixture.waitForDisplay("Thinking…")
+    fixture.connection.setThreadActivity("mini:sending", text: "")
+    await fixture.waitForDisplay("Previous reply")
+    // A reply received while the recognizer finishes must beat the waiting notice.
+    T3EvenG2SpeechTranscriber.beforeFinish = {
+      fixture.connection.setReplyHistory(historyPayload([
+        ["id": "fast", "text": "Fast reply", "prompt": "New question"],
+      ], key: "mini:sending"))
+    }
+    await fixture.connection.beginDictation()
+    await fixture.connection.finishDictation()
+    T3EvenG2SpeechTranscriber.beforeFinish = nil
+    await fixture.waitForDisplay("Fast reply")
+    fixture.connection.disconnect()
+  }
+
+  /// Keeps the latest recognized rows visible without truncating the submitted transcript.
+  @MainActor
+  private static func verifyListeningTranscript() async {
+    let fixture = Fixture()
+    fixture.pageOccupied = false
+    fixture.subscribe(fixture.left)
+    fixture.subscribe(fixture.right)
+    await fixture.wait { $0["status"] as? String == "ready" }
+    fixture.connection.setActiveThread("mini:transcript", enabled: true)
+    await fixture.connection.beginDictation()
+    let rows = (1...30).map { "Recognized row \($0)" }.joined(separator: "\n")
+    let samples = [
+      (rows, "Recognized row 30"),
+      (String(repeating: "continuous speech ", count: 100) + "newest words", "words"),
+      (String(repeating: "👩🏽‍💻", count: 200) + " newest emoji", "emoji"),
+    ]
+    for (transcript, ending) in samples {
+      let frames = fixture.displayPayloads.count
+      T3EvenG2SpeechTranscriber.current?.publish(transcript)
+      await fixture.waitForNextDisplay(after: frames)
+      precondition(fixture.lastDisplayPayload.range(of: Data(ending.utf8)) != nil,
+                   "Latest recognized row must remain visible: \(ending)")
+      precondition(fixture.lastDisplayPayload.range(of: Data("Recognized row 1\n".utf8)) == nil)
+      precondition(fixture.transcripts.last?["text"] as? String == transcript)
+    }
+    let transcript = samples.last!.0
+    fixture.gesture(1)
+    fixture.gesture(2)
+    precondition(fixture.connection.snapshot["listening"] as? Bool == true,
+                 "Swipe reversal must not cancel dictation")
+    T3EvenG2SpeechTranscriber.finalText = transcript
+    await fixture.connection.finishDictation()
+    precondition(fixture.transcripts.last?["text"] as? String == transcript)
+    precondition(fixture.transcripts.last?["isFinal"] as? Bool == true)
+    await fixture.connection.beginDictation()
+    T3EvenG2SpeechTranscriber.current?.publish("Keep these unsent words")
+    fixture.gesture(3)
+    precondition(fixture.transcripts.last?["interrupted"] as? Bool == true)
+    precondition(fixture.transcripts.last?["text"] as? String == "Keep these unsent words")
+    fixture.connection.disconnect()
+    T3EvenG2SpeechTranscriber.finalText = "test dictation"
+  }
+
+  /// Swipes never cancel startup; left-arm tap still cancels explicitly.
+  @MainActor
+  private static func verifyStartupSwipeBack() async throws {
+    for container in [false, true] {
+      let fixture = Fixture()
+      fixture.pageOccupied = false
+      fixture.subscribe(fixture.left)
+      fixture.subscribe(fixture.right)
+      await fixture.wait { $0["status"] as? String == "ready" }
+      fixture.connection.setActiveThread("mini:startup", enabled: true)
+      fixture.connection.displayText("Startup reply")
+      await fixture.waitForDisplay("Startup reply")
+      for phase in ["immediate", "preparing", "transition"] {
+        if phase != "immediate" { try await Task.sleep(for: .milliseconds(450)) }
+        let firstFrame = fixture.displayPayloads.count
+        fixture.gesture(0, container: container)
+        if phase != "immediate" {
+          await fixture.waitForDisplay("Preparing dictation")
+          precondition(fixture.displayPayloads[firstFrame].range(of: Data("Preparing dictation".utf8)) != nil)
+        }
+        fixture.gesture(1, container: container)
+        if phase == "transition" { await fixture.waitForDisplay("Listening") }
+        fixture.gesture(2, container: container)
+        await fixture.wait { $0["listening"] as? Bool == true }
+        fixture.tapBack()
+        precondition(fixture.connection.snapshot["detail"] as? String == "Dictation cancelled")
+        await fixture.waitForDisplay("Startup reply")
+        precondition(fixture.transcripts.last?["cancelled"] as? Bool == true)
+        precondition(fixture.transcripts.last?["interrupted"] as? Bool == false)
+      }
+      fixture.connection.disconnect()
+    }
+  }
+
+  /// Verifies readable, ordered, bounded records survive creating a new logger instance.
+  private static func verifyDiagnostics() throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent("g2-log-test-\(UUID().uuidString)")
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let logger = T3EvenG2Diagnostics(directory: directory, maxBytes: 1_024)
+    for index in 0..<20 { logger.record("gesture.received", fields: ["index": index]) }
+    logger.flush()
+    let restarted = T3EvenG2Diagnostics(directory: directory, maxBytes: 1_024)
+    restarted.record("connection.created")
+    restarted.flush()
+    let entries = try ["previous.jsonl", "current.jsonl"].flatMap { name -> [[String: Any]] in
+      let data = try Data(contentsOf: directory.appendingPathComponent(name))
+      precondition(data.count <= 1_024)
+      return try data.split(separator: 0x0A).map {
+        guard let entry = try JSONSerialization.jsonObject(with: Data($0)) as? [String: Any] else {
+          fatalError("Invalid diagnostic record")
+        }
+        return entry
+      }
+    }
+    precondition(entries.last?["event"] as? String == "connection.created")
+    precondition(Set(entries.compactMap { $0["run"] as? String }).count == 2)
+    let indices = entries.compactMap { $0["index"] as? Int }
+    precondition(indices == indices.sorted() && indices.last == 19)
+    precondition(entries.allSatisfy { $0["uptimeMs"] is Double && $0["schema"] as? Int == 1 })
+
+    // A failed first setup must not prevent the next write from preparing storage.
+    let retryDirectory = directory.appendingPathComponent("retry")
+    try Data().write(to: retryDirectory)
+    let retryLogger = T3EvenG2Diagnostics(directory: retryDirectory)
+    retryLogger.record("blocked")
+    retryLogger.flush()
+    try FileManager.default.removeItem(at: retryDirectory)
+    DispatchQueue.concurrentPerform(iterations: 32) { index in
+      retryLogger.record("retry", fields: ["index": index])
+    }
+    retryLogger.flush()
+    let recovered = try Data(contentsOf: retryDirectory.appendingPathComponent("current.jsonl"))
+      .split(separator: 0x0A).map {
+        guard let entry = try JSONSerialization.jsonObject(with: Data($0)) as? [String: Any] else {
+          fatalError("Invalid recovered diagnostic record")
+        }
+        return entry
+      }
+    precondition(recovered.count == 32)
+    precondition(Set(recovered.compactMap { $0["index"] as? Int }) == Set(0..<32))
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    precondition(recovered.allSatisfy {
+      guard let timestamp = $0["time"] as? String else { return false }
+      return formatter.date(from: timestamp) != nil
+    })
+  }
+
+  /// Reopening selects latest, while duplicate active-thread updates preserve browsing.
+  @MainActor
+  private static func verifyOpenAtLatest() async {
+    let fixture = Fixture()
+    fixture.pageOccupied = false
+    fixture.subscribe(fixture.left)
+    fixture.subscribe(fixture.right)
+    await fixture.wait { $0["status"] as? String == "ready" }
+    fixture.connection.setThreadChoices([
+      ["key": "mini:reopen", "title": "Reopen thread", "subtitle": "Mini"],
+      ["key": "mini:other", "title": "Other thread", "subtitle": "Mini"],
+    ])
+    fixture.connection.setActiveThread("mini:reopen", enabled: true)
+    let replies = [
+      ["id": "old", "text": "Old reading position", "prompt": ""],
+      ["id": "new", "text": "Newest reply", "prompt": ""],
+    ]
+    let payload = historyPayload(replies, key: "mini:reopen")
+    fixture.connection.setReplyHistory(payload)
+    await fixture.waitForDisplay("Newest reply")
+    try? await Task.sleep(for: .milliseconds(450))
+    fixture.gesture(1)
+    await fixture.waitForDisplay("Old reading position")
+    fixture.connection.setActiveThread("mini:reopen", enabled: true)
+    fixture.connection.setReplyHistory(payload)
+    await fixture.waitForDisplay("Old reading position")
+    fixture.connection.setActiveThread("mini:other", enabled: true)
+    fixture.connection.setActiveThread("mini:reopen", enabled: true)
+    fixture.connection.setReplyHistory(payload)
+    await fixture.waitForDisplay("Newest reply")
+    try? await Task.sleep(for: .milliseconds(450))
+    fixture.gesture(1)
+    await fixture.waitForDisplay("Old reading position")
+    fixture.connection.setActiveThread("mini:reopen", enabled: false)
+    fixture.connection.setActiveThread("mini:reopen", enabled: true)
+    fixture.connection.setReplyHistory(payload)
+    await fixture.waitForDisplay("Newest reply")
+
+    try? await Task.sleep(for: .milliseconds(450))
+    fixture.gesture(1)
+    await fixture.waitForDisplay("Old reading position")
+    fixture.connection.showThreadPicker()
+    await fixture.waitForDisplay("T3 quick action")
+    try? await Task.sleep(for: .milliseconds(450))
+    fixture.gesture(2)
+    await fixture.waitForDisplay("T3 threads 1/2")
+    fixture.gesture(0)
+    await fixture.waitForDisplay("Newest reply")
+
+    fixture.connection.setActiveThread("mini:unloaded-latest", enabled: true)
+    var oldWindow = historyPayload([replies[0]], key: "mini:unloaded-latest")
+    oldWindow["latestReplyId"] = "new"
+    oldWindow["totalReplies"] = 2
+    oldWindow["hasNewer"] = true
+    fixture.connection.setReplyHistory(oldWindow)
+    precondition(fixture.historyRequests.count == 1)
+    precondition(fixture.historyRequests[0]["direction"] as? String == "latest")
+    oldWindow["requestId"] = fixture.historyRequests[0]["requestId"]
+    fixture.connection.setReplyHistory(oldWindow)
+    precondition(fixture.historyRequests.count == 1, "Unavailable latest must not cause a request loop")
+    fixture.connection.setReplyHistory(historyPayload(replies, key: "mini:unloaded-latest"))
+    await fixture.waitForDisplay("Newest reply")
+    fixture.connection.disconnect()
+  }
+
+  /// Exercises history through real ring events and firmware display writes.
+  @MainActor
+  private static func verifyReplyHistory() async {
+    let fixture = Fixture()
+    fixture.pageOccupied = false
+    fixture.subscribe(fixture.left)
+    fixture.subscribe(fixture.right)
+    await fixture.wait { $0["status"] as? String == "ready" }
+    fixture.connection.setActiveThread("mini:history", enabled: true)
+    let longReply = (1...17).map { "Older line \($0)" }.joined(separator: "\n")
+    var replies = [
+      ["id": "old", "text": longReply, "prompt": "Earlier question"],
+      ["id": "latest", "text": "Latest original reply", "prompt": "Current question"],
+    ]
+    fixture.connection.setReplyHistory(historyPayload(replies))
+    await fixture.waitForDisplay("Latest original reply")
+    try? await Task.sleep(for: .milliseconds(450))
+    fixture.gesture(1)
+    await fixture.waitForDisplay("Older line 17")
+    await fixture.connection.beginDictation()
+    replies.append(["id": "new", "text": "New arrival", "prompt": "Next question"])
+    fixture.connection.setReplyHistory(historyPayload(replies))
+    await fixture.connection.cancelDictation()
+    await fixture.waitForDisplay("Older line 17")
+    T3EvenG2SpeechTranscriber.finalText = ""
+    await fixture.connection.beginDictation()
+    await fixture.connection.finishDictation()
+    await fixture.waitForDisplay("No speech recognized")
+    fixture.tapBack()
+    await fixture.waitForDisplay("Older line 17")
+    // These are separate user gestures, outside the hardware debounce.
+    try? await Task.sleep(for: .milliseconds(450))
+    fixture.tapBack()
+    fixture.tapBack() // Duplicate left tap must not immediately close the picker.
+    // Tap immediately after Back, before its picker frame or input debounce expires.
+    fixture.gesture(0)
+    await fixture.waitForDisplay("New arrival")
+    precondition(fixture.selectedKeys.isEmpty, "Latest must not navigate to a synthetic thread")
+
+    fixture.connection.setActiveThread("mini:window", enabled: true)
+    let current = ["id": "20", "text": "Window anchor", "prompt": ""]
+    var window = historyPayload([current], key: "mini:window")
+    window["startIndex"] = 20
+    window["totalReplies"] = 21
+    window["hasOlder"] = true
+    fixture.connection.setReplyHistory(window)
+    await fixture.waitForDisplay("Window anchor")
+    try? await Task.sleep(for: .milliseconds(450))
+    fixture.gesture(1)
+    await fixture.waitForHistoryRequest(1)
+    let request = fixture.historyRequests[0]
+    precondition(request["direction"] as? String == "older")
+    var loaded = historyPayload([
+      ["id": "19", "text": "Loaded older reply", "prompt": ""], current,
+    ], key: "mini:window")
+    loaded["startIndex"] = 19
+    loaded["totalReplies"] = 21
+    loaded["hasOlder"] = true
+    loaded["requestId"] = request["requestId"]
+    fixture.connection.setReplyHistory(loaded)
+    await fixture.waitForDisplay("Loaded older reply")
+    try? await Task.sleep(for: .milliseconds(450))
+    fixture.gesture(1)
+    await fixture.waitForHistoryRequest(2)
+    await fixture.connection.beginDictation() // Cancels the pending window request.
+    loaded["replies"] = [["id": "wrong", "text": "STALE", "prompt": ""]]
+    loaded["requestId"] = fixture.historyRequests[1]["requestId"]
+    fixture.connection.setReplyHistory(loaded)
+    await fixture.connection.cancelDictation()
+    await fixture.waitForDisplay("Loaded older reply")
+    fixture.connection.setActiveThread("mini:history", enabled: true)
+    await fixture.waitForDisplay("New arrival")
+    // A late snapshot from another environment/thread must not replace this output.
+    fixture.connection.setReplyHistory(loaded)
+    fixture.connection.setActiveThread("mini:empty", enabled: true)
+    var emptyWindow = historyPayload([], key: "mini:empty")
+    emptyWindow["hasOlder"] = true
+    fixture.connection.setReplyHistory(emptyWindow)
+    await fixture.waitForDisplay("No replies available")
+    try? await Task.sleep(for: .milliseconds(450))
+    fixture.gesture(1)
+    await fixture.waitForHistoryRequest(3)
+    var firstLoaded = historyPayload([
+      ["id": "older-empty", "text": "Earlier fetched reply", "prompt": ""],
+      ["id": "latest-empty", "text": "Closest fetched reply", "prompt": ""],
+    ], key: "mini:empty")
+    firstLoaded["requestId"] = fixture.historyRequests[2]["requestId"]
+    fixture.connection.setReplyHistory(firstLoaded)
+    await fixture.waitForDisplay("Closest fetched reply")
+    firstLoaded.removeValue(forKey: "requestId")
+    firstLoaded["latestReplyId"] = "beyond-window"
+    firstLoaded["totalReplies"] = 3
+    firstLoaded["hasNewer"] = true
+    fixture.connection.setReplyHistory(firstLoaded)
+    await fixture.waitForHistoryRequest(4)
+    precondition(fixture.historyRequests[3]["direction"] as? String == "latest")
+    var newest = historyPayload([
+      ["id": "latest-empty", "text": "Closest fetched reply", "prompt": ""],
+      ["id": "beyond-window", "text": "Live reply beyond window", "prompt": ""],
+    ], key: "mini:empty")
+    newest["startIndex"] = 1
+    newest["totalReplies"] = 3
+    newest["hasOlder"] = true
+    newest["requestId"] = fixture.historyRequests[3]["requestId"]
+    fixture.connection.setReplyHistory(newest)
+    await fixture.waitForDisplay("Live reply beyond window")
+    fixture.connection.disconnect()
+    T3EvenG2SpeechTranscriber.finalText = "test dictation"
+  }
+
+  /// Builds a native history snapshot for a complete test reply window.
+  private static func historyPayload(_ replies: [[String: String]], key: String = "mini:history") -> [String: Any] {
+    ["threadKey": key, "replies": replies, "startIndex": 0, "totalReplies": replies.count,
+     "hasOlder": false, "hasNewer": false, "latestReplyId": replies.last?["id"] ?? "", "loading": false]
+  }
+
+  /// Verifies task replacement and missed-ACK recovery separately from navigation timing checks.
+  @MainActor
+  private static func verifyHeartbeats() async {
+    let heartbeat = Fixture(
+      pageHeartbeatInterval: .milliseconds(60), pageHeartbeatTimeout: .milliseconds(15))
+    heartbeat.pageOccupied = false
+    heartbeat.subscribe(heartbeat.left)
+    heartbeat.subscribe(heartbeat.right)
+    await heartbeat.wait { $0["status"] as? String == "ready" }
+    heartbeat.pageHeartbeatResponses = [false, true, false, false]
+    await heartbeat.waitForPageHeartbeat { heartbeat.pageHeartbeatAttempts >= 1 }
+    await heartbeat.waitForPageHeartbeat { heartbeat.pageHeartbeatAttempts >= 2 }
+    await heartbeat.waitForPageHeartbeat { heartbeat.pageHeartbeatAttempts >= 3 }
+    precondition(heartbeat.pageHeartbeatAcks == 1)
+    precondition(heartbeat.connection.snapshot["status"] as? String == "ready")
+    await heartbeat.wait { $0["status"] as? String == "paused" }
+    precondition(heartbeat.pageHeartbeatAttempts == 4)
+    heartbeat.connection.disconnect()
+
+    let lifecycle = Fixture(pageHeartbeatInterval: .seconds(30))
+    lifecycle.pageOccupied = false
+    lifecycle.subscribe(lifecycle.left)
+    lifecycle.subscribe(lifecycle.right)
+    await lifecycle.wait { $0["status"] as? String == "ready" }
+    let lifecycleCentral = CBCentralManager.latest!
+    lifecycleCentral.state = .unknown
+    await lifecycle.waitForBaseHeartbeatTaskEnd(1)
+    lifecycleCentral.state = .poweredOn
+    lifecycle.subscribe(lifecycle.left)
+    precondition(lifecycle.baseHeartbeatTaskStarts == 2)
+    let naturalRestartCount = lifecycle.baseHeartbeatCounts["L", default: 0]
+    await lifecycle.waitForBaseHeartbeat {
+      lifecycle.baseHeartbeatCounts["L", default: 0] > naturalRestartCount
+    }
+    lifecycle.connection.disconnect()
+
+    let staleTask = Fixture(connectionTimeout: .milliseconds(60))
+    staleTask.pageOccupied = false
+    staleTask.subscribe(staleTask.left)
+    await staleTask.wait { $0["status"] as? String == "error" }
+    precondition(staleTask.baseHeartbeatTaskStarts == 1)
+    staleTask.connection.connect()
+    guard let staleCentral = CBCentralManager.latest else { fatalError("Missing stale-task central") }
+    for peripheral in [staleTask.left, staleTask.right] {
+      staleTask.connection.centralManager(
+        staleCentral, didDiscover: peripheral, advertisementData: [:], rssi: -40)
+      staleTask.discover(peripheral)
+      staleTask.subscribe(peripheral)
+    }
+    await staleTask.wait { $0["status"] as? String == "ready" }
+    precondition(staleTask.baseHeartbeatTaskStarts == 2)
+    await staleTask.waitForBaseHeartbeatTaskEnd(1)
+    staleTask.subscribe(staleTask.left)
+    precondition(staleTask.baseHeartbeatTaskStarts == 2)
+    staleTask.connection.disconnect()
   }
 }
