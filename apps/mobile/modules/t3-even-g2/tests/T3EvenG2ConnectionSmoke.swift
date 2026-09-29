@@ -353,6 +353,11 @@ struct Smoke {
       fatalError("G2 connection test timed out waiting for a lifecycle callback at line \(Fixture.waitingAtLine)")
     }
     defer { watchdog.cancel() }
+    if CommandLine.arguments.contains("--sending") {
+      await verifySendingNavigation()
+      print("G2 sending progress and navigation checks passed")
+      return
+    }
     if CommandLine.arguments.contains("--listening") {
       await verifyListeningTranscript()
       print("G2 transcript tail, swipe isolation, full send, and interruption checks passed")
@@ -674,6 +679,83 @@ struct Smoke {
     print(
       "G2 native driver: per-arm auth, base heartbeats, occupied-page reset, readiness deadlines, stale arm replacement, late recovery, cancellation, thread picker, dictation, and reconnect passed"
     )
+  }
+
+  /// Leaves the waiting screen without cancelling the submitted message.
+  @MainActor
+  private static func verifySendingNavigation() async {
+    let fixture = Fixture()
+    fixture.pageOccupied = false
+    fixture.subscribe(fixture.left)
+    fixture.subscribe(fixture.right)
+    await fixture.wait { $0["status"] as? String == "ready" }
+    fixture.connection.setActiveThread("mini:sending", enabled: true)
+    let previous = historyPayload([
+      ["id": "previous", "text": "Previous reply", "prompt": "Earlier question"],
+    ], key: "mini:sending")
+    fixture.connection.setReplyHistory(previous)
+    await fixture.waitForDisplay("Previous reply")
+    // Waiting-screen navigation uses physical swipe up under either scroll preference.
+    for natural in [false, true] {
+      fixture.connection.setNaturalScrolling(natural)
+      fixture.connection.setThreadActivity("mini:sending", text: "")
+      await fixture.connection.beginDictation()
+      await fixture.connection.finishDictation()
+      await fixture.waitForDisplay("Sending to T3 Code")
+      fixture.gesture(1)
+      await fixture.waitForDisplay("Previous reply")
+      precondition(fixture.transcripts.last?["isFinal"] as? Bool == true)
+      precondition(fixture.transcripts.last?["cancelled"] as? Bool != true)
+      let count = fixture.displayPayloads.count
+      fixture.connection.setThreadActivity("mini:sending", text: "Thinking…")
+      fixture.connection.setReplyHistory(previous)
+      await fixture.waitForNextDisplay(after: count)
+      precondition(fixture.lastDisplayPayload.range(of: Data("Previous reply".utf8)) != nil,
+                   "Activity must not reopen a dismissed waiting screen")
+    }
+    fixture.connection.setThreadActivity("mini:sending", text: "Sending to T3 Code…")
+    await fixture.connection.beginDictation()
+    await fixture.connection.finishDictation()
+    await fixture.waitForDisplay("Sending to T3 Code")
+    fixture.connection.setThreadActivity("mini:sending", text: "Thinking…")
+    await fixture.waitForDisplay("Thinking…")
+    fixture.connection.setThreadActivity("other:thread", text: "Wrong thread status")
+    fixture.connection.setReplyHistory(previous)
+    await fixture.waitForDisplay("Swipe up: replies")
+    fixture.gesture(1)
+    await fixture.waitForDisplay("Previous reply")
+    // Back can leave the thread while its reply is pending, without sending again.
+    await fixture.connection.beginDictation()
+    await fixture.connection.finishDictation()
+    await fixture.waitForDisplay("Thinking…")
+    let submissions = fixture.transcripts.count
+    fixture.holdBack()
+    await fixture.waitForDisplay("Latest output")
+    precondition(fixture.transcripts.count == submissions)
+    fixture.connection.setThreadActivity("mini:sending", text: "Approval needed on phone")
+    let count = fixture.displayPayloads.count
+    fixture.connection.setReplyHistory(previous)
+    await fixture.waitForNextDisplay(after: count)
+    precondition(fixture.lastDisplayPayload.range(of: Data("Latest output".utf8)) != nil)
+    // Finishing without an assistant message must not leave Thinking stuck.
+    fixture.connection.setActiveThread("mini:sending", enabled: true)
+    fixture.connection.setThreadActivity("mini:sending", text: "Thinking…")
+    await fixture.connection.beginDictation()
+    await fixture.connection.finishDictation()
+    await fixture.waitForDisplay("Thinking…")
+    fixture.connection.setThreadActivity("mini:sending", text: "")
+    await fixture.waitForDisplay("Previous reply")
+    // A reply received while the recognizer finishes must beat the waiting notice.
+    T3EvenG2SpeechTranscriber.beforeFinish = {
+      fixture.connection.setReplyHistory(historyPayload([
+        ["id": "fast", "text": "Fast reply", "prompt": "New question"],
+      ], key: "mini:sending"))
+    }
+    await fixture.connection.beginDictation()
+    await fixture.connection.finishDictation()
+    T3EvenG2SpeechTranscriber.beforeFinish = nil
+    await fixture.waitForDisplay("Fast reply")
+    fixture.connection.disconnect()
   }
 
   /// Keeps the latest recognized rows visible without truncating the submitted transcript.

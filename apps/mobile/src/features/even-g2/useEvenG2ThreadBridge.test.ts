@@ -19,6 +19,7 @@ vi.mock("./evenG2Native", () => ({
   ensureEvenG2AutoConnect: vi.fn(),
   /** Records which thread the bridge marks active. */
   setEvenG2ActiveThread: vi.fn(),
+  setEvenG2ThreadActivity: vi.fn(),
   /** Exposes the current mock listening flag to the bridge. */
   getEvenG2Status: () => ({ listening: native.listening }),
   /** Stubs history snapshot writes; this suite exercises dictation only. */

@@ -107,6 +107,13 @@ public final class T3EvenG2Module: Module {
       }
     }
 
+    Function("setThreadActivity") { (key: String, text: String) in
+      self.performOnMain {
+        guard #available(iOS 26.0, *) else { return }
+        self.connection()?.setThreadActivity(key, text: text)
+      }
+    }
+
     Function("showThreadPicker") {
       self.performOnMain {
         guard #available(iOS 26.0, *) else { return }

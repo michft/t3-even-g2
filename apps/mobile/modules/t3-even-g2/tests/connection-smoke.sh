@@ -30,4 +30,5 @@ fi
 "$g2_test_dir/t3-g2-connection-smoke" --listening
 "$g2_test_dir/t3-g2-connection-smoke" --heartbeats
 "$g2_test_dir/t3-g2-connection-smoke" --history
+"$g2_test_dir/t3-g2-connection-smoke" --sending
 "$g2_test_dir/t3-g2-connection-smoke"

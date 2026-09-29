@@ -93,6 +93,8 @@ interface EvenG2NativeModule {
   setInputEnabled(enabled: boolean): void;
   /** Marks which thread receives speech input. */
   setActiveThread(key: string, enabled: boolean): void;
+  /** Updates phone activity without changing the glasses' current page. */
+  setThreadActivity(key: string, text: string): void;
   /** Replaces the thread choices shown by the glasses. */
   setThreadChoices(choices: ReadonlyArray<EvenG2ThreadChoice>): void;
   /** Replaces the bounded reply window and its navigation metadata. */
@@ -232,6 +234,11 @@ export function setEvenG2InputEnabled(enabled: boolean): void {
 /** Marks the workspace thread that should receive Even dictation. */
 export function setEvenG2ActiveThread(key: string, enabled: boolean): void {
   nativeModule()?.setActiveThread(key, enabled);
+}
+
+/** Updates the waiting screen from the originating thread's phone state. */
+export function setEvenG2ThreadActivity(key: string, text: string): void {
+  nativeModule()?.setThreadActivity(key, text);
 }
 
 /** Replaces the choices shown when R1 opens the native thread picker. */

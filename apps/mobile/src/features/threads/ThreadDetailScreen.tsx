@@ -69,6 +69,7 @@ import { useWorkspaceContentWidth } from "../layout/workspace-content-width";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { collectProviderUsageLimits } from "@t3tools/shared/usageLimits";
 import { useEvenG2ThreadBridge } from "../even-g2/useEvenG2ThreadBridge";
+import { evenG2ThreadActivityText } from "../even-g2/evenG2ThreadBridge.logic";
 import type { ComposerEditorHandle } from "../../components/ComposerEditor";
 import type { StatusTone } from "../../components/StatusPill";
 import type { DraftComposerAttachment } from "../../lib/composerImages";
@@ -835,6 +836,14 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
   useEvenG2ThreadBridge({
     threadKey: selectedThreadKey,
     enabled: isFocused,
+    activityText: evenG2ThreadActivityText({
+      connected: props.connectionStateLabel === "connected",
+      hasError: props.connectionError !== null,
+      needsApproval: props.activePendingApproval !== null,
+      needsInput: props.activePendingUserInput !== null,
+      queued: props.selectedThreadQueueCount > 0,
+      working: props.activeWorkStartedAt !== null,
+    }),
     messages: props.threadMessages,
     hasOlderMessages: props.loadEarlier !== null && props.loadEarlier !== undefined,
     loadingOlderMessages: props.loadEarlier?.loading ?? false,

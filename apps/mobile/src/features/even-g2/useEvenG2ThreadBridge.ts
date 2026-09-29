@@ -8,6 +8,7 @@ import {
   subscribeEvenG2Transcripts,
   getEvenG2Status,
   setEvenG2ActiveThread,
+  setEvenG2ThreadActivity,
   setEvenG2ReplyHistory,
   subscribeEvenG2HistoryPositions,
   subscribeEvenG2HistoryRequests,
@@ -86,6 +87,7 @@ export function subscribeEvenG2Dictation(getInput: () => EvenG2DictationInput): 
 export function useEvenG2ThreadBridge(
   input: EvenG2DictationInput & {
     readonly enabled: boolean;
+    readonly activityText?: string;
     readonly messages?: ReadonlyArray<OrchestrationMessage>;
     readonly hasOlderMessages?: boolean;
     readonly loadingOlderMessages?: boolean;
@@ -110,6 +112,10 @@ export function useEvenG2ThreadBridge(
   useEffect(() => {
     if (input.enabled) setEvenG2ActiveThread(input.threadKey, true);
   }, [input.enabled, input.threadKey]);
+
+  useEffect(() => {
+    if (input.enabled) setEvenG2ThreadActivity(input.threadKey, input.activityText ?? "");
+  }, [input.enabled, input.threadKey, input.activityText]);
 
   useEffect(() => {
     if (!input.enabled) return;

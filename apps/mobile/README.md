@@ -106,13 +106,18 @@ latest reply on the glasses. R1 pages through glasses output independently of th
 position; the phone can remain at the live bottom while you read older replies on the glasses.
 Once a thread is open, tap R1 to start dictation and tap again to send. Recognized words scroll
 on the glasses so the newest line stays at the bottom; the complete transcript is retained for
-sending. Swipes only scroll while reading. Up→down is no longer a Back or Cancel gesture anywhere,
+sending. After sending, the glasses show **Sending to T3 Code…**, then **Thinking…** when the
+phone reports work underway. While waiting, swipe up to return to the current thread's replies,
+or hold Back to open the thread picker. These actions leave the submitted message running.
+Offline, approval, and input waits point to the connection or phone instead of claiming the agent
+is thinking. Swipe up leaves the waiting screen regardless of the Natural scrolling setting.
+Swipes scroll while reading. Up→down is no longer a Back or Cancel gesture anywhere,
 and swipes do nothing during dictation. Starting dictation has no tap-confirmation screen.
 
 Hold (long-press) goes Back when the glasses firmware delivers that event. During dictation it
 explicitly cancels; from thread output it opens the picker; from the picker it restores the last
-open thread. Error/sending notices return to the current reply and reading position. Dismissing
-Sending does not retract a submitted message. Tap-then-hold remains the firmware menu gesture.
+open thread. Error notices return to the current reply and reading position.
+Tap-then-hold remains the firmware menu gesture.
 In **Settings → Even G2**, **Natural scrolling** makes swipe up advance through content; turn it
 off for swipe down to advance instead. While idle, double-tap also returns to the thread picker.
 Scroll backward through a reply to reach the previous reply's last page; scroll forward to read
@@ -185,6 +190,7 @@ Focused test commands (repo root):
 ```bash
 bash apps/mobile/modules/t3-even-g2/tests/connection-smoke.sh --startup-input
 bash apps/mobile/modules/t3-even-g2/tests/connection-smoke.sh --diagnostics
+bash apps/mobile/modules/t3-even-g2/tests/connection-smoke.sh --sending
 node --test scripts/g2-diagnostics.test.ts
 ```
 
@@ -215,7 +221,9 @@ at a time. Changes to this native driver require an updated native app.
     Record missing long-press events rather than substituting an up→down gesture.
 14. From an older reply, use supported Back to reach the picker, then tap **Latest output**.
     Confirm newest reply, page one. Open another thread and confirm its latest reply too.
-15. Repeat reading and dictation with Natural scrolling off. Swipes must never cancel or go Back.
+15. Send while a reply is delayed. Confirm Sending changes to Thinking when work starts;
+    swipe up returns to replies, then Back opens the picker. Repeat with Natural scrolling off.
+    Reading and dictation swipes must never cancel or go Back.
 16. Select a thread, lock the phone, then dictate/send twice. Verify each message reaches that thread once.
 17. Power-cycle the glasses. Confirm recovery and two consecutive dictations. If needed, separately
     test **Settings → Even G2 → Resume T3 display**.

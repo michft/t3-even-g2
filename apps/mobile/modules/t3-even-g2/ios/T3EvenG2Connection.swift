@@ -98,6 +98,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   private var stoppingDictation = false
   private var latestTranscript = ""
   private var dictationNotice: String?
+  private var threadActivityText = ""
   private var displayPages: [String] = []
   private var displayPageIndex = 0
   private var lastGestureAt = Date.distantPast
@@ -280,6 +281,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       }
       if activeThreadKey != key {
         dictationNotice = nil
+        threadActivityText = ""
         displayPages = []
         displayPageIndex = 0
       }
@@ -290,8 +292,21 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       setInputEnabled(true)
     } else if activeThreadKey == key {
       activeThreadKey = nil
+      threadActivityText = ""
       refreshThreadChoices()
       setInputEnabled(false)
+    }
+  }
+
+  /// Updates a waiting submission from phone state without reopening a dismissed notice.
+  func setThreadActivity(_ key: String, text: String) {
+    guard key == activeThreadKey else { return }
+    let wasActive = !threadActivityText.isEmpty
+    threadActivityText = text
+    guard isWaitingForReply else { return }
+    if wasActive, text.isEmpty { dictationNotice = nil }
+    if status == .ready, !listening, speechSession == nil {
+      scheduleDisplay(restingDisplayText)
     }
   }
 
@@ -323,7 +338,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     let previousLatest = history.latestReplyID
     let followLatest = history.currentID != nil && history.currentID == previousLatest
       && history.pageIndex == 0 && !listening && speechSession == nil
-      && (dictationNotice == nil || dictationNotice == "Sending to T3 Code…")
+      && (dictationNotice == nil || isWaitingForReply)
       && pendingHistoryRequest == nil
     history.updateSnapshot(.init(
       replies: replies,
@@ -338,7 +353,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     let jumpToLatest = openAtLatest || (latestChanged && followLatest)
     let requestLatest = jumpToLatest && history.jumpToLatest() != nil
     if openAtLatest, !requestLatest, !(payload["loading"] as? Bool ?? false) { openAtLatest = false }
-    if latestChanged, dictationNotice == "Sending to T3 Code…" {
+    if latestChanged, isWaitingForReply {
       dictationNotice = nil
     }
     let fulfilled = requestID != nil && requestID == pendingHistoryRequest?.id
@@ -1019,6 +1034,10 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     if !inputEnabled {
       return "T3 Code\n\nOpen a thread to dictate"
     }
+    if isWaitingForReply {
+      let activity = threadActivityText.isEmpty ? "Sending to T3 Code…" : threadActivityText
+      return "\(activity)\n\nSwipe up: replies\nHold: threads"
+    }
     if let dictationNotice { return dictationNotice }
     if let key = activeThreadKey, let history = historyByThread[key] {
       guard let historyNotice else { return history.text }
@@ -1032,6 +1051,9 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     let title = threadPicker.choices.first(where: { $0.key == activeThreadKey })?.title ?? "T3 Code"
     return "\(String(title.replacingOccurrences(of: "\n", with: " ").prefix(92)))\n\nTap R1 to dictate"
   }
+
+  /// Separates post-send progress from errors and active speech capture.
+  private var isWaitingForReply: Bool { dictationNotice == "Sending to T3 Code…" }
 
   /// Stores a notice and schedules it for display.
   private func showDictationNotice(_ text: String) {
@@ -1279,6 +1301,10 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       scheduleDisplay(restingDisplayText)
       return true
     }
+    if isWaitingForReply {
+      showThreadPicker()
+      return true
+    }
     if dictationNotice != nil {
       dictationNotice = nil
       scheduleDisplay(restingDisplayText)
@@ -1341,6 +1367,12 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   /// Changes the visible reply page in the configured scroll direction.
   @MainActor
   private func scrollDisplay(_ gestureKind: String) {
+    if status == .ready, !listening, speechSession == nil,
+      gestureKind == "scrollUp", isWaitingForReply {
+      dictationNotice = nil
+      scheduleDisplay(restingDisplayText)
+      return
+    }
     guard
       status == .ready,
       !listening, speechSession == nil, dictationNotice == nil,
@@ -1374,6 +1406,8 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     stoppingDictation = true
     defer { clearStoppingDictation(for: session) }
     var finalCancelled = cancelled
+    // Install before finishing: a reply can arrive while the final transcript crosses the bridge.
+    if !cancelled { dictationNotice = "Sending to T3 Code…" }
     displayTask?.cancel()
     let audioMagic = nextMagic()
     await sendEvenHub(
@@ -1413,7 +1447,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     } else if latestTranscript.isEmpty {
       showDictationNotice("No speech recognized\n\nTap R1 to try again\nHold: back")
     } else {
-      showDictationNotice("Sending to T3 Code…")
+      scheduleDisplay(restingDisplayText)
     }
     if status != .error, !requestedDisconnect, left.ready, right.ready {
       setStatus(.ready, detail: "G2 and R1 ready")
