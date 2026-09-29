@@ -18,21 +18,28 @@ final class T3EvenG2LC3Decoder {
 
 @MainActor
 final class Fixture {
-  let connection = T3EvenG2Connection()
+  let connection: T3EvenG2Connection
   let left = CBPeripheral("G2_TEST_L_ARM")
   let right = CBPeripheral("G2_TEST_R_ARM")
   var transcripts: [[String: Any]] = []
   var selectedKeys: [String] = []
   var waiter: (([String: Any]) -> Void)?
 
-  init() {
+  init(connectionTimeout: Duration = .seconds(20), rememberedLeft: CBPeripheral? = nil) {
+    connection = T3EvenG2Connection(connectionTimeout: connectionTimeout)
     connection.onStatus = { [weak self] state in self?.waiter?(state) }
     connection.onTranscript = { [weak self] event in self?.transcripts.append(event) }
     connection.onThreadSelected = { [weak self] event in
       if let key = event["key"] as? String { self?.selectedKeys.append(key) }
     }
     connection.connect()
+    if let rememberedLeft {
+      CBCentralManager.latest.retrievable = [rememberedLeft, right]
+      UserDefaults.standard.set(rememberedLeft.identifier.uuidString, forKey: "T3EvenG2ArmL")
+      UserDefaults.standard.set(right.identifier.uuidString, forKey: "T3EvenG2ArmR")
+    }
     connection.centralManagerDidUpdateState(CBCentralManager.latest)
+    precondition(CBCentralManager.latest.isScanning)
     for peripheral in [left, right] {
       connection.centralManager(
         CBCentralManager.latest, didDiscover: peripheral, advertisementData: [:], rssi: -40)
@@ -121,6 +128,53 @@ struct Smoke {
     picker.update([])
     precondition(picker.highlighted == nil && picker.text.contains("No threads"))
     // Test process gets a separate preferences domain; no real pairing state.
+    let staleLeft = CBPeripheral("G2_OLD_L_ARM")
+    let recovering = Fixture(connectionTimeout: .milliseconds(20), rememberedLeft: staleLeft)
+    guard let recoveringCentral = CBCentralManager.latest else { fatalError("Missing recovery central") }
+    precondition(recoveringCentral.connections.contains { $0 === staleLeft })
+    precondition(recoveringCentral.cancelled.count == 1 && recoveringCentral.cancelled[0] === staleLeft)
+    precondition(recoveringCentral.isScanning)
+    recovering.connection.centralManager(
+      recoveringCentral, didDisconnectPeripheral: staleLeft, error: nil)
+    recovering.subscribe(recovering.left)
+    let competingLeft = CBPeripheral("G2_OTHER_L_ARM")
+    recovering.connection.centralManager(
+      recoveringCentral, didDiscover: competingLeft, advertisementData: [:], rssi: -40)
+    precondition(!recoveringCentral.connections.contains { $0 === competingLeft })
+    await recovering.wait { $0["status"] as? String == "error" }
+    precondition((recovering.connection.snapshot["detail"] as? String)?.contains("G2 right arm not ready") == true)
+    precondition(!recoveringCentral.isScanning && recoveringCentral.cancelled.count == 1)
+    recovering.subscribe(recovering.right)
+    await recovering.wait { $0["status"] as? String == "ready" }
+    // Reconnect gets its own deadline and leaves the healthy arm subscribed.
+    recovering.right.state = .disconnected
+    recovering.connection.centralManager(
+      recoveringCentral, didDisconnectPeripheral: recovering.right, error: nil)
+    precondition(recoveringCentral.isScanning)
+    await recovering.wait { $0["status"] as? String == "error" }
+    precondition(recovering.left.services?.first?.characteristics?.dropFirst().first?.isNotifying == true)
+    precondition(recoveringCentral.cancelled.count == 1 && recovering.right.state == .connecting)
+    recovering.discover(recovering.right)
+    recovering.subscribe(recovering.right)
+    await recovering.wait { $0["status"] as? String == "ready" }
+    recovering.connection.disconnect()
+
+    let cancelled = Fixture(connectionTimeout: .milliseconds(20))
+    guard let cancelledCentral = CBCentralManager.latest else { fatalError("Missing cancellation central") }
+    await cancelled.wait { $0["status"] as? String == "error" }
+    cancelled.connection.connect()
+    precondition(cancelledCentral.isScanning)
+    cancelled.connection.disconnect()
+    // Late Bluetooth callbacks cannot restart a manually disconnected session.
+    cancelled.connection.centralManager(
+      cancelledCentral, didDiscover: cancelled.left, advertisementData: [:], rssi: -40)
+    cancelled.discover(cancelled.left)
+    cancelled.subscribe(cancelled.left)
+    cancelled.discover(cancelled.right)
+    cancelled.subscribe(cancelled.right)
+    precondition(cancelled.connection.snapshot["status"] as? String == "disconnected")
+    precondition(!cancelledCentral.isScanning)
+
     let fixture = Fixture()
     fixture.connection.setThreadChoices([
       ["key": "mini:a", "title": "First thread", "subtitle": "Mini"],
@@ -131,6 +185,7 @@ struct Smoke {
     precondition(fixture.connection.snapshot["status"] as? String != "starting")
     fixture.subscribe(fixture.right)
     await fixture.wait { $0["status"] as? String == "ready" }
+    precondition(cancelled.connection.snapshot["status"] as? String == "disconnected")
     fixture.gesture(2, container: true)
     // Simulate deliberate, separate gestures outside the hardware debounce.
     try? await Task.sleep(for: .milliseconds(450))
@@ -170,7 +225,7 @@ struct Smoke {
     fixture.connection.disconnect()
     precondition(fixture.connection.snapshot["status"] as? String == "disconnected")
     print(
-      "G2 native driver: readiness, thread picker, stale screen cleanup, exit cancellation, recovery, repeated dictation, and reconnect passed"
+      "G2 native driver: readiness deadlines, stale arm replacement, late recovery, cancellation, thread picker, dictation, and reconnect passed"
     )
   }
 }

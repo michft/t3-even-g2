@@ -97,7 +97,8 @@ on-device dictation, the R1 ring for start/send/cancel gestures, and the G2 disp
 assistant response. This is an experimental, unofficial protocol integration and may need updates
 after glasses firmware changes.
 
-Before connecting, quit the Even app so it releases the glasses. In T3 Code, open Settings and tap
+Before connecting, quit the Even app so it releases the glasses. Disconnect G2 from T3 and quit
+Even on any other phone or tablet using the glasses. In T3 Code, open Settings and tap
 **G2 + R1**. On the glasses, swipe R1 up/down to choose a thread and tap to open it in T3. The picker
 shows non-archived threads in recent-activity order, with their environment and project labels.
 You can also open a thread directly on the iPhone. Once a thread is open, tap R1 to start dictation,

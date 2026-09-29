@@ -48,6 +48,9 @@ public final class CBCentralManager {
   public static var latest: CBCentralManager!
   public var state = CBManagerState.poweredOn
   public var connections: [CBPeripheral] = []
+  public var cancelled: [CBPeripheral] = []
+  public var retrievable: [CBPeripheral] = []
+  public var isScanning = false
   public init(delegate: CBCentralManagerDelegate, queue: DispatchQueue?, options: [String: Any]?) {
     Self.latest = self
   }
@@ -56,9 +59,12 @@ public final class CBCentralManager {
     peripheral.state = .connecting
   }
   public func cancelPeripheralConnection(_ peripheral: CBPeripheral) {
+    cancelled.append(peripheral)
     peripheral.state = .disconnected
   }
-  public func stopScan() {}
-  public func scanForPeripherals(withServices: [CBUUID]?, options: [String: Any]?) {}
-  public func retrievePeripherals(withIdentifiers: [UUID]) -> [CBPeripheral] { [] }
+  public func stopScan() { isScanning = false }
+  public func scanForPeripherals(withServices: [CBUUID]?, options: [String: Any]?) { isScanning = true }
+  public func retrievePeripherals(withIdentifiers identifiers: [UUID]) -> [CBPeripheral] {
+    retrievable.filter { identifiers.contains($0.identifier) }
+  }
 }

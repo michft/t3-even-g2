@@ -54,6 +54,8 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   private var displayTask: Task<Void, Never>?
   private var bootstrapTask: Task<Void, Never>?
   private var scanTimeoutTask: Task<Void, Never>?
+  private let connectionTimeout: Duration
+  private var connectionTimedOut = false
   private var gestureTask: Task<Void, Never>?
   private var pauseTask: Task<Void, Never>?
   private var recoveryTask: Task<Void, Never>?
@@ -86,6 +88,11 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   }
 
   static let autoConnectKey = "T3EvenG2AutoConnect"
+
+  init(connectionTimeout: Duration = .seconds(20)) {
+    self.connectionTimeout = connectionTimeout
+    super.init()
+  }
 
   func connect() {
     guard status == .disconnected || status == .error else { return }
@@ -357,17 +364,20 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     let advertisedName = advertisementData[CBAdvertisementDataLocalNameKey] as? String
     let name = peripheral.name ?? advertisedName ?? ""
     let upper = name.uppercased()
-    guard upper.contains("G2_"), let arm = armForName(upper), arm.peripheral == nil else { return }
+    guard
+      !requestedDisconnect, status == .scanning || status == .connecting,
+      upper.contains("G2_"), let arm = armForName(upper), !arm.ready,
+      arm.peripheral?.identifier != peripheral.identifier
+    else { return }
 
+    let previous = arm.peripheral
     arm.peripheral = peripheral
+    arm.resetCharacteristics()
+    if let previous { central.cancelPeripheralConnection(previous) }
     UserDefaults.standard.set(peripheral.identifier.uuidString, forKey: "T3EvenG2Arm\(arm.side)")
     peripheral.delegate = self
     central.connect(peripheral, options: nil)
     setStatus(.connecting, detail: "Found G2 \(arm.side) arm")
-    if left.peripheral != nil, right.peripheral != nil {
-      central.stopScan()
-      scanTimeoutTask?.cancel()
-    }
   }
 
   func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
@@ -403,7 +413,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       return
     }
     setStatus(.connecting, detail: "Reconnecting G2 \(arm.side) arm")
-    central.connect(peripheral, options: nil)
+    beginScan()
   }
 
   func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
@@ -472,9 +482,13 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     arm.ready = arm.write != nil && arm.notify?.isNotifying == true && arm.renderNotify?.isNotifying == true
     guard arm.ready else { return }
     if left.ready, right.ready {
-      guard status == .connecting || status == .scanning else { return }
+      guard status == .connecting || status == .scanning || connectionTimedOut else { return }
+      central?.stopScan()
+      scanTimeoutTask?.cancel()
+      scanTimeoutTask = nil
+      connectionTimedOut = false
       bootstrap()
-    } else {
+    } else if !connectionTimedOut, status == .connecting || status == .scanning {
       setStatus(.connecting, detail: "Waiting for other G2 arm")
     }
   }
@@ -514,7 +528,9 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
 
   private func beginScan() {
     guard let central, !requestedDisconnect else { return }
+    connectionTimedOut = false
     for arm in [left, right] {
+      guard !arm.ready else { continue }
       if arm.peripheral == nil,
          let saved = UserDefaults.standard.string(forKey: "T3EvenG2Arm\(arm.side)"),
          let identifier = UUID(uuidString: saved) {
@@ -531,18 +547,30 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     }
     if left.peripheral != nil, right.peripheral != nil {
       setStatus(.connecting, detail: "Waiting for remembered G2 arms")
-      return
     }
     central.scanForPeripherals(
       withServices: nil,
       options: [CBCentralManagerScanOptionAllowDuplicatesKey: false]
     )
     scanTimeoutTask?.cancel()
+    let timeout = connectionTimeout
     scanTimeoutTask = Task { @MainActor [weak self] in
-      try? await Task.sleep(for: .seconds(20))
-      guard let self, !Task.isCancelled, !(self.left.ready && self.right.ready) else { return }
+      try? await Task.sleep(for: timeout)
+      guard
+        let self, !Task.isCancelled, !self.requestedDisconnect,
+        self.status == .scanning || self.status == .connecting,
+        !(self.left.ready && self.right.ready)
+      else { return }
+      self.scanTimeoutTask = nil
       self.central?.stopScan()
-      self.setStatus(.error, detail: "G2 scan timed out. Quit the Even app and retry.")
+      // Pending CoreBluetooth connects survive the discovery window so sleeping
+      // arms can still return while the app is in the background.
+      let missing = [self.left, self.right].filter { !$0.ready }.map { $0.side == "L" ? "left" : "right" }
+      self.setStatus(
+        .error,
+        detail: "G2 \(missing.joined(separator: " and ")) arm not ready. Release G2 from other apps or devices, wake both arms, then retry.",
+        connectionTimedOut: true
+      )
     }
   }
 
@@ -933,7 +961,8 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     return magic
   }
 
-  private func setStatus(_ next: Status, detail: String = "") {
+  private func setStatus(_ next: Status, detail: String = "", connectionTimedOut: Bool = false) {
+    self.connectionTimedOut = connectionTimedOut
     status = next
     self.detail = detail
     emitStatus()
@@ -944,6 +973,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   }
 
   private func stopTasks() {
+    connectionTimedOut = false
     reconnectTask?.cancel()
     reconnectTask = nil
     recoveryTask?.cancel()
