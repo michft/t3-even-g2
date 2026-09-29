@@ -61,6 +61,7 @@ final class Fixture {
   var pageHeartbeatWaiter: (() -> Void)?
   var displayFrame: [UInt8] = []
   var lastDisplayPayload = Data()
+  var displayPayloads: [Data] = []
   var displayWaiter: (() -> Void)?
 
   /// Connects simulated arms and scripts firmware acknowledgements with configurable heartbeat timing.
@@ -117,6 +118,7 @@ final class Fixture {
           }
           if bytes[4] == bytes[5], !self.displayFrame.isEmpty {
             self.lastDisplayPayload = Data(self.displayFrame)
+            self.displayPayloads.append(self.lastDisplayPayload)
             self.displayFrame = []
             self.displayWaiter?()
           }
@@ -260,9 +262,10 @@ final class Fixture {
   }
 
   /// Waits until a completed text frame contains the expected visible text.
-  func waitForDisplay(_ text: String) async {
+  func waitForDisplay(_ text: String, line: Int = #line) async {
     let expected = Data(text.utf8)
     if lastDisplayPayload.range(of: expected) != nil { return }
+    Self.waitingAtLine = line
     await withCheckedContinuation { continuation in
       displayWaiter = { [weak self] in
         guard let self, self.lastDisplayPayload.range(of: expected) != nil else { return }
@@ -357,7 +360,7 @@ struct Smoke {
     }
     if CommandLine.arguments.contains("--startup-back") {
       try await verifyStartupSwipeBack()
-      print("G2 tap-feedback cancellation checks passed")
+      print("G2 immediate, preparing, and transition cancellation checks passed")
       return
     }
     if CommandLine.arguments.contains("--diagnostics") {
@@ -662,7 +665,7 @@ struct Smoke {
     )
   }
 
-  /// Cancels through actual ring notifications before the tap-feedback delay ends.
+  /// Checks immediate cancellation and pairs spanning preparation without a tap-feedback page.
   @MainActor
   private static func verifyStartupSwipeBack() async throws {
     for fastBack in [false, true] {
@@ -675,41 +678,40 @@ struct Smoke {
         fixture.connection.setFastBackGesture(fastBack)
         fixture.connection.setActiveThread("mini:startup", enabled: true)
         fixture.connection.displayText("Startup reply")
-        let starts = T3EvenG2SpeechTranscriber.startCount
-        fixture.gesture(0, container: container)
-        await fixture.waitForDisplay("Tap received")
-        fixture.gesture(1, container: container)
-        fixture.gesture(2, container: container)
-        precondition(
-          fixture.connection.snapshot["detail"] as? String == "Dictation cancelled",
-          "Up-then-down during Tap received must cancel pending dictation")
         await fixture.waitForDisplay("Startup reply")
-        precondition(T3EvenG2SpeechTranscriber.startCount == starts)
-        precondition(fixture.transcripts.isEmpty)
-        fixture.diagnostics.flush()
-        let log = try String(contentsOf: fixture.diagnostics.directory.appendingPathComponent("current.jsonl"), encoding: .utf8)
-        precondition(log.contains("tap.accepted") && log.contains("swipe.matched") && log.contains("dictation.cancelled"))
-        precondition(!log.contains("Startup reply") && !log.contains("test dictation"))
+        for phase in ["immediate", "preparing", "transition"] {
+          // Allow the intentional post-cancellation debounce before starting another attempt.
+          if phase != "immediate" { try await Task.sleep(for: .milliseconds(450)) }
+          let transcriptCount = fixture.transcripts.count
+          let firstFrame = fixture.displayPayloads.count
+          fixture.gesture(0, container: container)
+          if phase != "immediate" {
+            await fixture.waitForDisplay("Preparing dictation")
+            precondition(
+              fixture.displayPayloads[firstFrame].range(of: Data("Preparing dictation".utf8)) != nil,
+              "Tap must go straight to preparation without a click-registering page")
+          }
+          fixture.gesture(1, container: container)
+          if phase == "transition" { await fixture.waitForDisplay("Listening") }
+          fixture.gesture(2, container: container)
+          precondition(
+            fixture.connection.snapshot["detail"] as? String == "Dictation cancelled",
+            "Up-then-down must cancel during \(phase)")
+          await fixture.waitForDisplay("Startup reply")
+          precondition(fixture.connection.snapshot["listening"] as? Bool == false)
+          if phase == "immediate" {
+            precondition(fixture.transcripts.count == transcriptCount)
+          } else {
+            precondition(fixture.transcripts.count == transcriptCount + 1 && fixture.transcripts.last?["cancelled"] as? Bool == true)
+          }
+          fixture.diagnostics.flush()
+          let log = try String(contentsOf: fixture.diagnostics.directory.appendingPathComponent("current.jsonl"), encoding: .utf8)
+          precondition(log.contains("tap.accepted") && log.contains("swipe.matched") && log.contains("dictation.cancelled"))
+          precondition(!log.contains("Startup reply") && !log.contains("test dictation"))
+        }
         fixture.connection.disconnect()
       }
     }
-    let crossing = Fixture()
-    crossing.pageOccupied = false
-    crossing.subscribe(crossing.left)
-    crossing.subscribe(crossing.right)
-    await crossing.wait { $0["status"] as? String == "ready" }
-    crossing.connection.setActiveThread("mini:crossing", enabled: true)
-    crossing.connection.displayText("Crossing reply")
-    crossing.gesture(0)
-    await crossing.waitForDisplay("Tap received")
-    crossing.gesture(1)
-    await crossing.waitForDisplay("Preparing dictation")
-    crossing.gesture(2)
-    precondition(
-      crossing.connection.snapshot["detail"] as? String == "Dictation cancelled",
-      "A pending swipe must survive the tap-feedback to preparing transition")
-    await crossing.waitForDisplay("Crossing reply")
-    crossing.connection.disconnect()
   }
 
   /// Verifies readable, ordered, bounded records survive creating a new logger instance.

@@ -473,7 +473,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     else { return }
     cancelHistoryRequest()
     publishHistoryPosition()
-    // An up/down pair may straddle tap feedback and microphone preparation.
+    // Preserve an up/down pair that started immediately after the tap.
     dictationNotice = nil
     displayTask?.cancel()
     latestTranscript = ""
@@ -481,6 +481,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     speechSession = speech
     trace("dictation.preparing")
     setStatus(.ready, detail: "Preparing on-device speech")
+    trace("display.request", ["screen": "preparing"])
     await sendEvenHub(
       textPayload("Preparing dictation…", magic: nextMagic())
     )
@@ -500,6 +501,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       }
       decoder = T3EvenG2LC3Decoder()
       let displayMagic = nextMagic()
+      trace("display.request", ["screen": "listening"])
       await sendEvenHub(
         textPayload(listeningDisplayText(), magic: displayMagic)
       )
@@ -1207,7 +1209,9 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     }
     guard ["click", "scrollUp", "scrollDown", "longPress"].contains(gesture.kind) else { return }
     let now = Date()
-    guard now.timeIntervalSince(lastGestureAt) > 0.4 || (threadPicker.isPresented && gesture.kind == "click") else {
+    let cancelsDictation = gesture.kind == "longPress" && (startingDictation || listening || speechSession != nil)
+    guard now.timeIntervalSince(lastGestureAt) > 0.4 || cancelsDictation
+      || (threadPicker.isPresented && gesture.kind == "click") else {
       trace("gesture.ignored", ["reason": "debounce", "kind": gesture.kind])
       return
     }
@@ -1379,7 +1383,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     }
   }
 
-  /// Shows input feedback, then starts or finishes dictation for accepted input.
+  /// Starts or finishes dictation directly; tap diagnostics must not replace the active input page.
   @MainActor
   private func handleClick(_ gesture: T3EvenG2Protocol.Gesture) async {
     defer {
@@ -1388,36 +1392,18 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
         startingDictation = false
       }
     }
-    let sourceLabel = gestureSourceLabel(gesture.source)
-    let inputAccepted = T3EvenG2Protocol.isDictationSource(gesture.source)
-    let feedback = inputAccepted ? "Tap received" : "Input detected"
-    trace("display.request", ["screen": inputAccepted ? "tap-feedback" : "input-detected"])
-    await sendEvenHub(
-      textPayload(
-        "\(feedback)\n\n\(sourceLabel) · \(gesture.kind)",
-        magic: nextMagic()
-      )
-    )
-    guard !Task.isCancelled, status == .ready else { return }
-    setStatus(.ready, detail: "Input: \(sourceLabel) \(gesture.kind)")
-    guard inputAccepted else { return }
-    try? await Task.sleep(for: .milliseconds(450))
+    guard T3EvenG2Protocol.isDictationSource(gesture.source) else {
+      trace("gesture.ignored", ["reason": "unsupported-source", "source": gesture.source])
+      return
+    }
     guard !Task.isCancelled, status == .ready, inputEnabled else { return }
     if listening {
+      // Keep the double-tap cancellation window without replacing the listening page.
+      try? await Task.sleep(for: .milliseconds(450))
+      guard !Task.isCancelled, status == .ready, inputEnabled else { return }
       await finishDictation()
     } else {
       await beginDictation()
-    }
-  }
-
-  /// Converts protocol input-source names to labels shown on the glasses.
-  private func gestureSourceLabel(_ source: String) -> String {
-    switch source {
-    case "ring": "R1"
-    case "rightTemple": "right temple"
-    case "leftTemple": "left temple"
-    case "textContainer", "listContainer": "G2 input"
-    default: source
     }
   }
 
@@ -1548,7 +1534,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     var state: [String: Any] = [
       "attempt": inputAttempt, "status": status.rawValue,
       "phase": stoppingDictation ? "stopping" : listening ? "listening"
-        : speechSession != nil ? "preparing" : startingDictation ? "tap-feedback" : "idle",
+        : speechSession != nil ? "preparing" : startingDictation ? "pending-start" : "idle",
       "inputEnabled": inputEnabled, "picker": threadPicker.isPresented,
       "swipePending": pendingSwipeUp != nil, "fastBack": fastBackGesture,
       "sinceInputMs": min(60_000, Int(max(0, Date().timeIntervalSince(lastGestureAt) * 1_000))),

@@ -106,7 +106,8 @@ latest reply on the glasses. R1 pages through glasses output independently of th
 position; the phone can remain at the live bottom while you read older replies on the glasses.
 Once a thread is open, tap R1 to start dictation,
 tap again to send, or quickly swipe R1 up then down (within 650 ms) to cancel. You can retry the
-sequence immediately while dictation is starting or listening. Back goes one level up:
+sequence immediately while dictation is starting or listening. Starting dictation does not wait
+for a tap-confirmation screen; tap registration stays in the diagnostic logs. Back goes one level up:
 dictation or its error/sending screen returns to the current thread output,
 preserving its reading position. Back from thread output opens the thread picker; Back there returns
 to the last open thread. Dismissing Sending does not retract a submitted message.
@@ -182,7 +183,7 @@ show what reached the driver; `gesture.ignored`, `swipe.armed`, `swipe.expired`,
 and dictation transitions explain its decisions. Reply/page IDs correlate navigation with
 `display.scheduled` and `display.write-completed`. A successful write means the Bluetooth transport
 accepted the payload, not confirmation that the user saw it. `display.request` records dictation
-feedback requests. Keep screenshots/observations alongside these records.
+screen requests. Keep screenshots/observations alongside these records.
 
 Focused test commands (repo root):
 
@@ -192,12 +193,12 @@ bash apps/mobile/modules/t3-even-g2/tests/connection-smoke.sh --diagnostics
 node --test scripts/g2-diagnostics.test.ts
 ```
 
-The existing connection suite also runs these groups. They cover cancellation during tap feedback
-and across preparation, plus diagnostic persistence, rotation, and report parsing.
+The existing connection suite also runs these groups. They cover immediate cancellation and pairs
+spanning Preparing to Listening, plus diagnostic persistence, rotation, and report parsing.
 
 Hardware test/debug run:
 
-Use a disposable thread for send tests and a thread with several multi-page replies for history
+Use a new thread reserved for test messages for send tests, and a thread with several multi-page replies for history
 tests. Record the T3 build, iOS version, glasses/R1 firmware, and both scrolling settings. Start
 with **Fast Back gesture** off and **Natural scrolling** on. Except for explicit timing tests,
 pause a second between separate actions. Changes to this native driver require an updated native
@@ -217,9 +218,10 @@ app; reloading JavaScript alone does not install them.
    send, and the previous reply and reading position should return.
 7. Repeat step 6 using only right-arm swipes, then only left-arm swipes. Record whether each
    arm delivers both swipe directions on this firmware.
-8. Start dictation and cancel immediately during **Tap received**. Test again after **Preparing**,
-   then after **Listening** appears, one attempt at a time. Also start up during tap feedback and
-   finish down during Preparing. It should stay cancelled even if microphone startup completes late.
+8. Tap R1 and immediately swipe up→down, without waiting for a screen change. No **Tap received**
+   page should appear. Test again after **Preparing**, then after **Listening**, one attempt at a time.
+   Also start up during Preparing and finish down during Listening. Cancellation should remain final
+   even if microphone startup completes late.
 9. While listening, swipe down, then immediately up→down without a pause. This is the debounce
    regression: it must cancel despite the preceding down swipe. Repeat five times.
 10. After cancellation, immediately repeat up→down. Duplicate input inside 400 ms should not
