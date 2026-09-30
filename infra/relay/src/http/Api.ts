@@ -215,7 +215,8 @@ const relayRequestDeadline = <E, R>(
     ),
   );
 
-export const traceRelayHttpRequest = <E, R>(
+/** Wrap HTTP handling with tracing, response context, and a deadline; yield before request-scoped exporters close. */
+const traceRelayHttpRequest = <E, R>(
   httpEffect: Effect.Effect<
     HttpServerResponse.HttpServerResponse,
     E,

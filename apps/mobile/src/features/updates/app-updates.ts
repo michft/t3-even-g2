@@ -501,7 +501,7 @@ function defaultOnNextBackground(apply: () => void, includeCurrent: boolean): vo
  * install prompt appears. Long enough that most sessions background naturally
  * and install silently instead.
  */
-export const DEFERRED_INSTALL_PROMPT_AFTER_MS = 30 * 60 * 1000;
+const DEFERRED_INSTALL_PROMPT_AFTER_MS = 30 * 60 * 1000;
 
 /**
  * The window resets on every backgrounding because that is exactly when the
@@ -590,7 +590,8 @@ export function shouldRecheckAppUpdateOnForeground(
   );
 }
 
-export function createAppUpdateForegroundRecheck(
+/** Creates a listener starter that runs once and checks updates after eligible background periods. */
+function createAppUpdateForegroundRecheck(
   client: AppUpdateClient = Updates,
   deferral: AppUpdateDeferral = appUpdateDeferral,
 ): () => void {

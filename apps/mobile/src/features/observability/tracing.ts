@@ -14,7 +14,8 @@ export interface TracingResource {
   readonly appVariant: string;
 }
 
-export function resolveTracingConfig(): TracingConfig | null {
+/** Enables mobile trace export only when the cloud configuration supplies all tracing settings. */
+function resolveTracingConfig(): TracingConfig | null {
   const config = resolveCloudPublicConfig();
   if (!hasTracingPublicConfig(config)) {
     return null;

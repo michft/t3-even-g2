@@ -25,7 +25,7 @@ export class NativeReviewDiffHighlighterUnavailableError extends Schema.TaggedEr
   }
 }
 
-export const isNativeReviewDiffHighlighterUnavailableError = Schema.is(
+const isNativeReviewDiffHighlighterUnavailableError = Schema.is(
   NativeReviewDiffHighlighterUnavailableError,
 );
 
@@ -294,7 +294,8 @@ async function createJavascriptReviewDiffHighlighter(): Promise<NativeReviewDiff
   return createHighlighterHandle(highlighter, "javascript");
 }
 
-export async function getNativeReviewDiffHighlighter(
+/** Reuses the requested highlighter, falling back to JavaScript if native initialization fails. */
+async function getNativeReviewDiffHighlighter(
   engine: NativeReviewDiffHighlightEngine = "native",
 ): Promise<NativeReviewDiffHighlighterHandle> {
   if (engine === "javascript") {

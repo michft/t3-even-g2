@@ -135,7 +135,8 @@ export class FcmDeliveries extends Context.Service<
   }
 >()("t3code-relay/agentActivity/FcmDeliveries") {}
 
-export const make = Effect.gen(function* () {
+/** Bind Android queue delivery, reloading device tokens, environment links, and activity before sending. */
+const make = Effect.gen(function* () {
   const config = yield* RelayConfiguration.RelayConfiguration;
   const crypto = yield* Crypto.Crypto;
   const sender = yield* FcmDeliveryQueueSender.FcmDeliveryQueueSender;

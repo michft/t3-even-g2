@@ -1,4 +1,4 @@
-import type { StatusTone } from "../../components/StatusPill";
+import type { StatusTone } from "../../components/statusTone";
 import type { RemoteClientConnectionState } from "../../lib/connection";
 
 export function connectionTone(state: RemoteClientConnectionState): StatusTone {

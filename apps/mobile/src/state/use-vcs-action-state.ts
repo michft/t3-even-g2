@@ -44,7 +44,8 @@ export function dismissGitActionResult(): void {
   broadcast(null);
 }
 
-export function useGitActionResultNotification(): {
+/** Subscribes to the transient Git action result and exposes dismissal for the progress UI. */
+function useGitActionResultNotification(): {
   readonly result: GitActionResultNotification | null;
   readonly dismiss: () => void;
 } {

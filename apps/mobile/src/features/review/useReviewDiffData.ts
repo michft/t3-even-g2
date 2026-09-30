@@ -100,7 +100,8 @@ function logReviewDiffDiagnostic(message: string, details?: Record<string, unkno
   console.log(`[review-sheet] ${message}`);
 }
 
-export function formatHeaderDiffSummary(
+/** Formats review header totals, preferring section file metadata over parsed patch counts. */
+function formatHeaderDiffSummary(
   parsedDiff: ReviewParsedDiff,
   files?: ReviewSectionItem["files"],
 ): {

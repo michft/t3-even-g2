@@ -190,7 +190,8 @@ function sanitizePreferences(parsed: Preferences): Preferences {
   return preferences;
 }
 
-export const make = Effect.fn("MobilePreferencesStore.make")(function* () {
+/** Builds serialized preference persistence with SQLite, a secure fallback, and legacy migration. */
+const make = Effect.fn("MobilePreferencesStore.make")(function* () {
   const database = yield* MobileDatabase.MobileDatabase;
   const secureStorage = yield* MobileSecureStorage.MobileSecureStorage;
   const lock = yield* Semaphore.make(1);

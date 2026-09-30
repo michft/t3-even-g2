@@ -30,7 +30,7 @@ export interface ManagedEndpointTunnelAllocation extends ManagedEndpointAllocati
   readonly recoveryEnabled: boolean;
 }
 
-export const MANAGED_ENDPOINT_ALLOCATION_LOOKUP_BATCH_SIZE = 500;
+const MANAGED_ENDPOINT_ALLOCATION_LOOKUP_BATCH_SIZE = 500;
 
 export function resolveReadyManagedEndpoint(input: {
   readonly allocation: ManagedEndpointAllocation;
@@ -205,7 +205,8 @@ const whereAllocation = (input: ManagedEndpointAllocationKey) =>
     eq(relayManagedEndpointAllocations.environmentId, input.environmentId),
   );
 
-export const make = Effect.gen(function* () {
+/** Bind allocation persistence and generation-checked claims used to coordinate tunnel provisioning and cleanup. */
+const make = Effect.gen(function* () {
   const db = yield* RelayDb.RelayDb;
 
   return ManagedEndpointAllocations.of({

@@ -54,7 +54,8 @@ export class ManagedTunnelLimits extends Context.Service<
   }
 >()("t3code-relay/environments/ManagedTunnelLimits") {}
 
-export const make = Effect.gen(function* () {
+/** Bind account tunnel-capacity checks, excluding the current environment so relinking remains idempotent. */
+const make = Effect.gen(function* () {
   const db = yield* RelayDb.RelayDb;
 
   return ManagedTunnelLimits.of({

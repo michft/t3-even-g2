@@ -39,7 +39,8 @@ export const applyWebBrandAssets = Effect.fn("applyWebBrandAssets")(function* (
   );
 });
 
-export const applyWebBrandAssetsCommand = Command.make(
+/** Select hosted web assets by explicit brand or channel, defaulting to production assets in apps/web/dist. */
+const applyWebBrandAssetsCommand = Command.make(
   "apply-web-brand-assets",
   {
     brand: Argument.Literals("brand", WEB_ASSET_BRANDS).pipe(

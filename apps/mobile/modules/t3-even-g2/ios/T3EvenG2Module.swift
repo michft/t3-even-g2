@@ -16,7 +16,7 @@ public final class T3EvenG2Module: Module {
   /// Registers the native module's events, lifecycle hooks, and JavaScript methods.
   public func definition() -> ModuleDefinition {
     Name("T3EvenG2")
-    Events("onStatus", "onTranscript", "onGesture", "onThreadSelected", "onHistoryPosition", "onHistoryRequest")
+    Events("onStatus", "onTranscript", "onThreadSelected", "onHistoryPosition", "onHistoryRequest")
 
     OnCreate {
       self.performOnMain { self.ensureAutoConnect() }
@@ -75,24 +75,6 @@ public final class T3EvenG2Module: Module {
       }
     }
 
-    Function("displayText") { (text: String) in
-      self.performOnMain {
-        self.displayTextIfAvailable(text)
-      }
-    }
-
-    Function("clearDisplay") {
-      self.performOnMain {
-        self.clearDisplayIfAvailable()
-      }
-    }
-
-    Function("setInputEnabled") { (enabled: Bool) in
-      self.performOnMain {
-        self.setInputEnabledIfAvailable(enabled)
-      }
-    }
-
     Function("setActiveThread") { (key: String, enabled: Bool) in
       self.performOnMain {
         guard #available(iOS 26.0, *) else { return }
@@ -119,21 +101,6 @@ public final class T3EvenG2Module: Module {
         guard #available(iOS 26.0, *) else { return }
         self.connection()?.showThreadPicker()
       }
-    }
-
-    AsyncFunction("beginDictation") { () async in
-      guard #available(iOS 26.0, *), let connection = await self.mainConnection() else { return }
-      await connection.beginDictation()
-    }
-
-    AsyncFunction("finishDictation") { () async in
-      guard #available(iOS 26.0, *), let connection = await self.mainConnection() else { return }
-      await connection.finishDictation()
-    }
-
-    AsyncFunction("cancelDictation") { () async in
-      guard #available(iOS 26.0, *), let connection = await self.mainConnection() else { return }
-      await connection.cancelDictation()
     }
   }
 
@@ -165,24 +132,6 @@ public final class T3EvenG2Module: Module {
     connection.disconnect()
   }
 
-  /// Sends display text to the glasses when the supported connection is available.
-  private func displayTextIfAvailable(_ text: String) {
-    guard #available(iOS 26.0, *), let connection = connection() else { return }
-    connection.displayText(text)
-  }
-
-  /// Clears the glasses display when the supported connection is available.
-  private func clearDisplayIfAvailable() {
-    guard #available(iOS 26.0, *), let connection = connection() else { return }
-    connection.clearDisplay()
-  }
-
-  /// Enables or disables glasses input when the supported connection is available.
-  private func setInputEnabledIfAvailable(_ enabled: Bool) {
-    guard #available(iOS 26.0, *), let connection = connection() else { return }
-    connection.setInputEnabled(enabled)
-  }
-
   /// Runs an operation immediately on main or asynchronously dispatches it there.
   private func performOnMain(_ operation: @escaping () -> Void) {
     if Thread.isMainThread {
@@ -190,13 +139,6 @@ public final class T3EvenG2Module: Module {
     } else {
       DispatchQueue.main.async(execute: operation)
     }
-  }
-
-  /// Returns the connection from the main actor for async dictation operations.
-  @MainActor
-  @available(iOS 26.0, *)
-  private func mainConnection() -> T3EvenG2Connection? {
-    connection()
   }
 
   @available(iOS 26.0, *)
@@ -208,7 +150,6 @@ public final class T3EvenG2Module: Module {
     let connection = T3EvenG2Connection()
     connection.onStatus = { [weak self] body in self?.publishStatus(body) }
     connection.onTranscript = { [weak self] body in self?.sendEvent("onTranscript", body) }
-    connection.onGesture = { [weak self] body in self?.sendEvent("onGesture", body) }
     connection.onThreadSelected = { [weak self] body in self?.sendEvent("onThreadSelected", body) }
     connection.onHistoryPosition = { [weak self] body in self?.sendEvent("onHistoryPosition", body) }
     connection.onHistoryRequest = { [weak self] body in self?.sendEvent("onHistoryRequest", body) }

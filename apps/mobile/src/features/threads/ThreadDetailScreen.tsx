@@ -71,7 +71,7 @@ import { collectProviderUsageLimits } from "@t3tools/shared/usageLimits";
 import { useEvenG2ThreadBridge } from "../even-g2/useEvenG2ThreadBridge";
 import { evenG2ThreadActivityText } from "../even-g2/evenG2ThreadBridge.logic";
 import type { ComposerEditorHandle } from "../../components/ComposerEditor";
-import type { StatusTone } from "../../components/StatusPill";
+import type { StatusTone } from "../../components/statusTone";
 import type { DraftComposerAttachment } from "../../lib/composerImages";
 import { RenderErrorBoundary, RenderFailureView } from "../../components/RenderErrorBoundary";
 import { CHAT_CONTENT_MAX_WIDTH, type LayoutVariant } from "../../lib/layout";

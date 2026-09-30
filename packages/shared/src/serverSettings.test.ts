@@ -11,13 +11,12 @@ import { describe, expect, it } from "vite-plus/test";
 import { resolveServerBackgroundActivitySettings } from "./backgroundActivitySettings.ts";
 import { createModelSelection } from "./model.ts";
 import { resolveProjectScripts, projectScriptsInheritDefaults } from "./projectScripts.ts";
+import { resolveProjectSettings } from "./projectSettings.ts";
 import {
   applyServerSettingsPatch,
   isModelSelectionProviderEnabled,
   parsePersistedServerObservabilitySettings,
   resolveSourceControlWriterModelSelection,
-  resolveProjectAgentBrowserAccess,
-  resolveProjectAutoPull,
 } from "./serverSettings.ts";
 
 /** Settings after the server has folded legacy per-project fields into `projectSettingsOverrides`. */
@@ -133,26 +132,29 @@ describe("serverSettings helpers", () => {
     expect(resolveProjectScripts(secondUpdate, firstProject)).toEqual([firstAction]);
   });
 
-  it("inherits automatic pull while preserving legacy opt-ins and explicit overrides", () => {
+  it("inherits automatic pull and respects explicit overrides", () => {
     const projectId = ProjectId.make("project-pull");
-    expect(resolveProjectAutoPull(DEFAULT_SERVER_SETTINGS, projectId, false)).toBe(false);
-    expect(resolveProjectAutoPull(DEFAULT_SERVER_SETTINGS, projectId, true)).toBe(true);
+    expect(
+      resolveProjectSettings(DEFAULT_SERVER_SETTINGS, projectId).settings.defaultAutoPull,
+    ).toBe(false);
     const enabled = applyServerSettingsPatch(DEFAULT_SERVER_SETTINGS, { defaultAutoPull: true });
-    expect(resolveProjectAutoPull(enabled, projectId, false)).toBe(true);
+    expect(resolveProjectSettings(enabled, projectId).settings.defaultAutoPull).toBe(true);
     const overridden = applyServerSettingsPatch(enabled, {
       projectAutoPullOverrides: { [projectId]: false },
     });
-    expect(resolveProjectAutoPull(overridden, projectId, true)).toBe(false);
+    expect(resolveProjectSettings(overridden, projectId).settings.defaultAutoPull).toBe(false);
     const reset = applyServerSettingsPatch(overridden, {
       projectAutoPullOverrides: { [projectId]: null },
     });
-    expect(resolveProjectAutoPull(reset, projectId, false)).toBe(true);
+    expect(resolveProjectSettings(reset, projectId).settings.defaultAutoPull).toBe(true);
     const disabled = applyServerSettingsPatch(reset, {
       defaultAutoPull: false,
       projectAutoPullOverrides: { [projectId]: true },
     });
-    expect(resolveProjectAutoPull(disabled, projectId, false)).toBe(true);
-    expect(resolveProjectAutoPull(disabled, ProjectId.make("other-project"), false)).toBe(false);
+    expect(resolveProjectSettings(disabled, projectId).settings.defaultAutoPull).toBe(true);
+    expect(
+      resolveProjectSettings(disabled, ProjectId.make("other-project")).settings.defaultAutoPull,
+    ).toBe(false);
   });
 
   it("inherits browser access and restores inheritance when a project override is removed", () => {
@@ -161,18 +163,24 @@ describe("serverSettings helpers", () => {
     const overridden = applyServerSettingsPatch(DEFAULT_SERVER_SETTINGS, {
       projectAgentBrowserAccessOverrides: { [projectId]: false },
     });
-    expect(resolveProjectAgentBrowserAccess(overridden, projectId)).toBe(false);
-    expect(resolveProjectAgentBrowserAccess(overridden, otherProjectId)).toBe(true);
+    expect(resolveProjectSettings(overridden, projectId).settings.enableAgentBrowserAccess).toBe(
+      false,
+    );
+    expect(
+      resolveProjectSettings(overridden, otherProjectId).settings.enableAgentBrowserAccess,
+    ).toBe(true);
     const reset = applyServerSettingsPatch(overridden, {
       projectAgentBrowserAccessOverrides: { [projectId]: null },
     });
-    expect(resolveProjectAgentBrowserAccess(reset, projectId)).toBe(true);
+    expect(resolveProjectSettings(reset, projectId).settings.enableAgentBrowserAccess).toBe(true);
     const enabled = applyServerSettingsPatch(reset, {
       enableAgentBrowserAccess: false,
       projectAgentBrowserAccessOverrides: { [projectId]: true },
     });
-    expect(resolveProjectAgentBrowserAccess(enabled, projectId)).toBe(true);
-    expect(resolveProjectAgentBrowserAccess(enabled, otherProjectId)).toBe(false);
+    expect(resolveProjectSettings(enabled, projectId).settings.enableAgentBrowserAccess).toBe(true);
+    expect(resolveProjectSettings(enabled, otherProjectId).settings.enableAgentBrowserAccess).toBe(
+      false,
+    );
   });
 
   it("preserves other projects' boolean overrides across separate updates and resets", () => {
@@ -188,22 +196,32 @@ describe("serverSettings helpers", () => {
       projectAgentBrowserAccessOverrides: { [secondProjectId]: false },
     });
     for (const projectId of [firstProjectId, secondProjectId]) {
-      expect(resolveProjectAutoPull(secondUpdate, projectId, false)).toBe(false);
-      expect(resolveProjectAgentBrowserAccess(secondUpdate, projectId)).toBe(false);
+      expect(resolveProjectSettings(secondUpdate, projectId).settings.defaultAutoPull).toBe(false);
+      expect(
+        resolveProjectSettings(secondUpdate, projectId).settings.enableAgentBrowserAccess,
+      ).toBe(false);
     }
 
     const reset = applyServerSettingsPatch(secondUpdate, {
       projectAutoPullOverrides: { [firstProjectId]: null },
       projectAgentBrowserAccessOverrides: { [firstProjectId]: null },
     });
-    expect(resolveProjectAutoPull(reset, firstProjectId, false)).toBe(true);
-    expect(resolveProjectAgentBrowserAccess(reset, firstProjectId)).toBe(true);
-    expect(resolveProjectAutoPull(reset, secondProjectId, false)).toBe(false);
-    expect(resolveProjectAgentBrowserAccess(reset, secondProjectId)).toBe(false);
+    expect(resolveProjectSettings(reset, firstProjectId).settings.defaultAutoPull).toBe(true);
+    expect(resolveProjectSettings(reset, firstProjectId).settings.enableAgentBrowserAccess).toBe(
+      true,
+    );
+    expect(resolveProjectSettings(reset, secondProjectId).settings.defaultAutoPull).toBe(false);
+    expect(resolveProjectSettings(reset, secondProjectId).settings.enableAgentBrowserAccess).toBe(
+      false,
+    );
     expect(reset.projectAutoPullOverrides[firstProjectId]).toBeUndefined();
     expect(reset.projectAgentBrowserAccessOverrides[firstProjectId]).toBeUndefined();
-    expect(resolveProjectAutoPull(secondUpdate, firstProjectId, false)).toBe(false);
-    expect(resolveProjectAgentBrowserAccess(secondUpdate, firstProjectId)).toBe(false);
+    expect(resolveProjectSettings(secondUpdate, firstProjectId).settings.defaultAutoPull).toBe(
+      false,
+    );
+    expect(
+      resolveProjectSettings(secondUpdate, firstProjectId).settings.enableAgentBrowserAccess,
+    ).toBe(false);
   });
 
   it("replaces and clears conversation model defaults without retaining old options", () => {

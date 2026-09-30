@@ -146,7 +146,8 @@ function DragHandle(props: {
   );
 }
 
-export function ThreadArrangementSheet(props: { onClose: () => void }) {
+/** Reorders pinned and active threads while showing separate snoozed and settled shelves. */
+function ThreadArrangementSheet(props: { onClose: () => void }) {
   const insets = useSafeAreaInsets();
   const threads = useAtomValue(environmentThreadShells.threadShellsAtom);
   const configs = useAtomValue(environmentServerConfigsAtom);

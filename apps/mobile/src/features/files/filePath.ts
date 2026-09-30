@@ -3,12 +3,6 @@ import {
   isWorkspaceVideoPreviewPath,
 } from "@t3tools/shared/filePreview";
 
-export interface FileBreadcrumb {
-  readonly label: string;
-  readonly path: string;
-  readonly kind: "project" | "directory" | "file";
-}
-
 function isWindowsAbsolutePath(value: string): boolean {
   return /^[A-Za-z]:[\\/]/.test(value) || value.startsWith("\\\\");
 }
@@ -113,18 +107,6 @@ export function isSvgImagePreviewFile(path: string): boolean {
 
 export function isMarkdownPreviewFile(path: string): boolean {
   return /\.(?:md|mdx)$/i.test(path.split(/[?#]/, 1)[0] ?? "");
-}
-
-export function fileBreadcrumbs(projectName: string, relativePath: string): FileBreadcrumb[] {
-  const parts = relativePath.split("/").filter(Boolean);
-  return [
-    { label: projectName, path: "", kind: "project" },
-    ...parts.map((part, index) => ({
-      label: part,
-      path: parts.slice(0, index + 1).join("/"),
-      kind: index === parts.length - 1 ? ("file" as const) : ("directory" as const),
-    })),
-  ];
 }
 
 /**

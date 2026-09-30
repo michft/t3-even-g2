@@ -66,7 +66,8 @@ export function CompactBrandTitle(
   );
 }
 
-export function renderCompactBrandTitle() {
+/** Supplies the compact native header title with font scaling enabled on iOS. */
+function renderCompactBrandTitle() {
   return <CompactBrandTitle allowFontScaling={Platform.OS === "ios"} />;
 }
 
