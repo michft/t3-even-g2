@@ -38,13 +38,16 @@ export function __resetApnsProviderTokenCacheForTest(): void {
   isolateTokenCache.clear();
 }
 
-// Quantize iat to the reuse window so all isolates agree on it. The token's
-// age stays under APNs' 60-minute limit, and the whole fleet rolls to the
-// next token at the same instant — one provider-token update per window.
+/**
+ * Quantize iat to the reuse window so all isolates agree on it. The token's
+ * age stays under APNs' 60-minute limit, and the whole fleet rolls to the
+ * next token at the same instant — one provider-token update per window.
+ */
 function quantizedApnsJwtIssuedAt(nowUnixSeconds: number): number {
   return Math.floor(nowUnixSeconds / APNS_JWT_REUSE_SECONDS) * APNS_JWT_REUSE_SECONDS;
 }
 
+/** Provide JWTs from the isolate-local cache, signing only when credentials or the reuse window change. */
 const make = () =>
   ApnsProviderTokens.of({
     getJwt: Effect.fnUntraced(function* (input) {

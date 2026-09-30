@@ -99,6 +99,7 @@ const encodeRelayAgentActivityStateJson = Schema.encodeEffect(
 
 const decodeRelayAgentActivityState = Schema.decodeUnknownOption(RelayAgentActivityStateSchema);
 
+/** Bind activity storage and user-scoped reads that honor active environment links and their public keys. */
 const make = Effect.gen(function* () {
   const db = yield* RelayDb.RelayDb;
 

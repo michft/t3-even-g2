@@ -14,6 +14,7 @@ function getPerformance(): ReviewPerformanceLike | null {
   return candidate ?? null;
 }
 
+/** Limits review timing instrumentation to development builds. */
 function isReviewPerfEnabled(): boolean {
   return typeof __DEV__ !== "undefined" ? __DEV__ : false;
 }

@@ -20,6 +20,7 @@ import { cloudDebugLog } from "./cloudDebugLog";
 
 const managedRelayAtomRuntime = Atom.runtime(runtimeContextLayer);
 
+/** Shares account-scoped relay queries and logs their lifecycle through mobile cloud diagnostics. */
 const managedRelayQueryManager = createManagedRelayQueryManager(managedRelayAtomRuntime, {
   onQueryEvent: (event) =>
     cloudDebugLog(`query:${event.operation}:${event.stage}:${event.phase}`, { ...event }),

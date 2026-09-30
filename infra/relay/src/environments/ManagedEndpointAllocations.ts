@@ -205,6 +205,7 @@ const whereAllocation = (input: ManagedEndpointAllocationKey) =>
     eq(relayManagedEndpointAllocations.environmentId, input.environmentId),
   );
 
+/** Bind allocation persistence and generation-checked claims used to coordinate tunnel provisioning and cleanup. */
 const make = Effect.gen(function* () {
   const db = yield* RelayDb.RelayDb;
 

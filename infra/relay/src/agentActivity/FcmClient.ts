@@ -61,6 +61,7 @@ export class FcmClient extends Context.Service<
   }
 >()("t3code-relay/agentActivity/FcmClient") {}
 
+/** Bind Firebase Messaging delivery to cached service-account access tokens, invalidating them on HTTP 401. */
 const make = Effect.gen(function* () {
   const config = yield* RelayConfiguration.RelayConfiguration;
   const signer = yield* FcmAssertionSigner.FcmAssertionSigner;

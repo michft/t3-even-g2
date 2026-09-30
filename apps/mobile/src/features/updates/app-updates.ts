@@ -590,6 +590,7 @@ export function shouldRecheckAppUpdateOnForeground(
   );
 }
 
+/** Creates a listener starter that runs once and checks updates after eligible background periods. */
 function createAppUpdateForegroundRecheck(
   client: AppUpdateClient = Updates,
   deferral: AppUpdateDeferral = appUpdateDeferral,

@@ -700,6 +700,7 @@ function SwipeActionButton(props: {
   );
 }
 
+/** Renders revealed thread actions and reports when the drag crosses the full swipe threshold. */
 function ThreadSwipeActions(props: {
   readonly backgroundColor: ColorValue;
   readonly compact: boolean;

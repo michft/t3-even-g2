@@ -114,6 +114,7 @@ const ApnsDeliveryJobSigningSecret = Alchemy.makeRandom("ApnsDeliveryJobSigningS
 
 export class Api extends Cloudflare.Worker<Api, {}>()("Api") {}
 
+/** Assemble the deployed relay worker, provisioning bindings and wiring HTTP, queue, and cron handlers. */
 const ApiLive = Api.make(
   RelayDeploymentConfig.pipe(
     Effect.map(({ relayPublicDomain }) => ({

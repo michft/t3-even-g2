@@ -76,6 +76,7 @@ export class ApnsDeliveryQueue extends Context.Service<
   }
 >()("t3code-relay/agentActivity/ApnsDeliveryQueue") {}
 
+/** Bind the queue sender to enqueue sanitized APNs jobs with signed payloads and expiration times. */
 const make = Effect.gen(function* () {
   const sender = yield* ApnsDeliveryQueueSender;
   const crypto = yield* Crypto.Crypto;

@@ -34,6 +34,7 @@ export class MobileSecureStorage extends Context.Service<
   }
 >()("@t3tools/mobile/persistence/MobileSecureStorage") {}
 
+/** Adapts Expo SecureStore to typed Effect operations for mobile key-value persistence. */
 const make = MobileSecureStorage.of({
   getItem: Effect.fn("MobileSecureStorage.getItem")((key) =>
     Effect.tryPromise({

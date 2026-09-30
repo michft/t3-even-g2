@@ -34,6 +34,7 @@ export class FcmAssertionSigner extends Context.Service<
   }
 >()("t3code-relay/agentActivity/FcmAssertionSigner") {}
 
+/** Bind WebCrypto signing of service-account assertions used to obtain Firebase Messaging access tokens. */
 const make = Effect.gen(function* () {
   const { subtle } = yield* WebCrypto.WebCrypto;
   return FcmAssertionSigner.of({

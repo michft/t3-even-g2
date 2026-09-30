@@ -31,6 +31,7 @@ class MarkdownCodeHighlightError extends Data.TaggedError("MarkdownCodeHighlight
   readonly cause: unknown;
 }> {}
 
+/** Caches highlighting by code, language, theme, and enabled state until the idle TTL expires. */
 function createMarkdownCodeHighlightAtomFamily(options?: {
   readonly highlight?: MarkdownCodeHighlighter;
   readonly idleTtlMs?: number;

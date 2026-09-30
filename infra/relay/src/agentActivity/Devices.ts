@@ -70,6 +70,7 @@ export class Devices extends Context.Service<
   }
 >()("t3code-relay/agentActivity/Devices") {}
 
+/** Bind device registration and removal, reclaiming push tokens from prior registrations before assigning them. */
 const make = Effect.gen(function* () {
   const db = yield* RelayDb.RelayDb;
 

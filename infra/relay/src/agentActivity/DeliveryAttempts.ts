@@ -91,6 +91,7 @@ function insertValues(
   };
 }
 
+/** Bind delivery recording and source-job claims, allowing expired unfinished claims to be reclaimed. */
 const make = Effect.gen(function* () {
   const db = yield* RelayDb.RelayDb;
   const crypto = yield* Crypto.Crypto;

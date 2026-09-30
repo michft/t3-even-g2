@@ -116,6 +116,7 @@ const emptyResult = (mode: ManagedEndpointCleanupMode): ManagedEndpointSweepResu
   truncated: false,
 });
 
+/** Bind bounded inactive-tunnel sweeps that honor cleanup mode and require a recoverable allocation owner. */
 const make = Effect.gen(function* () {
   const config = yield* RelayConfiguration.RelayConfiguration;
   const tunnels = yield* ManagedEndpointProvider.ManagedEndpointTunnelClient;

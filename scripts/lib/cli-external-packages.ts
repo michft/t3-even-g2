@@ -46,6 +46,7 @@ export const CLI_RUNTIME_EXTERNAL_PREFIXES = [
   "utf-8-validate",
 ] as const;
 
+/** Match runtime dependency prefixes shared by the CLI bundle boundary and desktop sidecar dependency selection. */
 function isRuntimeExternalCliDependency(id: string): boolean {
   return CLI_RUNTIME_EXTERNAL_PREFIXES.some((prefix) => id.startsWith(prefix));
 }

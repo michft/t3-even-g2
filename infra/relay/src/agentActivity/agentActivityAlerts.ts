@@ -13,6 +13,7 @@ export interface AgentActivityAlert {
 
 const TERMINAL_NOTIFICATION_FRESHNESS_MS = 2 * 60 * 1_000;
 
+/** Check the terminal-alert age limit, rejecting timestamps that cannot be parsed. */
 function isFreshTerminalNotification(updatedAt: string, nowMs: number): boolean {
   const timestamp = Option.getOrNull(DateTime.make(updatedAt));
   return (
@@ -34,6 +35,7 @@ function isAttentionPhase(phase: string): boolean {
   return phase === "waiting_for_approval" || phase === "waiting_for_input";
 }
 
+/** Apply phase-specific notification preferences, preserving default opt-in when preferences are absent. */
 function alertAllowedForPhase(
   preferences: RelayAgentAwarenessPreferences | null,
   phase: string,

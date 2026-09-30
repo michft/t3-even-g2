@@ -25,6 +25,7 @@ export function changeTone(change: ReviewRenderableLineRow["change"]): string {
   return "bg-card";
 }
 
+/** Selects the diff gutter bar color for added, deleted, or unchanged lines. */
 function changeBarTone(change: ReviewRenderableLineRow["change"]): string {
   if (change === "add") return "bg-emerald-400";
   if (change === "delete") return "bg-rose-400";
