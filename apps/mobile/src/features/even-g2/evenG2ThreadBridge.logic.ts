@@ -1,5 +1,3 @@
-import type { ThreadFeedEntry } from "../../lib/threadActivity";
-
 /** Matches phone activity while a glasses submission waits for an assistant reply. */
 export function evenG2ThreadActivityText(input: {
   readonly connected: boolean;
@@ -15,21 +13,6 @@ export function evenG2ThreadActivityText(input: {
   if (input.needsInput) return "Answer needed on phone";
   if (input.queued) return "Sending to T3 Code…";
   return input.working ? "Thinking…" : "";
-}
-
-/** Returns the newest non-empty assistant message for display on the glasses. */
-export function latestAssistantText(feed: ReadonlyArray<ThreadFeedEntry>): string | null {
-  for (let index = feed.length - 1; index >= 0; index -= 1) {
-    const entry = feed[index];
-    if (entry?.type !== "message" || entry.message.role !== "assistant") {
-      continue;
-    }
-    const text = entry.message.text.trim();
-    if (text.length > 0) {
-      return text;
-    }
-  }
-  return null;
 }
 
 /** Appends non-empty speech to a typed draft with a blank line separator when needed. */

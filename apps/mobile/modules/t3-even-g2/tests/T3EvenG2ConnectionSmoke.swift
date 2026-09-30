@@ -553,7 +553,9 @@ struct Smoke {
     fixture.connection.setActiveThread("moorbeef:b", enabled: true)
     fixture.connection.setActiveThread("mini:a", enabled: false)
     let longReply = (1...25).map { "Reply line \($0)" }.joined(separator: "\n")
-    fixture.connection.displayText(longReply)
+    fixture.connection.setReplyHistory(historyPayload([
+      ["id": "reply", "text": longReply, "prompt": ""],
+    ], key: "moorbeef:b"))
     try? await Task.sleep(for: .milliseconds(450))
     fixture.gesture(0, container: true)
     await fixture.wait { $0["listening"] as? Bool == true }
@@ -589,49 +591,55 @@ struct Smoke {
     fixture.gesture(3)
     await fixture.wait { $0["status"] as? String == "ready" }
     fixture.gesture(0)
-    precondition(fixture.selectedKeys == ["moorbeef:b", "moorbeef:b"])
+    precondition(fixture.selectedKeys == ["moorbeef:b"], "Latest must restore the active reply without selecting a thread")
     precondition(fixture.connection.snapshot["listening"] as? Bool == false)
     // Swiping a short reply stays there; left-arm tap goes Back. The picker still scrolls.
-    fixture.connection.displayText("Short reply")
+    fixture.connection.setReplyHistory(historyPayload([
+      ["id": "reply", "text": "Short reply", "prompt": ""],
+    ], key: "moorbeef:b"))
     try? await Task.sleep(for: .milliseconds(450))
     fixture.gesture(1)
     try? await Task.sleep(for: .milliseconds(450))
     fixture.tapBack()
     try? await Task.sleep(for: .milliseconds(450))
-    fixture.gesture(1)
+    fixture.gesture(2) // Advance from Latest output to the first thread.
     try? await Task.sleep(for: .milliseconds(450))
     fixture.gesture(0)
-    precondition(fixture.selectedKeys.last == "mini:a" && fixture.selectedKeys.count == 3)
+    precondition(fixture.selectedKeys.last == "mini:a" && fixture.selectedKeys.count == 2)
     fixture.connection.setActiveThread("mini:a", enabled: true)
-    fixture.connection.displayText(longReply)
+    fixture.connection.setReplyHistory(historyPayload([
+      ["id": "reply", "text": longReply, "prompt": ""],
+    ], key: "mini:a"))
     try? await Task.sleep(for: .milliseconds(450))
     fixture.gesture(2)
-    await fixture.wait { ($0["detail"] as? String)?.hasPrefix("G2 page 2 of") == true }
+    await fixture.wait { ($0["detail"] as? String)?.hasPrefix("Reply 1/1 · page 2/") == true }
     try? await Task.sleep(for: .milliseconds(450))
     fixture.gesture(1)
-    await fixture.wait { ($0["detail"] as? String)?.hasPrefix("G2 page 1 of") == true }
+    await fixture.wait { ($0["detail"] as? String)?.hasPrefix("Reply 1/1 · page 1/") == true }
     // At the first page, another up must stay in the thread rather than go Back.
     try? await Task.sleep(for: .milliseconds(450))
     fixture.gesture(1)
     try? await Task.sleep(for: .milliseconds(450))
     fixture.gesture(0)
     await fixture.wait { $0["listening"] as? Bool == true }
-    precondition(fixture.selectedKeys.count == 3)
+    precondition(fixture.selectedKeys.count == 2)
     fixture.tapBack()
     precondition(fixture.transcripts.count == 4 && fixture.transcripts[3]["cancelled"] as? Bool == true)
     fixture.connection.setNaturalScrolling(true)
     precondition(T3EvenG2Connection(diagnostics: fixture.diagnostics).snapshot["naturalScrolling"] as? Bool == true)
     try? await Task.sleep(for: .milliseconds(450))
     fixture.gesture(1)
-    await fixture.wait { ($0["detail"] as? String)?.hasPrefix("G2 page 2 of") == true }
+    await fixture.wait { ($0["detail"] as? String)?.hasPrefix("Reply 1/1 · page 2/") == true }
     try? await Task.sleep(for: .milliseconds(450))
     fixture.tapBack()
     fixture.gesture(10) // Release must not act as another Back or a tap.
     try? await Task.sleep(for: .milliseconds(450))
-    fixture.gesture(1) // Natural scrolling moves the picker to the second thread.
+    fixture.gesture(1) // Natural scrolling moves past Latest output to the first thread.
+    try? await Task.sleep(for: .milliseconds(450))
+    fixture.gesture(1) // Advance to the second thread.
     try? await Task.sleep(for: .milliseconds(450))
     fixture.gesture(0)
-    precondition(fixture.selectedKeys.last == "moorbeef:b" && fixture.selectedKeys.count == 4)
+    precondition(fixture.selectedKeys.last == "moorbeef:b" && fixture.selectedKeys.count == 3)
     fixture.connection.setActiveThread("moorbeef:b", enabled: true)
     fixture.connection.showThreadPicker()
     try? await Task.sleep(for: .milliseconds(450))
@@ -645,10 +653,12 @@ struct Smoke {
     precondition(fixture.transcripts.count == 5 && fixture.transcripts[4]["cancelled"] as? Bool == true)
     // Dictation errors are one level above the same reply and reading position.
     try? await Task.sleep(for: .milliseconds(450))
-    fixture.connection.displayText(longReply)
+    fixture.connection.setReplyHistory(historyPayload([
+      ["id": "reply", "text": longReply, "prompt": ""],
+    ], key: "moorbeef:b"))
     fixture.gesture(1)
-    await fixture.wait { ($0["detail"] as? String)?.hasPrefix("G2 page 2 of") == true }
-    let secondPage = T3EvenG2Protocol.lensTextPages(longReply)[1]
+    await fixture.wait { ($0["detail"] as? String)?.hasPrefix("Reply 1/1 · page 2/") == true }
+    let secondPage = "Reply line 8"
     await fixture.waitForDisplay(secondPage)
     T3EvenG2SpeechTranscriber.finalText = ""
     await fixture.connection.beginDictation()
@@ -658,11 +668,11 @@ struct Smoke {
     fixture.tapBack()
     fixture.gesture(10)
     await fixture.waitForDisplay(secondPage)
-    precondition(fixture.selectedKeys.count == 4)
+    precondition(fixture.selectedKeys.count == 3)
     // A second Back goes to selection; Back there returns to the same output.
     try? await Task.sleep(for: .milliseconds(450))
     fixture.tapBack()
-    await fixture.waitForDisplay("T3 threads")
+    await fixture.waitForDisplay("Latest output")
     try? await Task.sleep(for: .milliseconds(450))
     fixture.tapBack()
     await fixture.waitForDisplay(secondPage)
@@ -817,7 +827,9 @@ struct Smoke {
     fixture.subscribe(fixture.right)
     await fixture.wait { $0["status"] as? String == "ready" }
     fixture.connection.setActiveThread("mini:idle-write-failure", enabled: true)
-    fixture.connection.displayText("Reply after failed blank")
+    fixture.connection.setReplyHistory(historyPayload([
+      ["id": "reply", "text": "Reply after failed blank", "prompt": ""],
+    ], key: "mini:idle-write-failure"))
     await fixture.waitForDisplay("Reply after failed blank")
     let creates = fixture.createCount
     let timer = await clock.timer(0)
@@ -843,7 +855,9 @@ struct Smoke {
     fixture.subscribe(fixture.right)
     await fixture.wait { $0["status"] as? String == "ready" }
     fixture.connection.setActiveThread("mini:idle", enabled: true)
-    fixture.connection.displayText("Idle reply")
+    fixture.connection.setReplyHistory(historyPayload([
+      ["id": "reply", "text": "Idle reply", "prompt": ""],
+    ], key: "mini:idle"))
     await fixture.waitForDisplay("Idle reply")
     let initial = await clock.timer(0)
     fixture.gesture(1)
@@ -862,7 +876,9 @@ struct Smoke {
       let frames = fixture.displayPayloads.count
       let timers = clock.timers.count
       // Phone updates, scrolls, and foreground/duplicate events must not relight the lenses.
-      fixture.connection.displayText("Updated reply \(source)")
+      fixture.connection.setReplyHistory(historyPayload([
+        ["id": "reply", "text": "Updated reply \(source)", "prompt": ""],
+      ], key: "mini:idle"))
       fixture.connection.setThreadActivity("mini:idle", text: "Thinking…")
       fixture.gesture(1)
       fixture.gesture(3)
@@ -1120,7 +1136,9 @@ struct Smoke {
       fixture.subscribe(fixture.right)
       await fixture.wait { $0["status"] as? String == "ready" }
       fixture.connection.setActiveThread("mini:startup", enabled: true)
-      fixture.connection.displayText("Startup reply")
+      fixture.connection.setReplyHistory(historyPayload([
+        ["id": "reply", "text": "Startup reply", "prompt": ""],
+      ], key: "mini:startup"))
       await fixture.waitForDisplay("Startup reply")
       for phase in ["immediate", "preparing", "transition"] {
         if phase != "immediate" { try await Task.sleep(for: .milliseconds(450)) }

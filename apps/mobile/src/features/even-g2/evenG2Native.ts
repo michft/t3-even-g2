@@ -85,12 +85,6 @@ interface EvenG2NativeModule {
   disconnect(): void;
   /** Resumes a display session that paused after a page failure. */
   resumeDisplay(): void;
-  /** Displays text on the glasses. */
-  displayText(text: string): void;
-  /** Clears the current display. */
-  clearDisplay(): void;
-  /** Switches between active-thread input and the thread picker. */
-  setInputEnabled(enabled: boolean): void;
   /** Marks which thread receives speech input. */
   setActiveThread(key: string, enabled: boolean): void;
   /** Updates phone activity without changing the glasses' current page. */
@@ -101,12 +95,6 @@ interface EvenG2NativeModule {
   setReplyHistory(snapshot: EvenG2ReplyHistorySnapshot): void;
   /** Opens the glasses' thread picker. */
   showThreadPicker(): void;
-  /** Starts speech recognition for the current dictation session. */
-  beginDictation(): Promise<void>;
-  /** Finishes speech recognition and emits the final transcript. */
-  finishDictation(): Promise<void>;
-  /** Cancels speech recognition without submitting its partial transcript. */
-  cancelDictation(): Promise<void>;
   /** Registers a listener for a native module event. */
   addListener<T>(eventName: string, listener: (event: T) => void): EventSubscription;
 }
@@ -219,16 +207,6 @@ export function disconnectEvenG2(): void {
 /** Restarts the native display after its page session has paused. */
 export function resumeEvenG2Display(): void {
   nativeModule()?.resumeDisplay();
-}
-
-/** Sends reply text to the native display. */
-export function displayEvenG2Text(text: string): void {
-  nativeModule()?.displayText(text);
-}
-
-/** Switches between active-thread input and the thread picker. */
-export function setEvenG2InputEnabled(enabled: boolean): void {
-  nativeModule()?.setInputEnabled(enabled);
 }
 
 /** Marks the workspace thread that should receive Even dictation. */

@@ -15,7 +15,6 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
 
   var onStatus: (([String: Any]) -> Void)?
   var onTranscript: (([String: Any]) -> Void)?
-  var onGesture: (([String: Any]) -> Void)?
   var onThreadSelected: (([String: Any]) -> Void)?
   var onHistoryPosition: (([String: Any]) -> Void)?
   var onHistoryRequest: (([String: Any]) -> Void)?
@@ -103,8 +102,6 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   private var latestTranscript = ""
   private var dictationNotice: String?
   private var threadActivityText = ""
-  private var displayPages: [String] = []
-  private var displayPageIndex = 0
   private var lastGestureAt = Date.distantPast
   private var pendingAckKeys: Set<String> = []
   private var receivedAckKeys: Set<String> = []
@@ -221,38 +218,8 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     }
   }
 
-  /// Stores paginated text and displays it when the connection is ready and idle.
-  func displayText(_ text: String) {
-    let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !cleaned.isEmpty else { return }
-    if let activeThreadKey { historyByThread.removeValue(forKey: activeThreadKey) }
-    cancelHistoryRequest()
-    refreshThreadChoices()
-    dictationNotice = nil
-    displayPages = T3EvenG2Protocol.lensTextPages(cleaned)
-    displayPageIndex = 0
-    guard !listening, !threadPicker.isPresented, status == .ready else { return }
-    scheduleDisplay(restingDisplayText)
-  }
-
-  /// Clears stored display pages and sends shutdown when the page is ready.
-  func clearDisplay() {
-    if let activeThreadKey { historyByThread.removeValue(forKey: activeThreadKey) }
-    cancelHistoryRequest()
-    refreshThreadChoices()
-    dictationNotice = nil
-    displayPages = []
-    displayPageIndex = 0
-    displayTask?.cancel()
-    guard status == .ready, !displayIsSleeping else { return }
-    displayTask = Task { @MainActor [weak self] in
-      guard let self else { return }
-      await self.sendEvenHub(T3EvenG2Protocol.shutdown(magic: self.nextMagic()))
-    }
-  }
-
   /// Enables thread input or cancels dictation when input is disabled.
-  func setInputEnabled(_ enabled: Bool) {
+  private func setInputEnabled(_ enabled: Bool) {
     inputEnabled = enabled
     threadPicker.isPresented = !enabled
     if !enabled, listening {
@@ -293,8 +260,6 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       if activeThreadKey != key {
         dictationNotice = nil
         threadActivityText = ""
-        displayPages = []
-        displayPageIndex = 0
       }
       activeThreadKey = key
       refreshThreadChoices()
@@ -777,7 +742,6 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     }
     guard let gesture = T3EvenG2Protocol.gesture(from: data) else { return }
     trace("gesture.received", ["kind": gesture.kind, "source": gesture.source, "arm": arm.side])
-    onGesture?(["kind": gesture.kind, "source": gesture.source])
     // The shutdown ACK can precede teardown. Relaunch only after its exit event.
     if status == .starting, gesture.kind == "systemExit" {
       shutdownExitObserved = true
@@ -1133,9 +1097,6 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       if !lines.isEmpty { lines.removeLast() }
       return (lines + [historyNotice]).joined(separator: "\n")
     }
-    if displayPages.indices.contains(displayPageIndex) {
-      return displayPages[displayPageIndex]
-    }
     let title = threadPicker.choices.first(where: { $0.key == activeThreadKey })?.title ?? "T3 Code"
     return "\(String(title.replacingOccurrences(of: "\n", with: " ").prefix(92)))\n\nTap R1 to dictate"
   }
@@ -1481,14 +1442,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       if let request { requestHistory(request < 0 ? "older" : "newer") }
       scheduleDisplay(restingDisplayText)
       setStatus(.ready, detail: history.positionDescription)
-      return
     }
-    guard displayPages.count > 1 else { return }
-    let nextIndex = min(max(displayPageIndex + offset, 0), displayPages.count - 1)
-    guard nextIndex != displayPageIndex else { return }
-    displayPageIndex = nextIndex
-    scheduleDisplay(restingDisplayText)
-    setStatus(.ready, detail: "G2 page \(displayPageIndex + 1) of \(displayPages.count)")
   }
 
   /// Stops microphone capture and either discards speech or finalizes and reports it.
