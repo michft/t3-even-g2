@@ -1084,7 +1084,7 @@ function capitalizePhrase(value: string): string {
  * folded into the row, so "working" means a member has not reported a
  * terminal state yet.
  */
-export function agentSpawnLabel(spawn: NonNullable<WorkLogEntry["agentSpawn"]>): string {
+function agentSpawnLabel(spawn: NonNullable<WorkLogEntry["agentSpawn"]>): string {
   const members = agentSpawnMembers(spawn);
   const count = Math.max(members.length, 1);
   const subjects = `${count} subagent${count === 1 ? "" : "s"}`;
@@ -2048,7 +2048,7 @@ function groupConsecutiveReasoningMessages(
  * list keeps one mounted row for the turn's live slot (mirrors web's
  * LIVE_ACTIVITY_ROW_ID). Anything keyed by row id must not distinguish them.
  */
-export const LIVE_ACTIVITY_ROW_ID = "live-activity-row";
+const LIVE_ACTIVITY_ROW_ID = "live-activity-row";
 
 function thinkingRow(createdAt: string, turnId: TurnId | null) {
   if (cachedThinkingRow?.createdAt !== createdAt || cachedThinkingRow.turnId !== turnId) {
