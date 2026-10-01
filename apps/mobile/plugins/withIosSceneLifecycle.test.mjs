@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import withIosSceneLifecycle from "./withIosSceneLifecycle.cjs";
 
 const appDelegate = `class AppDelegate: ExpoAppDelegate {

@@ -259,14 +259,14 @@ describe("mobile dependency graph", () => {
 
     const ceilings: ReadonlyArray<readonly [Layer, Layer, number, string]> = [
       // state -> features: thread ordering reaching the thread-list model,
-      // the incoming-share store, the connection controller hook, the
-      // terminal launch context, and the pending message feed.
+      // the incoming-share store, the connection controller hook,
+      // and terminal launch context. The pending message feed lives in state/.
       // (legacy-plan-mode was pure model logic and moved into state/.)
-      ["state", "features", 6, "state must not add imports from features"],
+      ["state", "features", 5, "state must not add imports from features"],
       // lib -> features: lib/runtime.ts is the app composition root and
       // legitimately wires cloud/observability features; the appearance
-      // helpers and terminal preferences still need untangling.
-      ["lib", "features", 7, "lib must not add imports from features"],
+      // provider hooks still need untangling; terminal preferences live in lib/.
+      ["lib", "features", 6, "lib must not add imports from features"],
       // components -> features: mostly the appearance preferences provider
       // and the layout toolbar bridges.
       ["components", "features", 33, "components must not add imports from features"],

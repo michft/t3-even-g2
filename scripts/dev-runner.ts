@@ -53,7 +53,7 @@ const DEV_PORT_PROBE_HOSTS = ["127.0.0.1", "::1"] as const;
  * qualify; a specific interface (e.g. a LAN IP) does not — the OS binds only
  * that address and the proxy target goes dark.
  */
-export function isProxiableBindHost(host: string): boolean {
+function isProxiableBindHost(host: string): boolean {
   const normalized = host.trim();
   return (
     normalized === "" ||
