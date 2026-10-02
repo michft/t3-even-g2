@@ -6,7 +6,7 @@ import {
   MessageId,
   ThreadId,
 } from "@t3tools/contracts";
-import type { QueuedThreadMessage } from "../../state/thread-outbox-model";
+import type { QueuedThreadMessage } from "./thread-outbox-model";
 import { appendPendingThreadMessages } from "./pending-thread-feed";
 
 const pending = (id: string): QueuedThreadMessage => ({

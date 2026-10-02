@@ -153,7 +153,7 @@ const collect = <E>(stream: Stream.Stream<Uint8Array, E>) =>
       (a, b) => a + b,
     ),
   );
-export const resolveAdb = Effect.gen(function* () {
+const resolveAdb = Effect.gen(function* () {
   if (yield* isCommandAvailable("adb")) return "adb";
   const environment = yield* HostProcessEnvironment;
   const path = yield* Path.Path;

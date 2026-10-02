@@ -1,5 +1,5 @@
-import type { ThreadFeedEntry } from "../../lib/threadActivity";
-import type { QueuedThreadMessage } from "../../state/thread-outbox-model";
+import type { ThreadFeedEntry } from "../lib/threadActivity";
+import type { QueuedThreadMessage } from "./thread-outbox-model";
 
 export type PendingThreadFeedEntry = ThreadFeedEntry & {
   readonly pendingMessage?: QueuedThreadMessage;

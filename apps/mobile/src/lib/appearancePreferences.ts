@@ -5,7 +5,7 @@ import {
   MIN_TERMINAL_FONT_SIZE,
   TERMINAL_FONT_SIZE_STEP,
   normalizeTerminalFontSize,
-} from "../features/terminal/terminalPreferences";
+} from "./terminalPreferences";
 
 export const DEFAULT_BASE_FONT_SIZE = MOBILE_TYPOGRAPHY.body.fontSize;
 export const MIN_BASE_FONT_SIZE = 11;

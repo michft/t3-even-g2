@@ -17,8 +17,10 @@ import {
 } from "@t3tools/contracts";
 import { Atom } from "effect/unstable/reactivity";
 
-import { PREVIEW_RECENT_URL_LIMIT } from "./components/preview/previewConstants";
 import { appAtomRegistry } from "./rpc/atomRegistry";
+
+/** Cap for each thread's recently seen URLs. */
+const PREVIEW_RECENT_URL_LIMIT = 10;
 
 export interface DesktopPreviewOverlay {
   hasWebContents: boolean;

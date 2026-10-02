@@ -980,7 +980,7 @@ export const LINUX_FILE_EXCLUSIONS = [
 // apps only need the native target; universal apps need both. An omitted arch
 // preserves the existing common exclusions for callers that only inspect the
 // generic platform config.
-export function resolveMacFileExclusions(arch?: typeof BuildArch.Type) {
+function resolveMacFileExclusions(arch?: typeof BuildArch.Type) {
   if (arch === undefined || arch === "universal") {
     return [...MAC_FILE_EXCLUSIONS];
   }
@@ -1377,7 +1377,7 @@ export function resolveClerkPasskeyNativeArtifacts(
   return [];
 }
 
-export function resolveKeyringNativeArtifacts(
+function resolveKeyringNativeArtifacts(
   platform: typeof BuildPlatform.Type,
   arch: typeof BuildArch.Type,
 ): readonly ClerkPasskeyNativeArtifact[] {
