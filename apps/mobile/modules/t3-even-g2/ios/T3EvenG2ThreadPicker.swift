@@ -46,20 +46,30 @@ struct T3EvenG2ThreadPicker {
     if let next = choices.firstIndex(where: \.isLatestOutput) { index = next }
   }
 
-  /// Builds the display text for the current selection and picker instructions.
+  /// Shows a three-choice window while reserving lens rows for context and controls.
   var text: String {
     guard let highlighted else {
       return "T3 threads\n\nNo threads available\n\nConnect an environment in T3"
     }
-    // Reserve the title's own rows so long names cannot hide picker controls.
-    let title = String(highlighted.title.replacingOccurrences(of: "\n", with: " ").prefix(92))
-    let subtitle = String(highlighted.subtitle.replacingOccurrences(of: "\n", with: " ").prefix(46))
+    let start = min(max(0, index - 1), max(0, choices.count - 3))
+    let end = min(choices.count, start + 3)
+    let rows = (start..<end).map { position in
+      "\(position == index ? "> " : "  ")\(label(choices[position].title, columns: 44))"
+    }.joined(separator: "\n")
+    let subtitle = label(highlighted.subtitle, columns: 46)
     let controls = choices.count > 1
-      ? "Swipe to choose · Tap to open\nL arm tap: back" : "Tap to open · L arm tap: back"
+      ? "R1 swipe: choose · Tap: open\nL arm tap: back" : "Tap to open · L arm tap: back"
     let instruction = openingKey == nil ? controls : "Opening thread…"
     let threadChoices = choices.filter { !$0.isLatestOutput }
     let threadIndex = threadChoices.firstIndex(where: { $0.key == highlighted.key }) ?? 0
     let heading = highlighted.isLatestOutput ? "T3 quick action" : "T3 threads \(threadIndex + 1)/\(threadChoices.count)"
-    return "\(heading)\n\n\(title)\n\(subtitle)\n\n\(instruction)"
+    return "\(heading)\n\n\(rows)\n\(subtitle)\n\n\(instruction)"
+  }
+
+  /// Keeps each label on one row and reserves a byte budget for the rest of the menu.
+  private func label(_ text: String, columns: Int) -> String {
+    let singleLine = text.components(separatedBy: .whitespacesAndNewlines)
+      .filter { !$0.isEmpty }.joined(separator: " ")
+    return T3EvenG2Protocol.limitedUTF8(String(singleLine.prefix(columns)), maxBytes: 180)
   }
 }

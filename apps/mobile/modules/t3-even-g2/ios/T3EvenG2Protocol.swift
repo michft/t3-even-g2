@@ -395,7 +395,7 @@ enum T3EvenG2Protocol {
   }
 
   /// Truncates at a character boundary and appends an ellipsis within the byte limit.
-  private static func limitedUTF8(_ text: String, maxBytes: Int) -> String {
+  static func limitedUTF8(_ text: String, maxBytes: Int) -> String {
     if text.utf8.count <= maxBytes { return text }
     let suffix = "…"
     let contentLimit = max(0, maxBytes - suffix.utf8.count)

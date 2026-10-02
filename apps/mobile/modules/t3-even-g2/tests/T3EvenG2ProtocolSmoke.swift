@@ -165,6 +165,11 @@ private struct T3EvenG2ProtocolSmoke {
     let listScroll = packet(payload: [0x08, 0x02] + nested(13, nested(1, [0x28, 0x02])))
     try check(T3EvenG2Protocol.gesture(from: click)?.kind == "click", "ring click not decoded")
     try check(T3EvenG2Protocol.gesture(from: click)?.source == "ring", "ring source not decoded")
+    for (event, kind): (UInt8, String) in [(9, "longPress"), (10, "longPressRelease")] {
+      let data = packet(payload: [0x08, 0x02] + nested(13, nested(3, [0x08, event, 0x10, 2])))
+      let gesture = T3EvenG2Protocol.gesture(from: data)
+      try check(gesture?.kind == kind && gesture?.source == "ring", "ring hold not decoded")
+    }
     try check(T3EvenG2Protocol.isDictationSource("ring"), "ring input source rejected")
     try check(T3EvenG2Protocol.isControlSource("rightTemple"), "right temple navigation rejected")
     try check(!T3EvenG2Protocol.isDictationSource("rightTemple"), "right temple must not dictate")

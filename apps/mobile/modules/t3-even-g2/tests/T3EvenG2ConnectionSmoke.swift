@@ -400,6 +400,11 @@ struct Smoke {
       fatalError("G2 connection test timed out waiting for a lifecycle callback at line \(Fixture.waitingAtLine)")
     }
     defer { watchdog.cancel() }
+    if CommandLine.arguments.contains("--thread-menu") {
+      await verifyThreadMenu()
+      print("G2 R1 hold menu, selection, Back, and bounded label checks passed")
+      return
+    }
     if CommandLine.arguments.contains("--arm-controls") {
       await verifyArmControls()
       print("G2 right-arm navigation and R1 dictation separation checks passed")
@@ -1126,7 +1131,81 @@ struct Smoke {
     T3EvenG2SpeechTranscriber.finalText = "test dictation"
   }
 
-  /// Swipes never cancel startup; left-arm tap still cancels explicitly.
+  /// Opens the thread menu through real ring packets without starting or sending speech.
+  @MainActor
+  private static func verifyThreadMenu() async {
+    let choices = (1...5).map {
+      T3EvenG2ThreadPicker.Choice(key: "mini:\($0)", title: "Thread \($0)", subtitle: "Mini · Project")
+    }
+    var picker = T3EvenG2ThreadPicker()
+    picker.update(choices)
+    picker.highlight("mini:3")
+    precondition(picker.text.contains("  Thread 2\n> Thread 3\n  Thread 4"))
+    picker.move(20)
+    precondition(picker.text.contains("  Thread 3\n  Thread 4\n> Thread 5"))
+    picker.move(-20)
+    precondition(picker.index == 0)
+    let longLabel = String(repeating: "👩🏽‍💻\n\t", count: 100)
+    picker.update((1...5).map {
+      .init(key: "mini:\($0)", title: longLabel, subtitle: longLabel)
+    })
+    precondition(picker.text.components(separatedBy: "\n").count <= 9)
+    precondition(picker.text.utf8.count < 900 && picker.text.contains("L arm tap: back"))
+    picker.update([])
+    precondition(picker.text.contains("No threads available"))
+
+    for container in [false, true] {
+      let fixture = Fixture()
+      fixture.subscribe(fixture.left)
+      fixture.subscribe(fixture.right)
+      await fixture.wait { $0["status"] as? String == "ready" }
+      fixture.connection.setThreadChoices(choices.map {
+        ["key": $0.key, "title": $0.title, "subtitle": $0.subtitle]
+      })
+      fixture.connection.setActiveThread("mini:3", enabled: true)
+      fixture.connection.setReplyHistory(historyPayload([
+        ["id": "reply", "text": "Keep this reading position", "prompt": ""],
+      ], key: "mini:3"))
+      await fixture.waitForDisplay("Keep this reading position")
+      let creates = fixture.createCount
+      // Arm holds remain distinct from the ring's new navigation gesture.
+      fixture.gesture(9, source: 1)
+      fixture.gesture(9, source: 3)
+      precondition(fixture.selectedKeys.isEmpty)
+      fixture.gesture(9, container: container)
+      await fixture.waitForDisplay("> Thread 3")
+      precondition(fixture.connection.snapshot["status"] as? String == "ready")
+      precondition(fixture.connection.snapshot["listening"] as? Bool == false)
+      precondition(fixture.createCount == creates)
+      fixture.gesture(10, container: container)
+      precondition(fixture.selectedKeys.isEmpty && fixture.transcripts.isEmpty)
+      // Separate physical swipes beyond the existing firmware duplicate window.
+      try? await Task.sleep(for: .milliseconds(450))
+      fixture.gesture(2, container: container)
+      await fixture.waitForDisplay("> Thread 4")
+      fixture.gesture(9, container: container) // Mirrored holds must not reset selection.
+      fixture.gesture(0, container: container)
+      precondition(fixture.selectedKeys == ["mini:4"])
+      fixture.connection.setActiveThread("mini:4", enabled: true)
+      fixture.connection.setReplyHistory(historyPayload([
+        ["id": "reply4", "text": "Fourth thread output", "prompt": ""],
+      ], key: "mini:4"))
+      await fixture.waitForDisplay("Fourth thread output")
+      fixture.connection.setNaturalScrolling(true)
+      fixture.gesture(9, container: container)
+      await fixture.waitForDisplay("> Thread 4")
+      try? await Task.sleep(for: .milliseconds(450))
+      fixture.gesture(1, container: container)
+      await fixture.waitForDisplay("> Thread 5")
+      try? await Task.sleep(for: .milliseconds(450))
+      fixture.tapBack()
+      await fixture.waitForDisplay("Fourth thread output")
+      precondition(fixture.selectedKeys == ["mini:4"] && fixture.transcripts.isEmpty)
+      fixture.connection.disconnect()
+    }
+  }
+
+  /// Swipes and holds never interrupt startup; left-arm tap still cancels explicitly.
   @MainActor
   private static func verifyStartupSwipeBack() async throws {
     for container in [false, true] {
@@ -1144,6 +1223,7 @@ struct Smoke {
         if phase != "immediate" { try await Task.sleep(for: .milliseconds(450)) }
         let firstFrame = fixture.displayPayloads.count
         fixture.gesture(0, container: container)
+        fixture.gesture(9, container: container)
         if phase != "immediate" {
           await fixture.waitForDisplay("Preparing dictation")
           precondition(fixture.displayPayloads[firstFrame].range(of: Data("Preparing dictation".utf8)) != nil)
