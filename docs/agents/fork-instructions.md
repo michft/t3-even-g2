@@ -20,15 +20,26 @@ use the same workflow. `.plans/` is reserved for planning, not documentation.
 
 - Use JJ. Check `jj status` and bookmarks before choosing a base; snapshots in
   local notes may be stale.
-- The fork is `michft/t3-even-g2` (`origin`). T3 upstream is remote `t3`;
-  upstream T3 updates mean **Nightly**, not an assumed `t3/main` base.
+- This repository is a downstream fork, `michft/t3-even-g2` (`origin`). T3
+  upstream is remote `t3` (`pingdotgg/t3code`), treated as read-only.
+  Upstream T3 updates mean published **Nightly**, not an assumed `t3/main` base.
+- A request to "pull in T3 and merge" means download the published Nightly and
+  integrate it into fork main on `origin`. Start from refreshed `main@origin`;
+  keep the upstream merge separate from unrelated feature PRs. Resolve merge
+  conflicts and compatibility fixes in this downstream fork.
 - In JJ discussions, "upstream" can also mean earlier local changes in the
-  change ancestry. Clarify an ambiguous base before acting.
+  change ancestry. Clarify when that meaning or a different target is unclear;
+  do not ask again which remote a clear T3 Nightly sync targets.
 - Leave T3 updates for an explicit request. An ambiguous upstream reference
   does not authorize fetching, merging, rebasing, or pushing.
 - Pushes and PRs require explicit requests. Build/install requests do not
-  authorize either. Requested PRs belong on the fork unless directed otherwise;
-  never target `t3/main` without explicit instruction.
+  authorize either. Requested sync PRs target fork main on `origin`; respect
+  fork branch protection and any "PR only" instruction. Do not merge an open
+  PR without authorization.
+- Do not modify or push to T3 upstream, or propose a PR there, as part of a
+  downstream sync. If integration requires upstream changes or an upstream PR,
+  request explicit maintainer approval first. Downstream merge authorization
+  does not authorize upstream work.
 - Keep G2 code, fork documentation, and unrelated upstream work separate.
 - Public contributions start as fork issues. Only repository collaborators
   create PRs, implementing accepted issues. Follow the tracked contributor
@@ -62,6 +73,10 @@ use the same workflow. `.plans/` is reserved for planning, not documentation.
 
 ## Pasted CodeRabbit reviews
 
+- Preserve the existing automatic Nightly merge skip in `.coderabbit.yaml`:
+  titles containing `merge T3 Nightly` are excluded. A green skipped status
+  does not mean a completed review with zero findings. Record that distinction
+  in the PR description; request a one-off review only when explicitly asked.
 - When the maintainer explicitly pastes CodeRabbit suggestions into a thread,
   verify each finding against current code and apply only still-valid fixes.
   Keep changes minimal; briefly explain skipped findings.
