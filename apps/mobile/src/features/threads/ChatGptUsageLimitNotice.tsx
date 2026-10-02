@@ -4,7 +4,7 @@ import * as Option from "effect/Option";
 import { Linking, Pressable, View } from "react-native";
 import { AppText as Text } from "../../components/AppText";
 import { ProviderIcon } from "../../components/ProviderIcon";
-import { useThreadDetail } from "../../state/use-thread-detail";
+import { useEnvironmentThread } from "../../state/threads";
 
 export function ChatGptUsageLimitNotice({
   environmentId,
@@ -13,7 +13,7 @@ export function ChatGptUsageLimitNotice({
   environmentId: EnvironmentId;
   thread: OrchestrationThreadShell;
 }) {
-  const state = useThreadDetail({ environmentId, threadId: thread.id });
+  const state = useEnvironmentThread(environmentId, thread.id);
   const detail = Option.getOrNull(state.data);
   if (!isChatGptUsageLimitError(detail?.activities ?? [], thread.session?.lastError)) return null;
   return (
