@@ -427,13 +427,17 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   }
 
   /// Opens the thread picker when speech capture is not active.
-  func showThreadPicker() {
+  func showThreadPicker(highlightActiveThread: Bool = false) {
     guard !listening, speechSession == nil else { return }
     dictationNotice = nil
     cancelHistoryRequest()
     publishHistoryPosition()
     refreshThreadChoices()
-    threadPicker.highlightLatestOutput()
+    if highlightActiveThread, let key = activeThreadKey {
+      threadPicker.highlight(key)
+    } else {
+      threadPicker.highlightLatestOutput()
+    }
     threadPicker.isPresented = true
     threadPicker.openingKey = nil
     if status == .ready { scheduleDisplay(restingDisplayText) }
@@ -1033,7 +1037,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       // Firmware can deliver the wake tap through more than one container or arm.
       if Date().timeIntervalSince(lastWakeAt) <= 0.4,
         ["click", "doubleClick", "scrollUp", "scrollDown"].contains(gesture.kind) { return true }
-      if status == .ready, ["click", "scrollUp", "scrollDown"].contains(gesture.kind),
+      if status == .ready, ["click", "scrollUp", "scrollDown", "longPress"].contains(gesture.kind),
         gesture.isBack || T3EvenG2Protocol.isControlSource(gesture.source) {
         restartDisplayIdleTimer()
       }
@@ -1269,6 +1273,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       trace("gesture.ignored", ["reason": "not-ready", "kind": gesture.kind])
       return
     }
+    if handleThreadMenuGesture(gesture) { return }
     guard ["click", "scrollUp", "scrollDown"].contains(gesture.kind) else { return }
     let now = Date()
     let cancelsDictation = gesture.isBack && (startingDictation || listening || speechSession != nil)
@@ -1284,6 +1289,18 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       return
     }
     handleThreadGesture(gesture)
+  }
+
+  /// Opens navigation for ring holds while keeping speech and repeated holds modal.
+  private func handleThreadMenuGesture(_ gesture: T3EvenG2Protocol.Gesture) -> Bool {
+    guard gesture.kind == "longPress" else { return false }
+    guard T3EvenG2Protocol.isDictationSource(gesture.source),
+      !startingDictation, !listening, !stoppingDictation, speechSession == nil,
+      gestureTask == nil, !threadPicker.isPresented
+    else { return true }
+    trace("thread.menu.opened", ["source": gesture.source])
+    showThreadPicker(highlightActiveThread: true)
+    return true
   }
 
   /// Restarts display bootstrap for valid input received while paused or errored.

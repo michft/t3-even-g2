@@ -23,10 +23,21 @@ recent activity, with environment and project labels. Opening a thread on the
 phone also selects it on the glasses. Threads open at their latest reply. If the
 picker is empty, load threads on the phone first.
 
+Hold R1 while reading to bring up the thread menu with the current thread
+highlighted. It shows three nearby choices at a time: swipe R1 up/down to move
+the highlight, then tap to open that thread. The list includes non-archived
+threads by recent activity, including threads whose agents are idle. Tap the
+left arm to return without switching threads.
+
 ## Controls by page
 
 **Back means a single tap on the left G2 arm.** Long-press does not trigger
 Back.
+
+R1 long-press opens the thread menu while reading or waiting for a reply. It
+does nothing while preparing, listening, or sending captured speech, and
+releasing the hold does not open a choice. Arm holds do not open this menu.
+When the lenses are asleep, tap once to wake them before holding R1.
 
 | State                | Left-arm tap   | R1 tap         | Right-arm tap  |
 | -------------------- | -------------- | -------------- | -------------- |
@@ -57,7 +68,7 @@ dictation, and up-then-down is not a Back gesture. A double-tap while the
 display is awake and you are not dictating opens the picker and triggers display
 recovery; use left-arm tap for Back.
 
-The lenses go blank after 15 seconds without a tap or swipe. Tap either G2 arm
+The lenses go blank after 15 seconds without a tap, swipe, or R1 hold. Tap either G2 arm
 or R1 once to wake the current view; that first tap only wakes, and the next tap
 performs its usual action. Incoming replies stay hidden until you wake the
 display. The same timeout applies during dictation: speech capture continues
