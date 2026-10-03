@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { MessageId, type OrchestrationMessage } from "@t3tools/contracts";
+import * as DateTime from "effect/DateTime";
+
+import { MessageId, ThreadId, type OrchestrationV2ConversationMessage } from "@t3tools/contracts";
 
 import {
   buildEvenG2Replies,
@@ -16,20 +18,25 @@ import type {
 } from "./evenG2Native";
 
 /** Creates a minimal contract-shaped thread message for history tests. */
-function message(id: string, role: OrchestrationMessage["role"], text: string) {
+function message(id: string, role: OrchestrationV2ConversationMessage["role"], text: string) {
   return {
     id: MessageId.make(id),
     role,
+    createdBy: role === "user" ? "user" : role === "assistant" ? "agent" : "system",
+    creationSource: "mobile",
     text,
-    turnId: null,
+    threadId: ThreadId.make("thread"),
+    runId: null,
+    nodeId: null,
+    attachments: [],
     streaming: false,
-    createdAt: "2026-09-01T00:00:00.000Z",
-    updatedAt: "2026-09-01T00:00:00.000Z",
-  } satisfies OrchestrationMessage;
+    createdAt: DateTime.makeUnsafe("2026-09-01T00:00:00.000Z"),
+    updatedAt: DateTime.makeUnsafe("2026-09-01T00:00:00.000Z"),
+  } satisfies OrchestrationV2ConversationMessage;
 }
 
 /** Builds chronological user/assistant pairs with predictable reply IDs. */
-function replies(start: number, count: number): ReadonlyArray<OrchestrationMessage> {
+function replies(start: number, count: number): ReadonlyArray<OrchestrationV2ConversationMessage> {
   return Array.from({ length: count }, (_, offset) => start + offset).flatMap((index) => [
     message(`user-${index}`, "user", `Prompt ${index}`),
     message(`assistant-${index}`, "assistant", `Reply ${index}`),
@@ -89,7 +96,6 @@ describe("Even G2 reply history bridge", () => {
     const result = buildEvenG2Replies([
       message("system", "system", "System text"),
       message("user", "user", longPrompt),
-      message("reasoning", "reasoning", "Private reasoning"),
       message("assistant", "assistant", "A visible reply"),
     ]);
 

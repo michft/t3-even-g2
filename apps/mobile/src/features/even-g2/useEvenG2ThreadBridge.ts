@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 
-import type { MessageId, OrchestrationMessage } from "@t3tools/contracts";
+import type { MessageId, OrchestrationV2ConversationMessage } from "@t3tools/contracts";
 
 import {
   ensureEvenG2AutoConnect,
@@ -88,7 +88,7 @@ export function useEvenG2ThreadBridge(
   input: EvenG2DictationInput & {
     readonly enabled: boolean;
     readonly activityText?: string;
-    readonly messages?: ReadonlyArray<OrchestrationMessage>;
+    readonly messages?: ReadonlyArray<OrchestrationV2ConversationMessage>;
     readonly hasOlderMessages?: boolean;
     readonly loadingOlderMessages?: boolean;
     readonly onLoadEarlierMessages?: (() => boolean | void) | null;

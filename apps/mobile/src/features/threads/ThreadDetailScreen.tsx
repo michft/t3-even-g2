@@ -1,5 +1,5 @@
 import { UsageLimitRecoveryCard } from "./UsageLimitRecoveryCard";
-import { useNavigation } from "@react-navigation/native";
+import { useIsFocused, useNavigation } from "@react-navigation/native";
 import type { WorktreeSetupCardProps } from "./worktree-setup-card";
 import type { ComposerTextPaste } from "../../native/T3ComposerEditor.types";
 import { type EnvironmentConnectionPhase } from "@t3tools/client-runtime/connection";
@@ -16,6 +16,7 @@ import type {
   EnvironmentId,
   MessageId,
   ModelSelection,
+  OrchestrationV2ConversationMessage,
   ProviderApprovalDecision,
   ProviderInteractionMode,
   RuntimeMode,
@@ -81,6 +82,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useWorkspaceContentWidth } from "../layout/workspace-content-width";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { collectProviderUsageLimits } from "@t3tools/shared/usageLimits";
+import { useEvenG2ThreadBridge } from "../even-g2/useEvenG2ThreadBridge";
+import { evenG2ThreadActivityText } from "../even-g2/evenG2ThreadBridge.logic";
 import type { ComposerEditorHandle } from "../../components/ComposerEditor";
 import type { StatusTone } from "../../components/StatusPill";
 import type { DraftComposerAttachment } from "../../lib/composerImages";
@@ -136,6 +139,7 @@ export interface ThreadDetailScreenProps {
   readonly worktreeSetup?: WorktreeSetupCardProps | null;
   readonly setupWorkingStartedAt?: string | null;
   readonly selectedThread: EnvironmentThreadShell;
+  readonly threadMessages?: ReadonlyArray<OrchestrationV2ConversationMessage>;
   readonly contentPresentation: ThreadContentPresentation;
   readonly screenTone: StatusTone;
   readonly connectionError: string | null;
@@ -201,6 +205,8 @@ export interface ThreadDetailScreenProps {
   readonly onRemoveDraftImage: (imageId: string) => void;
   readonly onStopThread: () => void;
   readonly onSendMessage: (followUp?: ActiveTurnComposerAction) => Promise<MessageId | null>;
+  /** Queues dictated text separately from composer files. */
+  readonly onSendTextMessage: (text: string) => Promise<MessageId | null>;
   readonly onReconnectEnvironment: () => void;
   /** Whether the model picker may offer providers other than this thread's. */
   readonly canSwitchThreadProvider: boolean;
@@ -302,6 +308,7 @@ const USER_INPUT_TOGGLE_TIMING = {
 };
 
 export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: ThreadDetailScreenProps) {
+  const isFocused = useIsFocused();
   const navigation = useNavigation();
   const deviceState = useEnvironmentQuery(
     deviceEnvironment.state({ environmentId: props.environmentId, input: {} }),
@@ -908,20 +915,13 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
     selectedThreadKey,
   ]);
 
-  const handleSendMessage = useCallback(
-    async (followUp?: ActiveTurnComposerAction) => {
-      const targetThreadKey = selectedThreadKey;
+  /** Updates submission and scroll anchors for a message sent to this thread. */
+  const recordSubmittedMessage = useCallback(
+    (messageId: MessageId, targetThreadKey: string) => {
+      if (selectedThreadKeyRef.current !== targetThreadKey) return;
       const hasUserMessage = selectedThreadFeed.some(
         (entry) => entry.type === "message" && entry.message.role === "user",
       );
-      const messageId = await props.onSendMessage(followUp);
-      if (messageId === null || selectedThreadKeyRef.current !== targetThreadKey) {
-        return messageId;
-      }
-
-      // A sent message makes the snapshot stale; a refused send leaves it in place.
-      clearUsageLimitsFor(targetThreadKey);
-
       setSubmittedMessageId(messageId);
       setAnchorMessageId(
         resolveThreadFeedSubmissionAnchor({
@@ -932,19 +932,60 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
           queuedMessageCount: props.selectedThreadQueueCount,
         }),
       );
-      composerEditorRef.current?.blur();
-      return messageId;
     },
     [
       anchorMessageId,
-      clearUsageLimitsFor,
-      props.onSendMessage,
       props.selectedThread.latestRun,
       props.selectedThreadQueueCount,
       selectedThreadFeed,
-      selectedThreadKey,
     ],
   );
+
+  const handleSendMessage = useCallback(
+    async (followUp?: ActiveTurnComposerAction) => {
+      const targetThreadKey = selectedThreadKey;
+      const messageId = await props.onSendMessage(followUp);
+      if (messageId === null || selectedThreadKeyRef.current !== targetThreadKey) return messageId;
+      clearUsageLimitsFor(targetThreadKey);
+      recordSubmittedMessage(messageId, targetThreadKey);
+      composerEditorRef.current?.blur();
+      return messageId;
+    },
+    [clearUsageLimitsFor, props.onSendMessage, recordSubmittedMessage, selectedThreadKey],
+  );
+
+  const handleSendDictatedMessage = useCallback(
+    async (text: string) => {
+      const targetThreadKey = selectedThreadKey;
+      const messageId = await props.onSendTextMessage(text);
+      if (messageId !== null) {
+        clearUsageLimitsFor(targetThreadKey);
+        recordSubmittedMessage(messageId, targetThreadKey);
+      }
+      return messageId;
+    },
+    [clearUsageLimitsFor, props.onSendTextMessage, recordSubmittedMessage, selectedThreadKey],
+  );
+
+  useEvenG2ThreadBridge({
+    threadKey: selectedThreadKey,
+    enabled: isFocused,
+    activityText: evenG2ThreadActivityText({
+      connected: props.connectionStateLabel === "connected",
+      hasError: props.connectionError !== null,
+      needsApproval: props.activePendingApproval !== null,
+      needsInput: props.activePendingUserInput !== null,
+      queued: props.selectedThreadQueueCount > 0,
+      working: props.activeWorkStartedAt !== null,
+    }),
+    messages: props.threadMessages,
+    hasOlderMessages: props.historyControls?.hasMoreHistory ?? false,
+    loadingOlderMessages: props.historyControls?.loading ?? false,
+    onLoadEarlierMessages: props.historyControls?.onLoadEarlier ?? null,
+    draftMessage: props.draftMessage,
+    onChangeDraftMessage: props.onChangeDraftMessage,
+    onSendTextMessage: handleSendDictatedMessage,
+  });
 
   const handleEditPendingMessage = useCallback(async (message: QueuedThreadMessage) => {
     try {

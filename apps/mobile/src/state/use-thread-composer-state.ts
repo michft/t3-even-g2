@@ -51,7 +51,7 @@ import type { DraftComposerImageAttachment } from "../lib/composerImages";
 import { scopedThreadKey } from "../lib/scopedEntities";
 import { buildThreadFeed } from "../lib/threadActivity";
 import { acknowledgedThreadMessagesAtom } from "./acknowledged-thread-messages";
-import { appendPendingThreadMessages } from "../features/threads/pending-thread-feed";
+import { appendPendingThreadMessages } from "./pending-thread-feed";
 import { threadAllowsProviderSwitch } from "./thread-provider-switching";
 import { appAtomRegistry } from "../state/atom-registry";
 import { pendingThreadCreationMessage } from "./pending-thread-creation";
@@ -726,6 +726,47 @@ export function useThreadComposerState() {
     ],
   );
 
+  /** Queues dictation without consuming typed draft text, context, or files. */
+  const onSendTextMessage = useCallback(
+    async (textInput: string) => {
+      const text = textInput.trim();
+      if (!selectedThreadShell || selectedThreadCreation !== null || text.length === 0) return null;
+      const thread = selectedThreadShell;
+      const threadKey = scopedThreadKey(thread.environmentId, thread.id);
+      const draft = getComposerDraftSnapshot(threadKey);
+      const metadata = makeQueuedMessageMetadata();
+      const messageId = MessageId.make(metadata.messageId);
+      const modelSelection = draft.modelSelection ?? thread.modelSelection;
+      const provider = selectedEnvironmentRuntime?.serverConfig?.providers.find(
+        (entry) => entry.instanceId === modelSelection.instanceId,
+      );
+      const enqueuePromise = enqueueThreadOutboxMessage({
+        environmentId: thread.environmentId,
+        threadId: thread.id,
+        messageId,
+        commandId: CommandId.make(metadata.commandId),
+        text,
+        attachments: [],
+        modelSelection,
+        runtimeMode: draft.runtimeMode ?? thread.runtimeMode,
+        interactionMode: resolveProviderInteractionMode(
+          provider,
+          draft.interactionMode ?? thread.interactionMode,
+        ),
+        dispatchMode: "queue",
+        createdAt: metadata.createdAt,
+      });
+      enqueuePromise.catch((error: unknown) => {
+        void mergeComposerDraftContent(threadKey, { text, attachments: [] });
+        setPendingConnectionError(
+          error instanceof Error ? error.message : "Failed to save the dictated message.",
+        );
+      });
+      return messageId;
+    },
+    [selectedEnvironmentRuntime?.serverConfig, selectedThreadCreation, selectedThreadShell],
+  );
+
   const onChangeDraftMessage = useCallback(
     (value: string) => {
       if (!selectedThreadShell) {
@@ -1070,6 +1111,7 @@ export function useThreadComposerState() {
     onNativePasteText,
     onRemoveDraftImage,
     onSendMessage,
+    onSendTextMessage,
     onUpdateModelSelection,
     onUpdateRuntimeMode,
     onUpdateInteractionMode,
