@@ -1,4 +1,4 @@
-import type { OrchestrationMessage } from "@t3tools/contracts";
+import type { OrchestrationV2ConversationMessage } from "@t3tools/contracts";
 
 import type {
   EvenG2HistoryPosition,
@@ -13,7 +13,7 @@ const PROMPT_LABEL_LIMIT = 64;
 
 export interface EvenG2HistoryInput {
   readonly threadKey: string;
-  readonly messages: ReadonlyArray<OrchestrationMessage> | undefined;
+  readonly messages: ReadonlyArray<OrchestrationV2ConversationMessage> | undefined;
   readonly hasOlder: boolean;
   readonly loadingOlder: boolean;
   /** Requests another older page and returns whether the request was accepted. */
@@ -45,7 +45,7 @@ const historyByThread = new Map<string, CachedHistory>();
 
 /** Builds the displayable assistant replies and their nearest preceding user prompt. */
 export function buildEvenG2Replies(
-  messages: ReadonlyArray<OrchestrationMessage>,
+  messages: ReadonlyArray<OrchestrationV2ConversationMessage>,
 ): ReadonlyArray<EvenG2ReplyHistoryItem> {
   let prompt = "";
   const replies: EvenG2ReplyHistoryItem[] = [];
@@ -66,7 +66,9 @@ function shortPromptLabel(text: string): string {
 }
 
 /** Returns stable IDs used to detect a newly loaded page. */
-function messageIds(messages: ReadonlyArray<OrchestrationMessage>): ReadonlyArray<string> {
+function messageIds(
+  messages: ReadonlyArray<OrchestrationV2ConversationMessage>,
+): ReadonlyArray<string> {
   return messages.map((message) => String(message.id));
 }
 

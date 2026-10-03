@@ -1,14 +1,12 @@
 import {
   type DesktopSshEnvironmentTarget,
   EnvironmentId,
+  type OrchestrationV2ShellSnapshot,
   ORCHESTRATION_PROTOCOL_VERSION,
-  ORCHESTRATION_WS_METHODS,
+  ORCHESTRATION_V2_WS_METHODS,
   ProjectId,
-  ProviderInstanceId,
   ThreadId,
   type ExecutionEnvironmentDescriptor,
-  type OrchestrationShellSnapshot,
-  type OrchestrationThread,
 } from "@t3tools/contracts";
 import { describe, expect, it } from "@effect/vitest";
 import * as Context from "effect/Context";
@@ -67,8 +65,15 @@ import { watchDiscoveredCompatibility } from "./layer.ts";
 import * as RelayEnvironmentDiscovery from "../relay/discovery.ts";
 import type { RelayEnvironmentStatusResponse } from "@t3tools/contracts/relay";
 import { runDesktopCommitWithReconnectObserver } from "../state/server.ts";
-import { createEnvironmentShellAtoms, ShellSnapshotLoader } from "../state/shell.ts";
-import { createEnvironmentThreadStateAtoms, ThreadSnapshotLoader } from "../state/threads.ts";
+import { createEnvironmentShellAtoms } from "../state/shell.ts";
+import { ShellSnapshotLoader } from "../state/shellSnapshotHttp.ts";
+import { createEnvironmentThreadStateAtoms } from "../state/threads.ts";
+import { ThreadSnapshotLoader } from "../state/threadSnapshotHttp.ts";
+import {
+  v2ShellSnapshot,
+  v2Projection,
+  v2ThreadShell,
+} from "../state/orchestrationV2TestFixtures.ts";
 
 const TARGET = new PrimaryConnectionTarget({
   environmentId: EnvironmentId.make("environment-1"),
@@ -135,11 +140,9 @@ const SSH_PROFILE = new SshConnectionProfile({
   target: SSH_TARGET,
 });
 
-const CACHED_SNAPSHOT: OrchestrationShellSnapshot = {
+const CACHED_SNAPSHOT: OrchestrationV2ShellSnapshot = {
+  ...v2ShellSnapshot,
   snapshotSequence: 1,
-  projects: [],
-  threads: [],
-  updatedAt: "2026-06-06T00:00:00.000Z",
 };
 
 interface SessionControl {
@@ -477,40 +480,18 @@ describe("EnvironmentRegistry", () => {
       const loadingThread = yield* Deferred.make<void>();
       const releaseThread = yield* Deferred.make<void>();
       const subscribed = yield* Deferred.make<void>();
-      const thread: OrchestrationThread = {
-        id: ThreadId.make("same-thread-id"),
-        projectId: ProjectId.make("project-1"),
-        title: "Selected environment thread",
-        modelSelection: { instanceId: ProviderInstanceId.make("codex"), model: "ModelA" },
-        runtimeMode: "full-access",
-        interactionMode: "default",
-        branch: "main",
-        pullRequests: [],
-        worktreePath: null,
-        latestTurn: null,
-        createdAt: "2026-04-01T00:00:00.000Z",
-        updatedAt: "2026-04-01T00:00:00.000Z",
-        archivedAt: null,
-        settledOverride: null,
-        settledAt: null,
-        deletedAt: null,
-        messages: [],
-        proposedPlans: [],
-        activities: [],
-        checkpoints: [],
-        session: null,
+      const thread = {
+        ...v2Projection,
+        thread: {
+          ...v2Projection.thread,
+          id: ThreadId.make("same-thread-id"),
+          projectId: ProjectId.make("project-1"),
+          title: "Selected environment thread",
+        },
       };
-      const shellSnapshot: OrchestrationShellSnapshot = {
+      const shellSnapshot: OrchestrationV2ShellSnapshot = {
         ...CACHED_SNAPSHOT,
-        threads: [
-          {
-            ...thread,
-            latestUserMessageAt: null,
-            hasPendingApprovals: false,
-            hasPendingUserInput: false,
-            hasActionableProposedPlan: false,
-          },
-        ],
+        threads: [{ ...v2ThreadShell, ...thread.thread }],
       };
       const harness = yield* makeHarness([TARGET, SECOND_TARGET], [], [], {
         /** Holds the target environment at socket startup until the route mounts. */
@@ -530,16 +511,16 @@ describe("EnvironmentRegistry", () => {
               : Effect.void;
           const client = {
             /** Seeds the live shell stream with the same rows that Home cached. */
-            [ORCHESTRATION_WS_METHODS.subscribeShell]: () =>
+            [ORCHESTRATION_V2_WS_METHODS.subscribeShell]: () =>
               Stream.concat(
-                Stream.succeed({ kind: "snapshot" as const, snapshot: shellSnapshot }),
+                Stream.succeed({ _tag: "snapshot" as const, snapshot: shellSnapshot }),
                 Stream.never,
               ),
             /** Signals that the target thread's live subscription has started. */
-            [ORCHESTRATION_WS_METHODS.subscribeThread]: (input: {
+            [ORCHESTRATION_V2_WS_METHODS.subscribeThread]: (input: {
               readonly threadId: ThreadId;
             }) => {
-              expect(input.threadId).toBe(thread.id);
+              expect(input.threadId).toBe(thread.thread.id);
               return environmentId === TARGET.environmentId
                 ? Stream.fromEffect(Deferred.succeed(subscribed, undefined)).pipe(
                     Stream.drain,
@@ -576,18 +557,24 @@ describe("EnvironmentRegistry", () => {
               /** Delays only the target thread snapshot while the other environment loads. */
               load: (prepared, threadId) =>
                 Effect.gen(function* () {
-                  expect(threadId).toBe(thread.id);
+                  expect(threadId).toBe(thread.thread.id);
                   if (prepared.environmentId === TARGET.environmentId) {
                     yield* Deferred.succeed(loadingThread, undefined);
                     yield* Deferred.await(releaseThread);
                   }
-                  return Option.some({
-                    snapshotSequence: 1,
-                    thread:
-                      prepared.environmentId === TARGET.environmentId
-                        ? thread
-                        : { ...thread, title: "Other environment thread" },
-                  });
+                  return {
+                    _tag: "present" as const,
+                    snapshot: {
+                      snapshotSequence: 1,
+                      projection:
+                        prepared.environmentId === TARGET.environmentId
+                          ? thread
+                          : {
+                              ...thread,
+                              thread: { ...thread.thread, title: "Other environment thread" },
+                            },
+                    },
+                  };
                 }),
             }),
           ),
@@ -599,8 +586,8 @@ describe("EnvironmentRegistry", () => {
         const shells = createEnvironmentShellAtoms(runtime);
         const threads = createEnvironmentThreadStateAtoms(runtime);
         const shellAtom = shells.stateAtom(TARGET.environmentId);
-        const threadAtom = threads.stateAtom(TARGET.environmentId, thread.id);
-        const otherThreadAtom = threads.stateAtom(SECOND_TARGET.environmentId, thread.id);
+        const threadAtom = threads.stateAtom(TARGET.environmentId, thread.thread.id);
+        const otherThreadAtom = threads.stateAtom(SECOND_TARGET.environmentId, thread.thread.id);
         const unmountHome = registry.mount(shellAtom);
         yield* Deferred.await(opening);
         // Home can show cached rows while the environment still opens its socket.
@@ -624,7 +611,7 @@ describe("EnvironmentRegistry", () => {
           Stream.runHead,
           Effect.map(Option.getOrThrow),
         );
-        expect(other.title).toBe("Other environment thread");
+        expect(other.thread.title).toBe("Other environment thread");
         expect(Option.getOrThrow(AsyncResult.value(registry.get(threadAtom))).data).toEqual(
           Option.none(),
         );
