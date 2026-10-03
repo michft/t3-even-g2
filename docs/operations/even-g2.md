@@ -31,6 +31,14 @@ app before connecting G2 through T3.
 
 ## Release build example
 
+Match the mobile app's orchestration protocol to the environment host. A V1
+mobile app cannot connect to an Orchestrator V2 server, and a V2 mobile app
+cannot connect to a V1 server. After merging a published T3 Nightly that changes
+the protocol, rebuild and reinstall the G2 app before checking its connections.
+See the Nightly release notes for host and client compatibility requirements.
+Keep the installed bundle ID when updating so saved connections and app data
+remain associated with the same installation.
+
 From `apps/mobile`, build a self-contained app with a bundle identifier you
 control. Connect and trust the target iPhone first:
 
