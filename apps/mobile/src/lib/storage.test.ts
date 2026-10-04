@@ -236,6 +236,26 @@ describe("mobile connection storage", () => {
     });
   });
 
+  it.each(["tint", "solid", "off"] as const)(
+    "persists thread origin display mode %s without changing the theme",
+    async (threadOriginColorMode) => {
+      await savePreferencesPatch({ themeMode: "dark" });
+      await savePreferencesPatch({ threadOriginColorMode });
+      await expect(loadPreferences()).resolves.toEqual({
+        themeMode: "dark",
+        threadOriginColorMode,
+      });
+    },
+  );
+
+  it("ignores an unknown thread origin display mode in saved preferences", async () => {
+    mocks.setPreferencesJson(
+      JSON.stringify({ threadOriginColorMode: "unknown", themeMode: "dark" }),
+      10,
+    );
+    await expect(loadPreferences()).resolves.toEqual({ themeMode: "dark" });
+  });
+
   it("persists Material You independently for each appearance", async () => {
     const themes = { lightThemeId: "material-you", darkThemeId: "ocean" } as const;
     await savePreferencesPatch(themes);

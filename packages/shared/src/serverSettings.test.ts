@@ -23,6 +23,18 @@ import {
 const FOLDED_SERVER_SETTINGS = { ...DEFAULT_SERVER_SETTINGS, projectSettingsFolded: true };
 
 describe("serverSettings helpers", () => {
+  it("changes and clears the server's color without changing unrelated settings", () => {
+    const colored = applyServerSettingsPatch(DEFAULT_SERVER_SETTINGS, {
+      environmentColor: "#ff8800",
+    });
+    expect(colored.environmentColor).toBe("#ff8800");
+    expect(
+      applyServerSettingsPatch(colored, { sidebarAutoSettleOnMerge: false }).environmentColor,
+    ).toBe("#ff8800");
+    expect(applyServerSettingsPatch(colored, { environmentColor: null })).toEqual(
+      DEFAULT_SERVER_SETTINGS,
+    );
+  });
   it("changes a cleanup rule without replacing the machine's other rules", () => {
     const enabled = applyServerSettingsPatch(DEFAULT_SERVER_SETTINGS, {
       storageCleanup: { worktreeAfterDays: 8, worktreeOnMerge: true, logsAfterDays: 30 },

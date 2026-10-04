@@ -542,6 +542,9 @@ export function useSettingsRestore(onRestored?: () => void) {
       ...(settings.diffColorScheme !== DEFAULT_UNIFIED_SETTINGS.diffColorScheme
         ? ["Diff colors"]
         : []),
+      ...(settings.threadOriginColorMode !== DEFAULT_UNIFIED_SETTINGS.threadOriginColorMode
+        ? ["Thread origin color"]
+        : []),
       ...(settings.chatWidth !== DEFAULT_UNIFIED_SETTINGS.chatWidth ? ["Chat width"] : []),
       ...(settings.panelAnimationDurationMs !== DEFAULT_UNIFIED_SETTINGS.panelAnimationDurationMs
         ? ["Panel animations"]
@@ -669,6 +672,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       settings.browserAutoShowFloatingPreview,
       settings.appearanceContrast,
       settings.diffColorScheme,
+      settings.threadOriginColorMode,
       settings.chatWidth,
       settings.enableAgentBrowserAccess,
       settings.confirmQuit,
@@ -804,6 +808,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       contextWindowMeterEnabled: DEFAULT_UNIFIED_SETTINGS.contextWindowMeterEnabled,
       environmentIdentificationMode: DEFAULT_UNIFIED_SETTINGS.environmentIdentificationMode,
       glassOpacity: DEFAULT_UNIFIED_SETTINGS.glassOpacity,
+      threadOriginColorMode: DEFAULT_UNIFIED_SETTINGS.threadOriginColorMode,
       panelAnimationDurationMs: DEFAULT_UNIFIED_SETTINGS.panelAnimationDurationMs,
       sidebarThreadPreviewCount: DEFAULT_UNIFIED_SETTINGS.sidebarThreadPreviewCount,
       sidebarProjectGroupingMode: DEFAULT_UNIFIED_SETTINGS.sidebarProjectGroupingMode,
@@ -1200,6 +1205,48 @@ export function AppearanceSettingsPanel() {
       </SettingsSection>
 
       <SettingsSection id="appearance-interface" title="Interface">
+        <SettingsRow
+          {...searchableSetting("thread-origin-color")}
+          title="Thread origin color"
+          description="Show the color supplied by each thread's server. This display choice applies to all servers."
+          resetAction={
+            settings.threadOriginColorMode !== DEFAULT_UNIFIED_SETTINGS.threadOriginColorMode ? (
+              <SettingResetButton
+                label="thread origin color"
+                onClick={() =>
+                  updateSettings({
+                    threadOriginColorMode: DEFAULT_UNIFIED_SETTINGS.threadOriginColorMode,
+                  })
+                }
+              />
+            ) : null
+          }
+          control={
+            <Select
+              value={settings.threadOriginColorMode}
+              onValueChange={(value) => {
+                if (value === "tint" || value === "solid" || value === "off") {
+                  updateSettings({ threadOriginColorMode: value });
+                }
+              }}
+            >
+              <SelectTrigger size="sm" aria-label="Thread origin color">
+                <SelectValue>
+                  {settings.threadOriginColorMode === "tint"
+                    ? "Tint"
+                    : settings.threadOriginColorMode === "solid"
+                      ? "Solid"
+                      : "Off"}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectPopup>
+                <SelectItem value="tint">Tint</SelectItem>
+                <SelectItem value="solid">Solid</SelectItem>
+                <SelectItem value="off">Off</SelectItem>
+              </SelectPopup>
+            </Select>
+          }
+        />
         <SettingsRow
           {...searchableSetting("setting-appearance-contrast")}
           description="Adjust the contrast of colors and borders across the interface."

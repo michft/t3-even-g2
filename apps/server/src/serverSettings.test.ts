@@ -97,6 +97,32 @@ const recordProviderUsage = (provider: string, instanceId: string | null = provi
   });
 
 it.layer(NodeServices.layer)("server settings", (it) => {
+  it.effect("persists and publishes origin color changes and clearing", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const config = yield* ServerConfig.ServerConfig;
+        const fs = yield* FileSystem.FileSystem;
+        const service = yield* ServerSettingsModule.ServerSettingsService;
+        const changes = yield* service.subscribeChanges;
+        yield* service.updateSettings({ environmentColor: "#ff8800" });
+        const colored = yield* changes.pipe(Stream.runHead);
+        assert.equal(Option.getOrThrow(colored).environmentColor, "#ff8800");
+        const persisted = yield* decodeServerSettingsJson(
+          yield* fs.readFileString(config.settingsPath),
+        );
+        assert.equal(persisted.environmentColor, "#ff8800");
+
+        const clearedChanges = yield* service.subscribeChanges;
+        yield* service.updateSettings({ environmentColor: null });
+        const cleared = yield* clearedChanges.pipe(Stream.runHead);
+        assert.isNull(Option.getOrThrow(cleared).environmentColor);
+        assert.isNull(
+          (yield* decodeServerSettingsJson(yield* fs.readFileString(config.settingsPath)))
+            .environmentColor,
+        );
+      }),
+    ).pipe(Effect.provide(makeServerSettingsLayer())),
+  );
   it.effect("migrates saved token delivery to paragraph buffering without resetting settings", () =>
     Effect.gen(function* () {
       const config = yield* ServerConfig.ServerConfig;

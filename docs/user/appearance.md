@@ -21,6 +21,23 @@ Android uses **Material You Layout** by default unless you have turned it off in
 It changes shapes, spacing, and controls independently
 of the selected theme.
 
+## Thread origin colors
+
+Each server can supply an `environmentColor` in its `userdata/settings.json`,
+using a six-digit hex color such as `"environmentColor": "#c75b24"`. Add this
+property to the existing settings object, preserving its other settings.
+Connected clients receive updates automatically, including for older threads.
+The color belongs to the server; it indicates thread origin, not activity,
+permissions, or safety. Setting it to `null` removes the color.
+
+Under **Settings → Appearance → Thread origin color**, choose **Tint** (default),
+**Solid**, or **Off**. This device-local display choice applies to every server.
+Tint preserves your theme with a light color wash; Solid uses the server's exact
+color with readable text. Headers, the composer, and the sidebar retain your theme.
+An offline server retains its last known color. Servers without a color use the
+ordinary background. For example, the G2 iPhone client automatically shows the
+color of the server hosting the selected thread; no phone-side color mapping is needed.
+
 ## Composer context
 
 Git-backed projects show branch and worktree controls below the composer while you create a thread.

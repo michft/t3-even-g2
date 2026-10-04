@@ -20,6 +20,41 @@ const decodeServerSettingsPatch = Schema.decodeUnknownSync(ServerSettingsPatch);
 const encodeServerSettings = Schema.encodeSync(ServerSettings);
 const decodeClaudeSettings = Schema.decodeUnknownSync(ClaudeSettings);
 
+describe("environment origin colors", () => {
+  it("keeps older server snapshots neutral and defaults client display to tint", () => {
+    expect(decodeServerSettings({}).environmentColor).toBeNull();
+    expect(decodeClientSettings({}).threadOriginColorMode).toBe("tint");
+    // A pre-feature client sees only the keys its schema understands.
+    const olderSettings = Schema.Struct({ responseStreamingMode: Schema.String });
+    expect(
+      Schema.decodeUnknownSync(olderSettings)({
+        responseStreamingMode: "paragraph",
+        environmentColor: "#ff8800",
+      }),
+    ).toEqual({ responseStreamingMode: "paragraph" });
+  });
+
+  it.each(["#ff8800", "#AABBCC", null])("round-trips server color %s", (environmentColor) => {
+    const input = { environmentColor };
+    expect(encodeServerSettings(decodeServerSettings(input))).toMatchObject(input);
+    expect(decodeServerSettingsPatch(input)).toEqual(input);
+  });
+
+  it.each(["red", "#fff", "#ff880080", "url(example)"])(
+    "rejects invalid server color %s",
+    (environmentColor) => {
+      expect(() => decodeServerSettings({ environmentColor })).toThrow();
+      expect(() => decodeServerSettingsPatch({ environmentColor })).toThrow();
+    },
+  );
+
+  it.each(["tint", "solid", "off"])("persists client presentation %s", (threadOriginColorMode) => {
+    const input = { threadOriginColorMode };
+    expect(encodeClientSettings(decodeClientSettings(input))).toMatchObject(input);
+    expect(decodeClientSettingsPatch(input)).toEqual(input);
+  });
+});
+
 describe("ServerSettings response streaming", () => {
   it("defaults to paragraph buffering", () => {
     expect(decodeServerSettings({}).responseStreamingMode).toBe("paragraph");
