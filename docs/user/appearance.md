@@ -12,7 +12,8 @@ the theme. **Cmd+Option+Shift+A** on macOS or **Ctrl+Alt+Shift+A** on Windows/Li
 those modes. Customize these shortcuts under **Settings → Keybindings**.
 
 On mobile, open **Settings → Appearance**. Mobile has its own themes and text,
-code, and terminal preferences. It does not follow environment themes or defaults.
+code, and terminal preferences. Its app-wide theme does not follow environment
+themes or defaults; thread origin colors use the server default as described below.
 
 On Android 12 or newer, choose the **Material You** theme in Appearance to use colors from
 your wallpaper. Selecting another theme replaces those colors. Like other themes, Material You
@@ -23,21 +24,31 @@ of the selected theme.
 
 ## Thread origin colors
 
-On the host desktop, choose a theme under **Settings → Appearance**. Its current
-background supplies the server's thread origin color. Changing the theme,
-editing its palette, or switching light/dark appearance updates connected clients
-automatically, including older threads. Appearance is the source; no separate
-server color needs configuring. The color indicates thread origin, not activity,
-permissions, or safety.
+On mobile, including iPad and the G2 iPhone client, each thread uses its server's
+default theme for its origin color. Set that default with the CLI on the server:
+
+```sh
+t3 theme set grove
+```
+
+Built-in themes work immediately. Published custom themes use their canvas color;
+updates to that palette update the thread color too. Every client uses the theme's
+base appearance, independently of its own light/dark preference. No phone-side
+color mapping or fork-specific server changes are needed. A missing default or
+unavailable palette uses the ordinary background. `t3 theme clear` removes the
+origin color. See [Environment themes](#environment-themes) for publishing a palette
+and [CLI installation](./install.md#command-line) if `t3` is not installed.
+
+On this fork's web and desktop clients, the host desktop's current background
+still supplies the origin color. Choose its theme under **Settings → Appearance**;
+changing that local selection alone does not change the mobile origin color.
+The color indicates thread origin, not activity, permissions, or safety.
 
 Under **Settings → Appearance → Thread origin color**, choose **Tint** (default),
 **Solid**, or **Off**. This device-local display choice applies to every server.
-Tint preserves your theme with a light color wash; Solid uses the server's exact
+Tint preserves your theme with a light color wash; Solid uses the origin
 color with readable text. Thread list rows and conversations show their host's
 color; headers, the composer, and the surrounding sidebar retain your theme.
-An offline server retains its last known color. Servers without a host desktop
-color use the ordinary background. For example, the G2 iPhone client automatically shows the
-color of the server hosting the selected thread; no phone-side color mapping is needed.
 
 ## Composer context
 
