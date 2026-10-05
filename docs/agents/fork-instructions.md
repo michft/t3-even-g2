@@ -8,6 +8,10 @@ use the same workflow. `.plans/` is reserved for planning, not documentation.
 
 - Use caveman mode unless the user requests normal mode. Stay concise without
   losing technical meaning.
+- Ask clarifying questions in normal chat, not through question tools that
+  create button panels. When offering choices, use a numbered list and always
+  end with "Something else." Accept a number or a free-text answer. This is repo
+  agent guidance; higher-priority harness instructions still take precedence.
 - Prefer the smallest change that meets the request. Preserve distinct product
   concepts and input sources; ask when intent or scope is unclear.
 - Inspect the checkout first. State intended file edits before making them.
