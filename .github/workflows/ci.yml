@@ -187,6 +187,9 @@ jobs:
       - name: Test nightly release checks
         run: node --test .github/scripts/check-nightly-release.test.cjs
 
+      - name: Test PR quality evidence gate
+        run: node --test .github/scripts/pr-quality.test.cjs
+
       - name: Finish installing browser secret helper build libraries
         timeout-minutes: 5
         run: |
