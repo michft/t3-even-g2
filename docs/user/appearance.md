@@ -51,6 +51,15 @@ Tint preserves your theme with a light color wash; Solid uses the origin
 color with readable text. Thread list rows and conversations show their host's
 color; headers, the composer, and the surrounding sidebar retain your theme.
 
+On iPhone and iPad, thread rows also show a left-edge highlight using the server
+theme's accent for the current light/dark appearance. This highlight stays visible
+on selected rows and works independently of the **Thread origin color** setting.
+Long-press a thread and choose **Highlight**, or open its thread settings and use
+**Options → Thread highlight**. Choose a color to override the accent, **None** to
+hide the highlight, or **Use server** to restore the default. Without an available
+server palette, only a custom highlight appears. Overrides are saved on this
+device; iPhone and iPad choices do not sync or change the server.
+
 ## Composer context
 
 Git-backed projects show branch and worktree controls below the composer while you create a thread.
