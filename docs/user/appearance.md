@@ -33,7 +33,8 @@ permissions, or safety.
 Under **Settings → Appearance → Thread origin color**, choose **Tint** (default),
 **Solid**, or **Off**. This device-local display choice applies to every server.
 Tint preserves your theme with a light color wash; Solid uses the server's exact
-color with readable text. Headers, the composer, and the sidebar retain your theme.
+color with readable text. Thread list rows and conversations show their host's
+color; headers, the composer, and the surrounding sidebar retain your theme.
 An offline server retains its last known color. Servers without a host desktop
 color use the ordinary background. For example, the G2 iPhone client automatically shows the
 color of the server hosting the selected thread; no phone-side color mapping is needed.
