@@ -28,6 +28,26 @@ import {
 } from "./mobileTheme";
 
 describe("remote server theme origin colour", () => {
+  it("resolves a server accent independently of its canvas in the matching appearance", () => {
+    const config = {
+      settings: { defaultTheme: "custom" },
+      environmentThemes: [
+        {
+          id: "custom",
+          name: "Custom",
+          appearance: "light" as const,
+          canvas: "#fafafa",
+          accent: "#ec4899",
+          colors: { accent: "#3b82f6" },
+          variants: { dark: { canvas: "#151515", accent: "#a855f7" } },
+        },
+      ],
+    };
+    expect(resolveMobileEnvironmentThemeColor(config, "light", "accent")).toBe("#3b82f6");
+    expect(resolveMobileEnvironmentThemeColor(config, "dark", "accent")).toBe("#a855f7");
+    expect(resolveMobileEnvironmentThemeColor(config, "dark")).toBe("#151515");
+  });
+
   it.each([
     ["grove", "#1b2821"],
     ["ember", "#291e1a"],

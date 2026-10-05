@@ -64,6 +64,39 @@ function harness() {
 }
 
 describe("thread list environment projection", () => {
+  it("publishes accent-only palette updates without replacing provider references", () => {
+    const h = harness();
+    const themed: ServerConfig = {
+      ...config,
+      settings: { ...config.settings, defaultTheme: "custom" },
+      environmentThemes: [
+        {
+          id: "custom",
+          name: "Custom",
+          appearance: "light",
+          canvas: "#fafafa",
+          accent: "#ec4899",
+        },
+      ],
+    };
+    try {
+      h.write(themed);
+      const first = h.read();
+      expect(first.environmentAccentByEnvironmentId.get(ID)).toBe("#ec4899");
+      h.write({
+        ...themed,
+        environmentThemes: [{ ...themed.environmentThemes![0]!, accent: "#22c55e" }],
+      });
+      const second = h.read();
+      expect(second).not.toBe(first);
+      expect(second.environmentAccentByEnvironmentId.get(ID)).toBe("#22c55e");
+      expect(second.environmentColorByEnvironmentId.get(ID)).toBe("#fafafa");
+      expect(second.providersByEnvironmentId.get(ID)).toBe(first.providersByEnvironmentId.get(ID));
+    } finally {
+      h.registry.dispose();
+    }
+  });
+
   it("keeps light and dark origin colours current across remote default changes", () => {
     const registry = AtomRegistry.make();
     const configs = Atom.make<ReadonlyMap<EnvironmentId, ServerConfig>>(new Map());

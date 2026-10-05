@@ -13,6 +13,7 @@ import type {
 import type { ComposerEnterBehavior } from "../lib/composerEnterBehavior";
 import type { FollowUpBehavior } from "../lib/followUpBehavior";
 import { MOBILE_THEME_IDS, type MobileThemeId, type MobileThemeMode } from "../lib/mobileTheme";
+import { sanitizeThreadHighlights, type ThreadHighlights } from "../lib/threadHighlight";
 import * as MobileDatabase from "./mobile-database";
 import * as MobileSecureStorage from "./mobile-secure-storage";
 import { MobileStorageDecodeError, MobileStorageEncodeError } from "./mobile-storage";
@@ -27,6 +28,7 @@ export interface Preferences {
   readonly darkThemeId?: MobileThemeId;
   readonly themeMode?: MobileThemeMode;
   readonly threadOriginColorMode?: ThreadOriginColorMode;
+  readonly threadHighlights?: ThreadHighlights;
   readonly baseFontSize?: number;
   readonly terminalFontSize?: number | null;
   readonly markdownFontSize?: number;
@@ -104,6 +106,7 @@ function sanitizePreferences(parsed: Preferences): Preferences {
     darkThemeId?: MobileThemeId;
     themeMode?: MobileThemeMode;
     threadOriginColorMode?: ThreadOriginColorMode;
+    threadHighlights?: ThreadHighlights;
     baseFontSize?: number;
     terminalFontSize?: number | null;
     markdownFontSize?: number;
@@ -152,6 +155,9 @@ function sanitizePreferences(parsed: Preferences): Preferences {
     preferences.themeMode = parsed.themeMode;
   }
   if (typeof parsed.baseFontSize === "number") preferences.baseFontSize = parsed.baseFontSize;
+  if (parsed.threadHighlights !== undefined) {
+    preferences.threadHighlights = sanitizeThreadHighlights(parsed.threadHighlights);
+  }
   if (
     parsed.threadOriginColorMode === "tint" ||
     parsed.threadOriginColorMode === "solid" ||

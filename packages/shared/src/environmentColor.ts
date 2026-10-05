@@ -18,6 +18,7 @@ export function resolveEnvironmentThemeColor(
   config: EnvironmentThemeConfig | null | undefined,
   toHex: (color: string) => string | null,
   requestedAppearance?: ThemeAppearance,
+  role: "canvas" | "accent" = "canvas",
 ): string | null {
   const id = config?.settings.defaultTheme;
   if (!id) return null;
@@ -31,15 +32,15 @@ export function resolveEnvironmentThemeColor(
       ? theme.variants?.[requestedAppearance]
       : undefined;
   const appearance = variant ? requestedAppearance! : theme.appearance;
-  const fallback = getThemeColorsForAppearance(T3_CHAT_THEME, appearance)!.canvas;
+  const fallback = getThemeColorsForAppearance(T3_CHAT_THEME, appearance)![role];
   const candidates = variant
-    ? [variant.canvas, fallback]
+    ? [variant[role], fallback]
     : builtIn
-      ? [builtIn.colors.canvas]
-      : [published?.colors?.canvas, published?.canvas, fallback];
-  for (const canvas of candidates) {
-    if (canvas === undefined) continue;
-    const hex = toHex(canvas);
+      ? [builtIn.colors[role]]
+      : [published?.colors?.[role], published?.[role], fallback];
+  for (const candidate of candidates) {
+    if (candidate === undefined) continue;
+    const hex = toHex(candidate);
     if (hex === null) continue;
     const color = opaqueHexColor(hex, appearance, toHex);
     if (color !== null) return color;

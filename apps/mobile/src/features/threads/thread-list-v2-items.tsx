@@ -21,7 +21,10 @@ import type { EnvironmentMachineKind } from "@t3tools/contracts";
 import { canSnooze, resolveSnoozePresets } from "@t3tools/client-runtime/state/thread-settled";
 import type { MenuAction } from "@react-native-menu/menu";
 import { memo, useCallback, useEffect, useMemo, useState, type ComponentProps } from "react";
-import { Alert, Pressable, useWindowDimensions, View } from "react-native";
+import { Alert, Platform, Pressable, useWindowDimensions, View } from "react-native";
+import { scopedThreadKey } from "../../lib/scopedEntities";
+import { resolveThreadHighlight } from "../../lib/threadHighlight";
+import { useThreadHighlight } from "./use-thread-highlight";
 import type { SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
 
 import type { ThreadListProvider } from "../../state/thread-list-environments";
@@ -471,6 +474,7 @@ export const ThreadListV2PendingRow = memo(function ThreadListV2PendingRow(props
 
 export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
   readonly thread: EnvironmentThreadShell;
+  readonly environmentAccent?: string | null;
   readonly variant: "card" | "slim";
   /** A message for this thread is waiting in the outbox. */
   readonly hasQueuedMessages?: boolean;
@@ -601,6 +605,19 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
   const { themeVariables: theme, threadOriginColorMode } = useAppearancePreferences();
   const sidebarPane = props.pane === "sidebar";
   const selected = props.selected === true;
+  const highlight = useThreadHighlight(scopedThreadKey(thread.environmentId, thread.id));
+  const highlightColor =
+    Platform.OS === "ios"
+      ? resolveThreadHighlight(highlight.override, props.environmentAccent)
+      : null;
+  const highlightStrip = highlightColor ? (
+    <View
+      accessible={false}
+      pointerEvents="none"
+      className="absolute bottom-0 left-0 top-0 w-1"
+      style={{ backgroundColor: highlightColor }}
+    />
+  ) : null;
   const rowAppearance = getThreadListV2RowAppearance(
     theme,
     sidebarPane,
@@ -829,6 +846,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
   );
   const handleMenuAction = useCallback(
     ({ nativeEvent }: { readonly nativeEvent: { readonly event: string } }) => {
+      if (highlight.handleAction(nativeEvent.event)) return;
       if (nativeEvent.event === "new-thread-on-branch") onNewThreadOnBranch(thread);
       if (nativeEvent.event === "settle") handleSettle();
       if (nativeEvent.event === "unsettle") handleUnsettle();
@@ -864,6 +882,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
     },
     [
       onNewThreadOnBranch,
+      highlight.handleAction,
       thread,
       handleArchive,
       handleDelete,
@@ -1154,6 +1173,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
         }}
         style={rowAppearance.cardStyle}
       >
+        {highlightStrip}
         {sidebarPane ? (
           cardContent
         ) : (
@@ -1187,6 +1207,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
         }}
         style={rowAppearance.style}
       >
+        {highlightStrip}
         {/* Settled history recedes: dimmed favicon + muted title. */}
         <View
           className={cn(
@@ -1285,6 +1306,17 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
                   ]
                 : []),
               { id: "copy-thread-id", title: "Copy thread ID", image: "doc.on.doc" },
+              ...(Platform.OS === "ios"
+                ? [
+                    {
+                      id: "highlight",
+                      title: "Highlight",
+                      image: "paintpalette",
+                      attributes: { disabled: !highlight.loaded },
+                      subactions: highlight.actions,
+                    },
+                  ]
+                : []),
               ...(snoozedRow
                 ? snoozedMenuActions
                 : !props.settlementSupported

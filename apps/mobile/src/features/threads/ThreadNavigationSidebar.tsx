@@ -318,6 +318,7 @@ function ThreadNavigationSidebarPane(
     providersByEnvironmentId,
     machineByEnvironmentId,
     environmentColorByEnvironmentId,
+    environmentAccentByEnvironmentId,
     settlementEnvironmentIds,
     snoozeEnvironmentIds,
     pinningEnvironmentIds,
@@ -712,6 +713,7 @@ function ThreadNavigationSidebarPane(
               }
               environmentMachine={machineByEnvironmentId.get(thread.environmentId)}
               environmentColor={environmentColorByEnvironmentId.get(thread.environmentId)}
+              environmentAccent={environmentAccentByEnvironmentId.get(thread.environmentId)}
               searchMatch={threadSearchMatchByKey.get(
                 threadSearchMatchKey({
                   environmentId: thread.environmentId,
@@ -805,6 +807,7 @@ function ThreadNavigationSidebarPane(
       handleSwipeableWillOpen,
       machineByEnvironmentId,
       environmentColorByEnvironmentId,
+      environmentAccentByEnvironmentId,
       moveThread,
       openPendingTask,
       pinReorderEnvironmentIds,

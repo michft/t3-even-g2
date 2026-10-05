@@ -37,6 +37,7 @@ function selectEnvironment(config: ServerConfig, appearance?: ThemeAppearance) {
     ),
     machineKind: resolveEnvironmentMachineKind(config),
     environmentColor: resolveMobileEnvironmentThemeColor(config, appearance),
+    environmentAccent: resolveMobileEnvironmentThemeColor(config, appearance, "accent"),
     capabilities: config.environment.capabilities,
   };
 }
@@ -66,6 +67,7 @@ function collectEnvironments(environments: ReadonlyMap<EnvironmentId, ListEnviro
   const providersByEnvironmentId = new Map<EnvironmentId, ReadonlyArray<ThreadListProvider>>();
   const machineByEnvironmentId = new Map<EnvironmentId, EnvironmentMachineKind>();
   const environmentColorByEnvironmentId = new Map<EnvironmentId, string | null>();
+  const environmentAccentByEnvironmentId = new Map<EnvironmentId, string | null>();
   const settlementEnvironmentIds = new Set<EnvironmentId>();
   const snoozeEnvironmentIds = new Set<EnvironmentId>();
   const pinningEnvironmentIds = new Set<EnvironmentId>();
@@ -73,10 +75,14 @@ function collectEnvironments(environments: ReadonlyMap<EnvironmentId, ListEnviro
   const pinReorderEnvironmentIds = new Set<EnvironmentId>();
   const activeReorderEnvironmentIds = new Set<EnvironmentId>();
   const titleRegenerationEnvironmentIds = new Set<EnvironmentId>();
-  for (const [id, { providers, machineKind, environmentColor, capabilities }] of environments) {
+  for (const [
+    id,
+    { providers, machineKind, environmentColor, environmentAccent, capabilities },
+  ] of environments) {
     providersByEnvironmentId.set(id, providers);
     machineByEnvironmentId.set(id, machineKind);
     environmentColorByEnvironmentId.set(id, environmentColor);
+    environmentAccentByEnvironmentId.set(id, environmentAccent);
     if (capabilities.threadSettlement === true) settlementEnvironmentIds.add(id);
     if (capabilities.threadSnooze === true) snoozeEnvironmentIds.add(id);
     if (capabilities.threadAutoSettleOptOut === true) autoSettleOptOutEnvironmentIds.add(id);
@@ -89,6 +95,7 @@ function collectEnvironments(environments: ReadonlyMap<EnvironmentId, ListEnviro
     providersByEnvironmentId,
     machineByEnvironmentId,
     environmentColorByEnvironmentId,
+    environmentAccentByEnvironmentId,
     settlementEnvironmentIds,
     snoozeEnvironmentIds,
     pinningEnvironmentIds,
@@ -121,6 +128,7 @@ export function createThreadListEnvironmentsAtom(
         prior.providers === selected.providers &&
         prior.machineKind === selected.machineKind &&
         prior.environmentColor === selected.environmentColor &&
+        prior.environmentAccent === selected.environmentAccent &&
         capabilityKeys.every(
           (key) => (prior.capabilities[key] === true) === (selected.capabilities[key] === true),
         );

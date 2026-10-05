@@ -131,6 +131,7 @@ export function themeColorToNativeColor(value: string): string {
 export function resolveMobileEnvironmentThemeColor(
   config: EnvironmentThemeConfig | null | undefined,
   appearance?: MobileThemeAppearance,
+  role: "canvas" | "accent" = "canvas",
 ): string | null {
   return resolveEnvironmentThemeColor(
     config,
@@ -147,6 +148,7 @@ export function resolveMobileEnvironmentThemeColor(
         .join("")}`;
     },
     appearance,
+    role,
   );
 }
 

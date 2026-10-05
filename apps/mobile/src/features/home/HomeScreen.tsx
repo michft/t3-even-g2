@@ -497,6 +497,7 @@ export function HomeScreen(props: HomeScreenProps) {
     providersByEnvironmentId,
     machineByEnvironmentId,
     environmentColorByEnvironmentId,
+    environmentAccentByEnvironmentId,
     settlementEnvironmentIds,
     snoozeEnvironmentIds,
     pinningEnvironmentIds,
@@ -744,6 +745,7 @@ export function HomeScreen(props: HomeScreenProps) {
           }
           environmentMachine={machineByEnvironmentId.get(thread.environmentId)}
           environmentColor={environmentColorByEnvironmentId.get(thread.environmentId)}
+          environmentAccent={environmentAccentByEnvironmentId.get(thread.environmentId)}
           searchMatch={threadSearchMatchByKey.get(
             threadSearchMatchKey({
               environmentId: thread.environmentId,
@@ -802,6 +804,7 @@ export function HomeScreen(props: HomeScreenProps) {
       autoSettleOptOutEnvironmentIds,
       machineByEnvironmentId,
       environmentColorByEnvironmentId,
+      environmentAccentByEnvironmentId,
       pinReorderEnvironmentIds,
       projectByKey,
       props.onArchiveThread,
