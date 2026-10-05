@@ -20,9 +20,11 @@ import {
 } from "effect/unstable/http";
 import { openMediaFile } from "./assets/MediaFile.ts";
 
-import { ORCHESTRATION_PROTOCOL_HEADER } from "@t3tools/contracts";
+import { AuthSessionId, ORCHESTRATION_PROTOCOL_HEADER } from "@t3tools/contracts";
 
 import * as ServerConfig from "./config.ts";
+import * as EnvironmentAuth from "./auth/EnvironmentAuth.ts";
+import * as ServerSettings from "./serverSettings.ts";
 
 import {
   assetResponseHeaders,
@@ -33,7 +35,53 @@ import {
   isLoopbackHostname,
   resolveDevRedirectUrl,
   staticAndDevRouteLayer,
+  desktopAppearanceRouteLayer,
 } from "./http.ts";
+
+describe("desktop Appearance publication", () => {
+  async function publish(subject: string, canvas: string, operate = true) {
+    const settingsLayer = ServerSettings.layerTest();
+    const appLayer = desktopAppearanceRouteLayer.pipe(
+      Layer.provideMerge(settingsLayer),
+      Layer.provideMerge(
+        Layer.mock(EnvironmentAuth.EnvironmentAuth)({
+          authenticateHttpRequest: () =>
+            Effect.succeed({
+              sessionId: AuthSessionId.make("desktop-appearance-test"),
+              subject,
+              method: "bearer-access-token" as const,
+              scopes: operate ? ["orchestration:operate"] : ["orchestration:read"],
+            }),
+        }),
+      ),
+    );
+    const { handler, dispose } = HttpRouter.toWebHandler(appLayer, { disableLogger: true });
+    try {
+      return await handler(
+        new Request("http://localhost/api/desktop/appearance", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ canvas }),
+        }),
+      );
+    } finally {
+      await dispose();
+    }
+  }
+
+  it("accepts a valid canvas from the owning desktop", async () => {
+    expect((await publish("desktop-bootstrap", "#123456")).status).toBe(204);
+  });
+
+  it("rejects ordinary remote sessions even when they can operate", async () => {
+    expect((await publish("remote-client", "#123456")).status).toBe(403);
+  });
+
+  it("rejects invalid canvas and desktop sessions without operate access", async () => {
+    expect((await publish("desktop-bootstrap", "red")).status).toBe(400);
+    expect((await publish("desktop-bootstrap", "#123456", false)).status).toBe(403);
+  });
+});
 
 describe("browser API CORS", () => {
   it("accepts protocol negotiation with authenticated browser headers", async () => {

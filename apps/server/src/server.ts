@@ -26,6 +26,7 @@ import * as HostPowerMonitor from "./background/HostPowerMonitor.ts";
 import * as ServerConfig from "./config.ts";
 import {
   otlpTracesProxyRouteLayer,
+  desktopAppearanceRouteLayer,
   assetRouteLayer,
   attachmentUploadRouteLayer,
   serverEnvironmentHttpApiLayer,
@@ -646,6 +647,7 @@ const makeRoutesLayer = Layer.mergeAll(
       Layer.provide(environmentAuthenticatedAuthLayer),
     ),
     otlpTracesProxyRouteLayer,
+    desktopAppearanceRouteLayer,
     assetRouteLayer,
     attachmentUploadRouteLayer,
     deviceHubProxyRouteLayer,

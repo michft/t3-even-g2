@@ -220,6 +220,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["wide full width column layout messages composer monitor"],
   },
   {
+    id: "thread-origin-color",
+    title: "Thread origin color",
+    to: "/settings/appearance",
+    searchTerms: ["server environment tint solid background off"],
+  },
+  {
     id: "panel-animations",
     title: "Panel animations",
     to: "/settings/appearance",

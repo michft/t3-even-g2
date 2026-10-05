@@ -6,6 +6,8 @@ import {
   type ServerProvider,
 } from "@t3tools/contracts";
 import { Atom } from "effect/unstable/reactivity";
+import { resolveMobileEnvironmentThemeColor } from "../lib/mobileTheme";
+import type { ThemeAppearance } from "@t3tools/shared/themePalettes";
 
 export type ThreadListProvider = Pick<
   ServerProvider,
@@ -22,7 +24,7 @@ const capabilityKeys = [
   "threadTitleRegeneration",
 ] as const;
 
-function selectEnvironment(config: ServerConfig) {
+function selectEnvironment(config: ServerConfig, appearance?: ThemeAppearance) {
   return {
     providers: config.providers.map(
       ({ instanceId, driver, displayName, accentColor, iconUrl }) => ({
@@ -34,6 +36,8 @@ function selectEnvironment(config: ServerConfig) {
       }),
     ),
     machineKind: resolveEnvironmentMachineKind(config),
+    environmentColor: resolveMobileEnvironmentThemeColor(config, appearance),
+    environmentAccent: resolveMobileEnvironmentThemeColor(config, appearance, "accent"),
     capabilities: config.environment.capabilities,
   };
 }
@@ -62,6 +66,8 @@ function sameProviders(
 function collectEnvironments(environments: ReadonlyMap<EnvironmentId, ListEnvironment>) {
   const providersByEnvironmentId = new Map<EnvironmentId, ReadonlyArray<ThreadListProvider>>();
   const machineByEnvironmentId = new Map<EnvironmentId, EnvironmentMachineKind>();
+  const environmentColorByEnvironmentId = new Map<EnvironmentId, string | null>();
+  const environmentAccentByEnvironmentId = new Map<EnvironmentId, string | null>();
   const settlementEnvironmentIds = new Set<EnvironmentId>();
   const snoozeEnvironmentIds = new Set<EnvironmentId>();
   const pinningEnvironmentIds = new Set<EnvironmentId>();
@@ -69,9 +75,14 @@ function collectEnvironments(environments: ReadonlyMap<EnvironmentId, ListEnviro
   const pinReorderEnvironmentIds = new Set<EnvironmentId>();
   const activeReorderEnvironmentIds = new Set<EnvironmentId>();
   const titleRegenerationEnvironmentIds = new Set<EnvironmentId>();
-  for (const [id, { providers, machineKind, capabilities }] of environments) {
+  for (const [
+    id,
+    { providers, machineKind, environmentColor, environmentAccent, capabilities },
+  ] of environments) {
     providersByEnvironmentId.set(id, providers);
     machineByEnvironmentId.set(id, machineKind);
+    environmentColorByEnvironmentId.set(id, environmentColor);
+    environmentAccentByEnvironmentId.set(id, environmentAccent);
     if (capabilities.threadSettlement === true) settlementEnvironmentIds.add(id);
     if (capabilities.threadSnooze === true) snoozeEnvironmentIds.add(id);
     if (capabilities.threadAutoSettleOptOut === true) autoSettleOptOutEnvironmentIds.add(id);
@@ -83,6 +94,8 @@ function collectEnvironments(environments: ReadonlyMap<EnvironmentId, ListEnviro
   return {
     providersByEnvironmentId,
     machineByEnvironmentId,
+    environmentColorByEnvironmentId,
+    environmentAccentByEnvironmentId,
     settlementEnvironmentIds,
     snoozeEnvironmentIds,
     pinningEnvironmentIds,
@@ -96,6 +109,7 @@ function collectEnvironments(environments: ReadonlyMap<EnvironmentId, ListEnviro
 /** Provider freshness and model catalogs do not affect the navigation lists. */
 export function createThreadListEnvironmentsAtom(
   configsAtom: Atom.Atom<ReadonlyMap<EnvironmentId, ServerConfig>>,
+  appearance?: ThemeAppearance,
 ) {
   let previous = new Map<EnvironmentId, ListEnvironment>();
   let result = collectEnvironments(previous);
@@ -104,7 +118,7 @@ export function createThreadListEnvironmentsAtom(
     const next = new Map<EnvironmentId, ListEnvironment>();
     let changed = configs.size !== previous.size;
     for (const [id, config] of configs) {
-      const selected = selectEnvironment(config);
+      const selected = selectEnvironment(config, appearance);
       const prior = previous.get(id);
       if (prior && sameProviders(prior.providers, selected.providers)) {
         selected.providers = prior.providers;
@@ -113,6 +127,8 @@ export function createThreadListEnvironmentsAtom(
         prior &&
         prior.providers === selected.providers &&
         prior.machineKind === selected.machineKind &&
+        prior.environmentColor === selected.environmentColor &&
+        prior.environmentAccent === selected.environmentAccent &&
         capabilityKeys.every(
           (key) => (prior.capabilities[key] === true) === (selected.capabilities[key] === true),
         );

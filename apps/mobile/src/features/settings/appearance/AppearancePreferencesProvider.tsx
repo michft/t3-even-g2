@@ -16,6 +16,7 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import { AsyncResult } from "effect/unstable/reactivity";
 
 import { ScopedTheme, ScopedVariables, Uniwind } from "uniwind";
+import type { ThreadOriginColorMode } from "@t3tools/contracts";
 
 import {
   resolveAppearance,
@@ -50,6 +51,8 @@ interface AppearancePreferencesContextValue {
   readonly themeId: MobileThemeId;
   readonly themeIds: MobileThemeIds;
   readonly themeMode: MobileThemeMode;
+  readonly threadOriginColorMode: ThreadOriginColorMode;
+  readonly setThreadOriginColorMode: (mode: ThreadOriginColorMode) => void;
   readonly themeAppearance: MobileThemeAppearance;
   readonly systemColorsAvailable: boolean;
   readonly systemColorsActive: boolean;
@@ -87,6 +90,7 @@ export function AppearancePreferencesProvider(props: { readonly children: ReactN
     [storedPreferences],
   );
   const themeMode = normalizeMobileThemeMode(storedPreferences?.themeMode);
+  const threadOriginColorMode = storedPreferences?.threadOriginColorMode ?? "tint";
   const themeAppearance = themeMode === "system" ? systemColorScheme : themeMode;
   const resolvedThemeIds = resolveMobileThemeIds(storedPreferences ?? {});
   const themeIds = useMemo<MobileThemeIds>(
@@ -272,12 +276,19 @@ export function AppearancePreferencesProvider(props: { readonly children: ReactN
     [updatePreferences],
   );
 
+  const setThreadOriginColorMode = useCallback(
+    (mode: ThreadOriginColorMode) => updatePreferences({ threadOriginColorMode: mode }),
+    [updatePreferences],
+  );
+
   const value = useMemo(
     (): AppearancePreferencesContextValue => ({
       appearance,
       themeId,
       themeIds,
       themeMode,
+      threadOriginColorMode,
+      setThreadOriginColorMode,
       themeAppearance,
       systemColorsAvailable: isSystemColorsAvailable,
       systemColorsActive,
@@ -298,6 +309,8 @@ export function AppearancePreferencesProvider(props: { readonly children: ReactN
       themeId,
       themeIds,
       themeMode,
+      threadOriginColorMode,
+      setThreadOriginColorMode,
       themeAppearance,
       systemColorsActive,
       themeVariables,
@@ -329,4 +342,24 @@ export function useAppearancePreferences(): AppearancePreferencesContextValue {
     throw new Error("useAppearancePreferences must be used within AppearancePreferencesProvider");
   }
   return context;
+}
+
+/** Keep native Markdown's JS colors aligned with the conversation's scoped classes. */
+export function ThreadOriginAppearance(props: {
+  readonly variables: Partial<MobileThemeVariables>;
+  readonly children: ReactNode;
+}) {
+  const parent = useAppearancePreferences();
+  const value = useMemo(
+    () => ({
+      ...parent,
+      themeVariables: { ...parent.themeVariables, ...props.variables },
+    }),
+    [parent, props.variables],
+  );
+  return (
+    <AppearancePreferencesContext.Provider value={value}>
+      <ScopedVariables variables={props.variables}>{props.children}</ScopedVariables>
+    </AppearancePreferencesContext.Provider>
+  );
 }

@@ -559,6 +559,7 @@ const makeHarness = Effect.fn("makeThreadSettlementHarness")(function* (options:
   };
 
   const serverSettings = ServerSettings.ServerSettingsService.of({
+    publishAppearanceColor: () => Effect.die("Unexpected Appearance publication"),
     start: Effect.void,
     ready: Effect.void,
     getSettings: Ref.get(settings),

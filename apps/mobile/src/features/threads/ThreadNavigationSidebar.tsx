@@ -131,7 +131,7 @@ function NativeSidebarContainer(props: ThreadNavigationSidebarProps) {
 function ThreadNavigationSidebarPane(
   props: ThreadNavigationSidebarProps & { readonly nativeChrome: boolean },
 ) {
-  const { themeVariables: materialTheme } = useAppearancePreferences();
+  const { themeVariables: materialTheme, themeAppearance } = useAppearancePreferences();
   const drawerColor = materialTheme["--color-drawer"];
 
   const insets = useSafeAreaInsets();
@@ -313,10 +313,12 @@ function ThreadNavigationSidebarPane(
   }, []);
   // Threads on servers without the settlement capability never classify as
   // settled (the user could neither un-settle nor pin them).
-  const listEnvironments = useAtomValue(threadListEnvironmentsAtom);
+  const listEnvironments = useAtomValue(threadListEnvironmentsAtom(themeAppearance));
   const {
     providersByEnvironmentId,
     machineByEnvironmentId,
+    environmentColorByEnvironmentId,
+    environmentAccentByEnvironmentId,
     settlementEnvironmentIds,
     snoozeEnvironmentIds,
     pinningEnvironmentIds,
@@ -670,6 +672,7 @@ function ThreadNavigationSidebarPane(
                   : null
               }
               environmentMachine={machineByEnvironmentId.get(item.pendingTask.environmentId)}
+              environmentColor={environmentColorByEnvironmentId.get(item.pendingTask.environmentId)}
               pane="sidebar"
               showPendingDivider={item.showPendingDivider}
               onSelectPendingTask={openPendingTask}
@@ -709,6 +712,8 @@ function ThreadNavigationSidebarPane(
                   : null
               }
               environmentMachine={machineByEnvironmentId.get(thread.environmentId)}
+              environmentColor={environmentColorByEnvironmentId.get(thread.environmentId)}
+              environmentAccent={environmentAccentByEnvironmentId.get(thread.environmentId)}
               searchMatch={threadSearchMatchByKey.get(
                 threadSearchMatchKey({
                   environmentId: thread.environmentId,
@@ -801,6 +806,8 @@ function ThreadNavigationSidebarPane(
       handleSwipeableClose,
       handleSwipeableWillOpen,
       machineByEnvironmentId,
+      environmentColorByEnvironmentId,
+      environmentAccentByEnvironmentId,
       moveThread,
       openPendingTask,
       pinReorderEnvironmentIds,

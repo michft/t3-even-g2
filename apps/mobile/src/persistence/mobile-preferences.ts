@@ -5,10 +5,15 @@ import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
-import type { ProviderInstanceId, SidebarProjectGroupingMode } from "@t3tools/contracts";
+import type {
+  ProviderInstanceId,
+  SidebarProjectGroupingMode,
+  ThreadOriginColorMode,
+} from "@t3tools/contracts";
 import type { ComposerEnterBehavior } from "../lib/composerEnterBehavior";
 import type { FollowUpBehavior } from "../lib/followUpBehavior";
 import { MOBILE_THEME_IDS, type MobileThemeId, type MobileThemeMode } from "../lib/mobileTheme";
+import { sanitizeThreadHighlights, type ThreadHighlights } from "../lib/threadHighlight";
 import * as MobileDatabase from "./mobile-database";
 import * as MobileSecureStorage from "./mobile-secure-storage";
 import { MobileStorageDecodeError, MobileStorageEncodeError } from "./mobile-storage";
@@ -22,6 +27,8 @@ export interface Preferences {
   readonly lightThemeId?: MobileThemeId;
   readonly darkThemeId?: MobileThemeId;
   readonly themeMode?: MobileThemeMode;
+  readonly threadOriginColorMode?: ThreadOriginColorMode;
+  readonly threadHighlights?: ThreadHighlights;
   readonly baseFontSize?: number;
   readonly terminalFontSize?: number | null;
   readonly markdownFontSize?: number;
@@ -98,6 +105,8 @@ function sanitizePreferences(parsed: Preferences): Preferences {
     lightThemeId?: MobileThemeId;
     darkThemeId?: MobileThemeId;
     themeMode?: MobileThemeMode;
+    threadOriginColorMode?: ThreadOriginColorMode;
+    threadHighlights?: ThreadHighlights;
     baseFontSize?: number;
     terminalFontSize?: number | null;
     markdownFontSize?: number;
@@ -146,6 +155,16 @@ function sanitizePreferences(parsed: Preferences): Preferences {
     preferences.themeMode = parsed.themeMode;
   }
   if (typeof parsed.baseFontSize === "number") preferences.baseFontSize = parsed.baseFontSize;
+  if (parsed.threadHighlights !== undefined) {
+    preferences.threadHighlights = sanitizeThreadHighlights(parsed.threadHighlights);
+  }
+  if (
+    parsed.threadOriginColorMode === "tint" ||
+    parsed.threadOriginColorMode === "solid" ||
+    parsed.threadOriginColorMode === "off"
+  ) {
+    preferences.threadOriginColorMode = parsed.threadOriginColorMode;
+  }
   if (typeof parsed.terminalFontSize === "number" || parsed.terminalFontSize === null) {
     preferences.terminalFontSize = parsed.terminalFontSize;
   }

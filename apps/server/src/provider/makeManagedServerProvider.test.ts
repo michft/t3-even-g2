@@ -296,6 +296,7 @@ describe("makeManagedServerProvider", () => {
         const serverSettingsLayer = Layer.succeed(
           ServerSettings.ServerSettingsService,
           ServerSettings.ServerSettingsService.of({
+            publishAppearanceColor: () => Effect.die("Unexpected Appearance publication"),
             start: Effect.void,
             ready: Effect.void,
             getSettings: Ref.get(serverSettingsRef),

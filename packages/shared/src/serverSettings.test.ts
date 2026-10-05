@@ -23,6 +23,13 @@ import {
 const FOLDED_SERVER_SETTINGS = { ...DEFAULT_SERVER_SETTINGS, projectSettingsFolded: true };
 
 describe("serverSettings helpers", () => {
+  it("preserves the host Appearance color when an older client patches settings", () => {
+    const colored = { ...DEFAULT_SERVER_SETTINGS, environmentColor: "#ff8800" };
+    const legacyPatch = { environmentColor: null, sidebarAutoSettleOnMerge: false };
+    const updated = applyServerSettingsPatch(colored, legacyPatch);
+    expect(updated.environmentColor).toBe("#ff8800");
+    expect(updated.sidebarAutoSettleOnMerge).toBe(false);
+  });
   it("changes a cleanup rule without replacing the machine's other rules", () => {
     const enabled = applyServerSettingsPatch(DEFAULT_SERVER_SETTINGS, {
       storageCleanup: { worktreeAfterDays: 8, worktreeOnMerge: true, logsAfterDays: 30 },

@@ -21,7 +21,10 @@ import type { EnvironmentMachineKind } from "@t3tools/contracts";
 import { canSnooze, resolveSnoozePresets } from "@t3tools/client-runtime/state/thread-settled";
 import type { MenuAction } from "@react-native-menu/menu";
 import { memo, useCallback, useEffect, useMemo, useState, type ComponentProps } from "react";
-import { Alert, Pressable, useWindowDimensions, View } from "react-native";
+import { Alert, Platform, Pressable, useWindowDimensions, View } from "react-native";
+import { scopedThreadKey } from "../../lib/scopedEntities";
+import { resolveThreadHighlight } from "../../lib/threadHighlight";
+import { useThreadHighlight } from "./use-thread-highlight";
 import type { SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
 
 import type { ThreadListProvider } from "../../state/thread-list-environments";
@@ -33,7 +36,6 @@ import { ProjectFavicon } from "../../components/ProjectFavicon";
 import { ProviderIcon, ProviderInstanceIcon } from "../../components/ProviderIcon";
 import { cn } from "../../lib/cn";
 import { copyTextWithHaptic } from "../../lib/copyTextWithHaptic";
-import { useUniwindTheme } from "../../lib/useUniwindTheme";
 import type { PendingNewTask } from "../../state/use-pending-new-tasks";
 import { useThreadPr } from "../../state/use-thread-pr";
 import { useSwipeRowDormant } from "../home/swipe-row-activation";
@@ -51,6 +53,10 @@ import {
 } from "./threadListV2";
 import { QueuedMessageIcon } from "./queued-message-icon";
 import { ThreadSearchMatchExcerpt } from "./thread-search-match";
+import {
+  ThreadOriginAppearance,
+  useAppearancePreferences,
+} from "../settings/appearance/AppearancePreferencesProvider";
 
 /**
  * Thread List v2 renders one flat native list: rich edge-to-edge rows for
@@ -279,6 +285,7 @@ export const ThreadListV2PendingRow = memo(function ThreadListV2PendingRow(props
   readonly environmentLabel: string | null;
   /** Drawn beside the label; ignored while the label is null. */
   readonly environmentMachine?: EnvironmentMachineKind;
+  readonly environmentColor?: string | null;
   readonly pane?: "screen" | "sidebar";
   /** Draws the "Unsent" divider above the first draft or queued row. */
   readonly showPendingDivider: boolean;
@@ -292,6 +299,18 @@ export const ThreadListV2PendingRow = memo(function ThreadListV2PendingRow(props
   const isDraft = pendingTask.kind === "draft";
   const projectTitle = props.projectTitle ?? props.project?.title ?? pendingTask.projectTitle ?? "";
   const branch = pendingTask.branch;
+  const { themeVariables: theme, threadOriginColorMode } = useAppearancePreferences();
+  const rowAppearance = useMemo(
+    () =>
+      getThreadListV2RowAppearance(
+        theme,
+        sidebarPane,
+        false,
+        props.environmentColor,
+        threadOriginColorMode,
+      ),
+    [theme, sidebarPane, props.environmentColor, threadOriginColorMode],
+  );
 
   const handleMenuAction = useCallback(
     ({ nativeEvent }: { readonly nativeEvent: { readonly event: string } }) => {
@@ -401,7 +420,7 @@ export const ThreadListV2PendingRow = memo(function ThreadListV2PendingRow(props
     </>
   );
 
-  return (
+  const row = (
     <>
       {props.showPendingDivider ? (
         <ThreadListV2SectionDivider label="Unsent" pane={props.pane} />
@@ -426,11 +445,14 @@ export const ThreadListV2PendingRow = memo(function ThreadListV2PendingRow(props
           style={
             sidebarPane
               ? {
+                  backgroundColor: rowAppearance.swipeBackgroundColor,
                   borderRadius: SIDEBAR_V2_ROW_RADIUS,
                   paddingHorizontal: 12,
                   paddingVertical: 10,
                 }
-              : undefined
+              : rowAppearance.originVariables
+                ? { backgroundColor: rowAppearance.swipeBackgroundColor }
+                : undefined
           }
         >
           {sidebarPane ? (
@@ -447,10 +469,16 @@ export const ThreadListV2PendingRow = memo(function ThreadListV2PendingRow(props
       </ControlPillMenu>
     </>
   );
+  return rowAppearance.originVariables ? (
+    <ThreadOriginAppearance variables={rowAppearance.originVariables}>{row}</ThreadOriginAppearance>
+  ) : (
+    row
+  );
 });
 
 export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
   readonly thread: EnvironmentThreadShell;
+  readonly environmentAccent?: string | null;
   readonly variant: "card" | "slim";
   /** A message for this thread is waiting in the outbox. */
   readonly hasQueuedMessages?: boolean;
@@ -484,6 +512,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
   /** Drawn after the label so the machine reads at a glance; ignored while
       the label is null. */
   readonly environmentMachine?: EnvironmentMachineKind;
+  readonly environmentColor?: string | null;
   /** Hosting surface. "screen" (default) renders the compact Home idiom:
       flat edge-to-edge rows on the screen background with inset hairlines.
       "sidebar" renders the iPad split-view idiom: rounded rows blending
@@ -577,10 +606,33 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
   const providerInstance = props.providerInstance;
   const pr = useThreadPr(thread);
 
-  const theme = useUniwindTheme();
+  const { themeVariables: theme, threadOriginColorMode } = useAppearancePreferences();
   const sidebarPane = props.pane === "sidebar";
   const selected = props.selected === true;
-  const rowAppearance = getThreadListV2RowAppearance(theme, sidebarPane, selected);
+  const highlight = useThreadHighlight(scopedThreadKey(thread.environmentId, thread.id));
+  const highlightColor =
+    Platform.OS === "ios"
+      ? resolveThreadHighlight(highlight.override, props.environmentAccent)
+      : null;
+  const highlightStrip = highlightColor ? (
+    <View
+      accessible={false}
+      pointerEvents="none"
+      className="absolute bottom-0 left-0 top-0 w-1"
+      style={{ backgroundColor: highlightColor }}
+    />
+  ) : null;
+  const rowAppearance = useMemo(
+    () =>
+      getThreadListV2RowAppearance(
+        theme,
+        sidebarPane,
+        selected,
+        props.environmentColor,
+        threadOriginColorMode,
+      ),
+    [theme, sidebarPane, selected, props.environmentColor, threadOriginColorMode],
+  );
 
   const status = resolveThreadListV2Status(thread);
   // "Done" marks a completion the user has not opened yet — same emerald
@@ -802,6 +854,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
   );
   const handleMenuAction = useCallback(
     ({ nativeEvent }: { readonly nativeEvent: { readonly event: string } }) => {
+      if (highlight.handleAction(nativeEvent.event)) return;
       if (nativeEvent.event === "new-thread-on-branch") onNewThreadOnBranch(thread);
       if (nativeEvent.event === "settle") handleSettle();
       if (nativeEvent.event === "unsettle") handleUnsettle();
@@ -837,6 +890,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
     },
     [
       onNewThreadOnBranch,
+      highlight.handleAction,
       thread,
       handleArchive,
       handleDelete,
@@ -1127,6 +1181,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
         }}
         style={rowAppearance.cardStyle}
       >
+        {highlightStrip}
         {sidebarPane ? (
           cardContent
         ) : (
@@ -1160,6 +1215,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
         }}
         style={rowAppearance.style}
       >
+        {highlightStrip}
         {/* Settled history recedes: dimmed favicon + muted title. */}
         <View
           className={cn(
@@ -1220,7 +1276,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
       </RowPressable>
     );
 
-  return (
+  const row = (
     <View collapsable={false}>
       {customSnoozeOpen && (
         <CustomSnoozeSheet onClose={() => setCustomSnoozeOpen(false)} onSnooze={handleSnooze} />
@@ -1258,6 +1314,17 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
                   ]
                 : []),
               { id: "copy-thread-id", title: "Copy thread ID", image: "doc.on.doc" },
+              ...(Platform.OS === "ios"
+                ? [
+                    {
+                      id: "highlight",
+                      title: "Highlight",
+                      image: "paintpalette",
+                      attributes: { disabled: !highlight.loaded },
+                      subactions: highlight.actions,
+                    },
+                  ]
+                : []),
               ...(snoozedRow
                 ? snoozedMenuActions
                 : !props.settlementSupported
@@ -1276,5 +1343,10 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
         )}
       </ThreadSwipeable>
     </View>
+  );
+  return rowAppearance.originVariables ? (
+    <ThreadOriginAppearance variables={rowAppearance.originVariables}>{row}</ThreadOriginAppearance>
+  ) : (
+    row
   );
 });

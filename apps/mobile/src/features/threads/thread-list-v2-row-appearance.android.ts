@@ -1,5 +1,7 @@
 import type { ViewStyle } from "react-native";
 import type { MobileThemeVariables } from "../../lib/mobileTheme";
+import type { ThreadOriginColorMode } from "@t3tools/contracts";
+import { getThreadListV2OriginAppearance } from "./thread-list-v2-origin-appearance";
 
 export const THREAD_LIST_V2_MONO_FONT = "monospace";
 export const THREAD_LIST_V2_ROW_CONTENT_CLASS_NAME = "px-3 py-2.5";
@@ -20,7 +22,17 @@ export function getThreadListV2RowAppearance(
   theme: MobileThemeVariables,
   sidebarPane: boolean,
   selected: boolean,
+  environmentColor?: string | null,
+  mode: ThreadOriginColorMode = "off",
 ) {
+  const origin = getThreadListV2OriginAppearance(
+    theme,
+    sidebarPane,
+    selected,
+    environmentColor,
+    mode,
+  );
+  theme = origin.theme;
   const selectedBackgroundColor = theme["--color-thread-selected"];
   const backgroundColor = theme[sidebarPane ? "--color-drawer" : "--color-screen"];
   const style: ViewStyle = {
@@ -35,6 +47,7 @@ export function getThreadListV2RowAppearance(
   };
 
   return {
+    originVariables: origin.variables,
     className: undefined,
     interactionClassName: sidebarPane ? "bg-thread-hover" : "bg-row-hover",
     interactionOpacity: selected ? 0 : 1,

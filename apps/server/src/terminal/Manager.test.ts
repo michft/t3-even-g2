@@ -2193,6 +2193,7 @@ it.layer(
         cause: settingsCause,
       });
       const serverSettings = ServerSettings.ServerSettingsService.of({
+        publishAppearanceColor: () => Effect.die("Unexpected Appearance publication"),
         start: Effect.void,
         ready: Effect.void,
         getSettings: Effect.fail(settingsError),

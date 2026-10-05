@@ -260,6 +260,7 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(t3-mobil
   --color-code-foreground: var(--code-foreground);
   --color-foreground: var(--contrast-foreground);
   --color-background: var(--background);
+  --color-thread-origin: var(--thread-origin-background, var(--background));
   --color-surface-raised: var(--surface-raised);
   --color-message: var(--message-surface);
   --color-message-foreground: var(--contrast-message-foreground);
@@ -2306,4 +2307,39 @@ code {
       );
     }
   }
+}
+
+/* Rows retain local hover/selection surfaces while showing their host at rest. */
+.sidebar-thread-origin:not(:hover):not(:focus-within) {
+  background-color: var(--thread-origin-row-background);
+}
+
+.sidebar-thread-origin-solid:not(:hover):not(:focus-within) {
+  --contrast-foreground: var(--thread-origin-foreground);
+  --contrast-muted-foreground: var(--thread-origin-foreground);
+  --contrast-secondary-label: var(--thread-origin-foreground);
+  --contrast-icon-muted: var(--thread-origin-foreground);
+  --contrast-sidebar-foreground: var(--thread-origin-foreground);
+  --contrast-sidebar-muted-foreground: var(--thread-origin-foreground);
+}
+
+/* Solid origin backgrounds are scoped to threads, never the app theme. */
+.thread-origin-solid {
+  --contrast-foreground: var(--thread-origin-foreground);
+  --contrast-muted-foreground: var(--thread-origin-foreground);
+  --contrast-secondary-label: var(--thread-origin-foreground);
+  --contrast-icon-muted: var(--thread-origin-foreground);
+  --card: var(--thread-origin-background);
+  --muted: var(--thread-origin-background);
+  --contrast-card-foreground: var(--thread-origin-foreground);
+  --surface-raised: var(--thread-origin-background);
+}
+
+.thread-origin-solid .chat-markdown,
+.thread-origin-solid .chat-markdown a:not(.chat-markdown-file-link) {
+  color: var(--thread-origin-foreground);
+}
+
+.thread-origin-solid .chat-markdown a:not(.chat-markdown-file-link) {
+  text-decoration: underline;
 }

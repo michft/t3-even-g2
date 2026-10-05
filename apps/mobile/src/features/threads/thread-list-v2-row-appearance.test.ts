@@ -9,6 +9,56 @@ describe.each([
   ["ios", iosAppearance],
   ["android", androidAppearance],
 ] as const)("%s thread row colors", (_platform, appearanceFor) => {
+  const originTheme = {
+    ...getMobileThemeVariables(MOBILE_THEME_IDS[0], "dark"),
+    "--color-screen": "#000000",
+    "--color-drawer": "#ffffff",
+    "--color-thread-selected": "#3366aa",
+  };
+
+  it.each([
+    [false, "#1f1000"],
+    [true, "#fff1e0"],
+  ] as const)("tints an opaque row for sidebar=%s", (sidebarPane, expectedBackground) => {
+    const row = appearanceFor(originTheme, sidebarPane, false, "#ff8800", "tint");
+    expect(row.style?.backgroundColor).toBe(expectedBackground);
+    expect(row.cardStyle?.backgroundColor).toBe(expectedBackground);
+    expect(row.swipeBackgroundColor).toBe(expectedBackground);
+    expect(row.providerIconSurfaceColor).toBe(expectedBackground);
+    // Tint preserves the device's neutral text colors.
+    expect(row.originVariables).not.toHaveProperty("--color-foreground");
+    expect(row.interactionOpacity).toBe(1);
+  });
+
+  it.each([false, true])(
+    "uses exact solid color and readable text for sidebar=%s",
+    (sidebarPane) => {
+      const row = appearanceFor(originTheme, sidebarPane, false, "#ffffff", "solid");
+      expect(row.style?.backgroundColor).toBe("#ffffff");
+      expect(row.originVariables?.["--color-foreground"]).toBe("#000000");
+      expect(row.originVariables?.["--color-drawer-foreground"]).toBe("#000000");
+      const dark = appearanceFor(originTheme, sidebarPane, false, "#1b2821", "solid");
+      expect(dark.originVariables?.["--color-foreground"]).toBe("#ffffff");
+      // Activity and status hues remain their existing semantic colors.
+      expect(dark.originVariables).not.toHaveProperty("--color-danger-foreground");
+    },
+  );
+
+  it.each([false, true])(
+    "keeps selection, Off and missing colors unchanged for sidebar=%s",
+    (sidebarPane) => {
+      const original = appearanceFor(originTheme, sidebarPane, false);
+      expect(appearanceFor(originTheme, sidebarPane, false, "#ff8800", "off")).toEqual(original);
+      expect(appearanceFor(originTheme, sidebarPane, false, null, "solid")).toEqual(original);
+      expect(appearanceFor(originTheme, sidebarPane, true, "#ff8800", "solid")).toEqual(
+        appearanceFor(originTheme, sidebarPane, true),
+      );
+      expect(
+        appearanceFor(originTheme, sidebarPane, true, "#ff8800", "solid").interactionOpacity,
+      ).toBe(0);
+    },
+  );
+
   it.each(MOBILE_THEME_IDS)(
     "preserves active selection and uses neutral hover for %s",
     (themeId) => {

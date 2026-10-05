@@ -257,6 +257,11 @@ export class ServerSettingsService extends Context.Service<
       patch: ServerSettingsPatch,
     ) => Effect.Effect<ServerSettings, ServerSettingsError>;
 
+    /** Cache the host desktop's resolved Appearance canvas. */
+    readonly publishAppearanceColor: (
+      canvas: string,
+    ) => Effect.Effect<ServerSettings, ServerSettingsError>;
+
     /** Apply a patch and one provider-instance mutation against the same latest settings snapshot. */
     readonly updateProviderInstance: (
       mutation: ProviderInstanceMutation,
@@ -320,6 +325,10 @@ const makeTest = (overrides: DeepPartial<ServerSettings> = {}) =>
       updateSettings: (patch) =>
         updateTestSettings((currentSettings) =>
           Effect.succeed(applyServerSettingsPatch(currentSettings, patch)),
+        ),
+      publishAppearanceColor: (canvas) =>
+        updateTestSettings((currentSettings) =>
+          Effect.succeed({ ...currentSettings, environmentColor: canvas }),
         ),
       updateProviderInstance: (mutation, patch = {}) =>
         updateTestSettings((currentSettings) =>
@@ -1290,6 +1299,10 @@ const make = Effect.gen(function* () {
     updateSettings: (patch) =>
       updateAndPersistSettings((current) =>
         Effect.succeed(applyServerSettingsPatch(current, patch)),
+      ),
+    publishAppearanceColor: (canvas) =>
+      updateAndPersistSettings((current) =>
+        Effect.succeed({ ...current, environmentColor: canvas }),
       ),
     updateProviderInstance: (mutation, patch = {}) =>
       updateAndPersistSettings((current) =>

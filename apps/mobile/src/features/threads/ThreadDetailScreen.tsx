@@ -1,5 +1,7 @@
 import { useAtomValue } from "@effect/atom-react";
 import { useThreadReportedModelSelection } from "../../state/entities";
+import { environmentColorForeground } from "@t3tools/shared/environmentColor";
+import { resolveMobileEnvironmentThemeColor, themeColorWithAlpha } from "../../lib/mobileTheme";
 import { UsageLimitRecoveryCard } from "./UsageLimitRecoveryCard";
 import { useIsFocused, useNavigation } from "@react-navigation/native";
 import type { WorktreeSetupCardProps } from "./worktree-setup-card";
@@ -82,7 +84,10 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useWorkspaceContentWidth } from "../layout/workspace-content-width";
-import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
+import {
+  useAppearancePreferences,
+  ThreadOriginAppearance,
+} from "../settings/appearance/AppearancePreferencesProvider";
 import { collectProviderUsageLimits } from "@t3tools/shared/usageLimits";
 import { useEvenG2ThreadBridge } from "../even-g2/useEvenG2ThreadBridge";
 import { evenG2ThreadActivityText } from "../even-g2/evenG2ThreadBridge.logic";
@@ -1054,7 +1059,36 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
   }, [freeze, scrollMessageToEnd]);
 
   const showScrollToEndButton = contentPresentationKind === "ready" && !endFollowEnabled;
-  const { themeAppearance } = useAppearancePreferences();
+  const { themeAppearance, threadOriginColorMode } = useAppearancePreferences();
+  const originColor =
+    threadOriginColorMode === "off"
+      ? null
+      : resolveMobileEnvironmentThemeColor(props.serverConfig, themeAppearance);
+  const originVariables = useMemo(() => {
+    if (!originColor || threadOriginColorMode !== "solid") return {};
+    const foreground = environmentColorForeground(originColor);
+    return {
+      "--color-md-body": foreground,
+      "--color-md-strong": foreground,
+      "--color-md-link": foreground,
+      "--color-md-blockquote-bg": originColor,
+      "--color-md-blockquote-border": foreground,
+      "--color-md-code-bg": originColor,
+      "--color-md-code-text": foreground,
+      "--color-md-hr": foreground,
+      "--color-icon": foreground,
+      "--color-icon-subtle": foreground,
+      "--color-foreground": foreground,
+      "--color-foreground-secondary": foreground,
+      "--color-foreground-muted": foreground,
+      "--color-foreground-tertiary": foreground,
+      "--color-card": originColor,
+      "--color-card-alt": originColor,
+      "--color-grouped-card": originColor,
+      "--color-subtle": originColor,
+      "--color-subtle-strong": originColor,
+    };
+  }, [originColor, threadOriginColorMode]);
   const isDarkMode = themeAppearance === "dark";
 
   const handleFeedTouchStart = useCallback((event: GestureResponderEvent) => {
@@ -1105,55 +1139,69 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
                 : "absolute inset-0 bg-screen"
             }
           />
-          <RenderErrorBoundary
-            key={selectedThreadKey}
-            resetKeys={[props.threadCwd]}
-            renderFallback={(fallback) => (
-              <RenderFailureView
-                {...fallback}
-                title="The conversation couldn't be displayed"
-                bottomInset={estimatedOverlayHeight}
-              />
-            )}
-          >
-            <ThreadFeed
-              environmentId={props.environmentId}
-              threadId={props.selectedThread.id}
-              workspaceRoot={props.threadCwd}
-              feed={props.selectedThreadFeed}
-              worktreeSetup={props.worktreeSetup}
-              setupWorkingStartedAt={props.setupWorkingStartedAt}
-              queuedMessages={props.queuedMessages}
-              dispatchingMessageId={props.dispatchingMessageId}
-              // A native subagent has no composer to edit a pending message in;
-              // Cancel on the edit banner would discard it.
-              onEditPendingMessage={isProviderSubagent ? null : handleEditPendingMessage}
-              contentPresentation={props.contentPresentation}
-              agentLabel={agentLabel}
-              threadTitle={props.selectedThread.title}
-              latestRun={props.activityRun}
-              activeWorkStartedAt={props.activeWorkStartedAt}
-              runlessWorkActive={props.runlessWorkActive ?? false}
-              listRef={listRef}
-              freeze={freeze}
-              anchorMessageId={anchorMessageId}
-              submittedMessageId={submittedMessageId}
-              contentInsetEndAdjustment={combinedContentInsetEndAdjustment}
-              contentTopInset={0}
-              contentBottomInset={
-                estimatedOverlayHeight +
-                (showFloatingStatus ? FLOATING_WORKING_CONTROL_COVERAGE : 0)
-              }
-              contentMaxWidth={contentMaxWidth}
-              historyControls={props.historyControls}
-              layoutVariant={layoutVariant}
-              usesAutomaticContentInsets={props.usesAutomaticContentInsets}
-              onHeaderMaterialVisibilityChange={props.onHeaderMaterialVisibilityChange}
-              onEndFollowEnabledChange={setEndFollowEnabled}
-              skills={selectedProviderSkills}
-              onUseArtifactTemplate={handleUseArtifactTemplate}
+          {originColor ? (
+            <View
+              pointerEvents="none"
+              className="absolute inset-0"
+              style={{
+                backgroundColor:
+                  threadOriginColorMode === "solid"
+                    ? originColor
+                    : themeColorWithAlpha(originColor, 0.12),
+              }}
             />
-          </RenderErrorBoundary>
+          ) : null}
+          <ThreadOriginAppearance variables={originVariables}>
+            <RenderErrorBoundary
+              key={selectedThreadKey}
+              resetKeys={[props.threadCwd]}
+              renderFallback={(fallback) => (
+                <RenderFailureView
+                  {...fallback}
+                  title="The conversation couldn't be displayed"
+                  bottomInset={estimatedOverlayHeight}
+                />
+              )}
+            >
+              <ThreadFeed
+                environmentId={props.environmentId}
+                threadId={props.selectedThread.id}
+                workspaceRoot={props.threadCwd}
+                feed={props.selectedThreadFeed}
+                worktreeSetup={props.worktreeSetup}
+                setupWorkingStartedAt={props.setupWorkingStartedAt}
+                queuedMessages={props.queuedMessages}
+                dispatchingMessageId={props.dispatchingMessageId}
+                // A native subagent has no composer to edit a pending message in;
+                // Cancel on the edit banner would discard it.
+                onEditPendingMessage={isProviderSubagent ? null : handleEditPendingMessage}
+                contentPresentation={props.contentPresentation}
+                agentLabel={agentLabel}
+                threadTitle={props.selectedThread.title}
+                latestRun={props.activityRun}
+                activeWorkStartedAt={props.activeWorkStartedAt}
+                runlessWorkActive={props.runlessWorkActive ?? false}
+                listRef={listRef}
+                freeze={freeze}
+                anchorMessageId={anchorMessageId}
+                submittedMessageId={submittedMessageId}
+                contentInsetEndAdjustment={combinedContentInsetEndAdjustment}
+                contentTopInset={0}
+                contentBottomInset={
+                  estimatedOverlayHeight +
+                  (showFloatingStatus ? FLOATING_WORKING_CONTROL_COVERAGE : 0)
+                }
+                contentMaxWidth={contentMaxWidth}
+                historyControls={props.historyControls}
+                layoutVariant={layoutVariant}
+                usesAutomaticContentInsets={props.usesAutomaticContentInsets}
+                onHeaderMaterialVisibilityChange={props.onHeaderMaterialVisibilityChange}
+                onEndFollowEnabledChange={setEndFollowEnabled}
+                skills={selectedProviderSkills}
+                onUseArtifactTemplate={handleUseArtifactTemplate}
+              />
+            </RenderErrorBoundary>
+          </ThreadOriginAppearance>
         </View>
       ) : (
         <View className="flex-1" />

@@ -2,7 +2,7 @@ import {
   ContextMenuItemSchema,
   DesktopAppBrandingSchema,
   DesktopEnvironmentBootstrapSchema,
-  DesktopThemeSchema,
+  DesktopThemeInputSchema,
   EDITORS,
   EditorId,
   PickedThemeFileSchema,
@@ -24,6 +24,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import * as DesktopBackendPool from "../../backend/DesktopBackendPool.ts";
+import * as DesktopAppearance from "../../backend/DesktopAppearance.ts";
 import * as DesktopLocalEnvironmentAuth from "../../backend/DesktopLocalEnvironmentAuth.ts";
 import * as DesktopEnvironment from "../../app/DesktopEnvironment.ts";
 import * as DesktopAppSettings from "../../settings/DesktopAppSettings.ts";
@@ -272,11 +273,16 @@ export const pickProjectFavicon = DesktopIpc.makeIpcMethod({
 
 export const setTheme = DesktopIpc.makeIpcMethod({
   channel: IpcChannels.SET_THEME_CHANNEL,
-  payload: DesktopThemeSchema,
+  payload: DesktopThemeInputSchema,
   result: Schema.Void,
-  handler: Effect.fn("desktop.ipc.window.setTheme")(function* (theme) {
+  handler: Effect.fn("desktop.ipc.window.setTheme")(function* (input) {
     const electronTheme = yield* ElectronTheme.ElectronTheme;
+    const theme = typeof input === "string" ? input : input.theme;
     yield* electronTheme.setSource(theme);
+    if (typeof input !== "string" && input.canvas !== undefined) {
+      const appearance = yield* DesktopAppearance.DesktopAppearance;
+      yield* appearance.publish(input.canvas);
+    }
   }),
 });
 

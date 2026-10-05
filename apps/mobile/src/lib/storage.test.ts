@@ -236,6 +236,56 @@ describe("mobile connection storage", () => {
     });
   });
 
+  it.each(["tint", "solid", "off"] as const)(
+    "persists thread origin display mode %s without changing the theme",
+    async (threadOriginColorMode) => {
+      await savePreferencesPatch({ themeMode: "dark" });
+      await savePreferencesPatch({ threadOriginColorMode });
+      await expect(loadPreferences()).resolves.toEqual({
+        themeMode: "dark",
+        threadOriginColorMode,
+      });
+    },
+  );
+
+  it("ignores an unknown thread origin display mode in saved preferences", async () => {
+    mocks.setPreferencesJson(
+      JSON.stringify({ threadOriginColorMode: "unknown", themeMode: "dark" }),
+      10,
+    );
+    await expect(loadPreferences()).resolves.toEqual({ themeMode: "dark" });
+  });
+
+  it("persists local thread highlights and reset while preserving unrelated preferences", async () => {
+    await savePreferencesPatch({
+      themeMode: "dark",
+      threadHighlights: { "mini:thread": "#ec4899", "beef:thread": "none" },
+    });
+    await expect(loadPreferences()).resolves.toEqual({
+      themeMode: "dark",
+      threadHighlights: { "mini:thread": "#ec4899", "beef:thread": "none" },
+    });
+    await savePreferencesPatch({ threadHighlights: { "beef:thread": "none" } });
+    await expect(loadPreferences()).resolves.toEqual({
+      themeMode: "dark",
+      threadHighlights: { "beef:thread": "none" },
+    });
+  });
+
+  it("ignores invalid stored highlight entries without losing the rest of the preferences", async () => {
+    mocks.setPreferencesJson(
+      JSON.stringify({
+        themeMode: "dark",
+        threadHighlights: { valid: "#abcdef", hidden: "none", invalid: "blue", nonString: true },
+      }),
+      10,
+    );
+    await expect(loadPreferences()).resolves.toEqual({
+      themeMode: "dark",
+      threadHighlights: { valid: "#abcdef", hidden: "none" },
+    });
+  });
+
   it("persists Material You independently for each appearance", async () => {
     const themes = { lightThemeId: "material-you", darkThemeId: "ocean" } as const;
     await savePreferencesPatch(themes);

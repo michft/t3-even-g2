@@ -43,6 +43,7 @@ import Animated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanim
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { SymbolView } from "../../components/AppSymbol";
+import { ThreadHighlightSetting } from "./ThreadHighlightSetting";
 import { AppText as Text } from "../../components/AppText";
 import { AndroidScreenHeader } from "../../components/AndroidScreenHeader";
 import { AndroidAnchoredMenu } from "../../components/AndroidAnchoredMenu";
@@ -241,6 +242,7 @@ type ThreadSettingsSubmenuPage =
   | { readonly kind: "runtime" };
 
 type ThreadSettingsSessionProps = {
+  readonly threadKey?: string;
   readonly environmentId: EnvironmentId | null;
   readonly providerInstanceId?: ProviderInstanceId;
   readonly providerGroups: ReadonlyArray<ProviderGroup>;
@@ -295,6 +297,7 @@ export function useExistingThreadSettingsRoutePresentation() {
 }
 
 type ThreadSettingsSessionValue = {
+  readonly threadKey?: string;
   readonly environmentId: EnvironmentId | null;
   readonly providerInstanceId?: ProviderInstanceId;
   readonly providerGroups: ReadonlyArray<ProviderGroup>;
@@ -472,6 +475,7 @@ function ThreadSettingsSessionProvider(
 
   const value = useMemo<ThreadSettingsSessionValue>(
     () => ({
+      threadKey: props.threadKey,
       environmentId: props.environmentId,
       providerInstanceId: props.providerInstanceId,
       providerGroups: props.providerGroups,
@@ -512,6 +516,7 @@ function ThreadSettingsSessionProvider(
       isApplied,
       isDisplayed,
       props.environmentId,
+      props.threadKey,
       props.selectedModel,
       props.reportedModelSelection,
       props.providerInstanceId,
@@ -802,6 +807,9 @@ function ThreadSettingsOptionsItem(props: {
             />
           </View>
         </>
+      ) : null}
+      {Platform.OS === "ios" && session.threadKey ? (
+        <ThreadHighlightSetting threadKey={session.threadKey} />
       ) : null}
     </View>
   );

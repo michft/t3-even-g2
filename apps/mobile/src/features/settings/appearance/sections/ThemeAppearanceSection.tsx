@@ -292,11 +292,36 @@ export function ThemeAppearanceSection() {
     setThemeMode,
     themeIds,
     themeMode,
+    threadOriginColorMode,
+    setThreadOriginColorMode,
     systemColorsAvailable,
   } = useAppearancePreferences();
 
   return (
     <View className="gap-6">
+      <View className="gap-2">
+        <SectionLabel>Thread origin color</SectionLabel>
+        <View accessibilityRole="radiogroup" className="flex-row gap-2">
+          {(["tint", "solid", "off"] as const).map((mode) => (
+            <Pressable
+              key={mode}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: threadOriginColorMode === mode, disabled: !isReady }}
+              accessibilityLabel={`Thread origin color: ${mode}`}
+              disabled={!isReady}
+              onPress={() => setThreadOriginColorMode(mode)}
+              className={cn(
+                "flex-1 items-center rounded-xl border bg-card p-3",
+                threadOriginColorMode === mode ? "border-primary" : "border-border",
+              )}
+            >
+              <Text className="text-sm text-foreground">
+                {mode === "tint" ? "Tint" : mode === "solid" ? "Solid" : "Off"}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
       <View className="gap-2">
         <SectionLabel>Color scheme</SectionLabel>
         <View accessibilityRole="radiogroup" className="flex-row gap-2">
