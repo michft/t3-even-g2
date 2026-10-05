@@ -90,6 +90,13 @@ T3CODE_IOS_PERSONAL_TEAM_BUNDLE_ID=com.example.t3code \
 vp run ios:release
 ```
 
+For an existing fork installation, use an enrolled Apple Developer Program
+team for longer-lived signing. Follow the
+[Developer Team deployment guide](../../docs/operations/even-g2.md#developer-team-signing-and-deployment-expiry)
+to retain the app identity, inspect the actual profile expiry, and check
+Keychain compatibility before installing. Release configuration alone does
+not extend a Personal Team profile's lifetime.
+
 Build and run the local iOS preview app:
 
 ```bash
