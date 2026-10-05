@@ -32,6 +32,13 @@ must preserve the existing app identity and saved environments, and verify the
 installed native build rather than infer success from a browser or iPad alone.
 See the [G2 runbook](../operations/even-g2.md).
 
+## Docstring coverage
+
+Docstring coverage must remain **above 90%**; the target is **100%**. An 80%
+threshold does not meet this requirement. Record the measured coverage, tool,
+and measurement scope in PR validation evidence. If no eligible code exists
+in that scope, record the metric as not applicable with a reason.
+
 ## PR description
 
 Keep exactly one `pr-quality` JSON block, provided by the
