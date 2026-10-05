@@ -58,10 +58,20 @@ const ManagedEndpointProvisioningStage = Schema.Literals([
   "sync-origin",
 ]);
 
+// Why a stage failed without an underlying error. `claim-lost` means another
+// provision, release, or deprovision changed the allocation's generation or
+// tunnel after this one loaded it.
+const ManagedEndpointProvisioningFailureReason = Schema.Literals([
+  "claim-lost",
+  "endpoint-mismatch",
+  "invalid-tunnel-response",
+]);
+
 export class ManagedEndpointProvisioningFailed extends Schema.TaggedError<ManagedEndpointProvisioningFailed>()(
   "ManagedEndpointProvisioningFailed",
   {
     stage: ManagedEndpointProvisioningStage,
+    reason: Schema.optionalKey(ManagedEndpointProvisioningFailureReason),
     userId: Schema.String,
     environmentId: Schema.String,
     hostname: Schema.optionalKey(Schema.String),
@@ -545,6 +555,7 @@ const make = Effect.gen(function* () {
         return yield* new ManagedEndpointProvisioningFailed({
           ...input,
           stage: "verify-endpoint",
+          reason: "endpoint-mismatch",
           hostname: allocation.hostname,
         });
       }
@@ -611,6 +622,7 @@ const make = Effect.gen(function* () {
         return yield* new ManagedEndpointProvisioningFailed({
           ...input,
           stage: "sync-origin",
+          reason: "claim-lost",
         });
       }
       return updated.value === "configured" ? "ready" : "recovery_required";
@@ -997,6 +1009,7 @@ const make = Effect.gen(function* () {
           userId: input.userId,
           environmentId: input.environmentId,
           stage: "validate-tunnel-response",
+          reason: "invalid-tunnel-response",
           hostname,
           tunnelName,
           ...(tunnelResponse.id ? { returnedTunnelId: tunnelResponse.id } : {}),
@@ -1032,6 +1045,7 @@ const make = Effect.gen(function* () {
           userId: input.userId,
           environmentId: input.environmentId,
           stage: "record-tunnel",
+          reason: "claim-lost",
           hostname,
           tunnelName,
           tunnelId: tunnel.id,
@@ -1092,6 +1106,7 @@ const make = Effect.gen(function* () {
           userId: input.userId,
           environmentId: input.environmentId,
           stage: "configure-tunnel",
+          reason: "claim-lost",
           hostname,
           tunnelName,
           tunnelId: tunnel.id,
@@ -1164,6 +1179,7 @@ const make = Effect.gen(function* () {
                 userId: input.userId,
                 environmentId: input.environmentId,
                 stage: "record-dns",
+                reason: "claim-lost",
                 hostname,
                 tunnelName,
                 tunnelId: tunnel.id,
@@ -1194,6 +1210,7 @@ const make = Effect.gen(function* () {
           userId: input.userId,
           environmentId: input.environmentId,
           stage: "record-dns",
+          reason: "claim-lost",
           hostname,
           tunnelName,
           tunnelId: tunnel.id,
@@ -1244,6 +1261,7 @@ const make = Effect.gen(function* () {
           userId: input.userId,
           environmentId: input.environmentId,
           stage: "mark-allocation-ready",
+          reason: "claim-lost",
           hostname,
           tunnelName,
           tunnelId: tunnel.id,
