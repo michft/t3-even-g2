@@ -300,12 +300,16 @@ export const ThreadListV2PendingRow = memo(function ThreadListV2PendingRow(props
   const projectTitle = props.projectTitle ?? props.project?.title ?? pendingTask.projectTitle ?? "";
   const branch = pendingTask.branch;
   const { themeVariables: theme, threadOriginColorMode } = useAppearancePreferences();
-  const rowAppearance = getThreadListV2RowAppearance(
-    theme,
-    sidebarPane,
-    false,
-    props.environmentColor,
-    threadOriginColorMode,
+  const rowAppearance = useMemo(
+    () =>
+      getThreadListV2RowAppearance(
+        theme,
+        sidebarPane,
+        false,
+        props.environmentColor,
+        threadOriginColorMode,
+      ),
+    [theme, sidebarPane, props.environmentColor, threadOriginColorMode],
   );
 
   const handleMenuAction = useCallback(
@@ -618,12 +622,16 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
       style={{ backgroundColor: highlightColor }}
     />
   ) : null;
-  const rowAppearance = getThreadListV2RowAppearance(
-    theme,
-    sidebarPane,
-    selected,
-    props.environmentColor,
-    threadOriginColorMode,
+  const rowAppearance = useMemo(
+    () =>
+      getThreadListV2RowAppearance(
+        theme,
+        sidebarPane,
+        selected,
+        props.environmentColor,
+        threadOriginColorMode,
+      ),
+    [theme, sidebarPane, selected, props.environmentColor, threadOriginColorMode],
   );
 
   const status = resolveThreadListV2Status(thread);
