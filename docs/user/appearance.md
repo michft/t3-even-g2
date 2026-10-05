@@ -32,8 +32,9 @@ t3 theme set grove
 ```
 
 Built-in themes work immediately. Published custom themes use their canvas color;
-updates to that palette update the thread color too. Every client uses the theme's
-base appearance, independently of its own light/dark preference. No phone-side
+updates to that palette update the thread color too. Threads use the theme's
+matching light/dark variant for the mobile app's current appearance, falling back
+to its base palette when that variant is unavailable. No phone-side
 color mapping or fork-specific server changes are needed. A missing default or
 unavailable palette uses the ordinary background. `t3 theme clear` removes the
 origin color. See [Environment themes](#environment-themes) for publishing a palette
