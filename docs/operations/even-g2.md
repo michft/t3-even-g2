@@ -71,6 +71,47 @@ launch do not verify physical G2/R1 behavior; run the hardware checks below.
 - Substitute your own device ID, signing team, bundle ID, and build directory
   in the public deployment examples below.
 
+## Developer Team signing and deployment expiry
+
+For longer-lived deployments, use an enrolled Apple Developer Program team
+instead of a free Personal Team. Add the account in Xcode Settings → Apple
+Accounts and confirm the enrolled team is available before building. Personal
+Team provisioning profiles expire seven days after issuance; Release
+configuration alone does not extend that period. See Apple's
+[developer account guidance](https://developer.apple.com/help/account/basics/about-your-developer-account).
+
+Use the existing development-identity build command below with `G2_TEAM_ID`
+set to your enrolled team's ID. Keep the installed bundle ID and
+`APP_VARIANT=development`. An existing reduced-capability project can retain
+`T3CODE_IOS_PERSONAL_TEAM=1`: this flag controls the Expo configuration's
+capabilities and custom bundle ID, while `DEVELOPMENT_TEAM` selects the signing
+team. It does not set the provisioning profile's lifetime. Regenerating the
+native project or enabling additional extensions is not needed just to renew
+signing.
+
+Before installing, inspect the successful build's embedded profile:
+
+```bash
+security cms -D -i "$G2_APP/embedded.mobileprovision" |
+  plutil -extract ExpirationDate raw -o - -
+```
+
+Verify the profile belongs to the intended team, covers the target device, and
+expires beyond the previous seven-day limit. Record its actual expiry and
+check the signing certificate's validity; do not assume a fixed deployment
+duration. Avoid the optional seven-day offline profile when requesting a
+longer deployment; see Apple's
+[profile guidance](https://developer.apple.com/help/account/provisioning-profiles/provisioning-profile-updates/).
+
+Changing teams can change the App ID prefix and Keychain access groups even
+when the bundle ID stays the same. Saved T3 environments use Keychain storage.
+Compare the old and new signed app's `application-identifier` and
+`keychain-access-groups` before installation. If they differ, resolve identity
+and data migration before replacing the installed app; do not uninstall it to
+work around a rejected update. Apple's
+[App ID prefix guidance](https://developer.apple.com/library/archive/technotes/tn2311/_index.html)
+explains why a prefix change can lose access to existing Keychain data.
+
 ## Rebuild and deploy an existing development-identity app
 
 Use this example when updating an existing `T3 Code Dev` installation with a
