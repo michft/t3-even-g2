@@ -41,6 +41,11 @@ for labels and a phone-friendly handoff prompt.
 
 ## PR requirements
 
+Follow [PR quality and human acceptance](docs/agents/pr-quality.md): review
+README and changelog relevance, update them when relevant, record minimal
+design and regression assessments, and obtain review from a different agent
+execution. Passing tests and current review evidence are required before merge.
+
 - One concern per PR; keep unrelated work separate.
 - Use a conventional title, such as `fix(mobile): recover G2 display after idle`.
 - Explain the problem and resulting behavior, then list validation results.

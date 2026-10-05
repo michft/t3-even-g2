@@ -29,6 +29,7 @@
 Start with the [development runbook](./operations/development.md) and
 [contribution policy](../CONTRIBUTING.md).
 For this fork, also read [G2 workflow instructions](./agents/fork-instructions.md).
+Every PR follows [PR quality and human acceptance](./agents/pr-quality.md).
 
 Internal notes preserve architectural decisions, constraints, and implementation traps that the
 source alone does not explain. Most code changes do not need an internal documentation update. Follow the
