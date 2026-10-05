@@ -97,31 +97,42 @@ const recordProviderUsage = (provider: string, instanceId: string | null = provi
   });
 
 it.layer(NodeServices.layer)("server settings", (it) => {
-  it.effect("persists and publishes origin color changes and clearing", () =>
-    Effect.scoped(
-      Effect.gen(function* () {
-        const config = yield* ServerConfig.ServerConfig;
-        const fs = yield* FileSystem.FileSystem;
-        const service = yield* ServerSettingsModule.ServerSettingsService;
-        const changes = yield* service.subscribeChanges;
-        yield* service.updateSettings({ environmentColor: "#ff8800" });
-        const colored = yield* changes.pipe(Stream.runHead);
-        assert.equal(Option.getOrThrow(colored).environmentColor, "#ff8800");
-        const persisted = yield* decodeServerSettingsJson(
-          yield* fs.readFileString(config.settingsPath),
-        );
-        assert.equal(persisted.environmentColor, "#ff8800");
+  it.effect(
+    "persists and publishes the host Appearance canvas while preserving other settings",
+    () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const config = yield* ServerConfig.ServerConfig;
+          const fs = yield* FileSystem.FileSystem;
+          const service = yield* ServerSettingsModule.ServerSettingsService;
+          yield* service.updateSettings({ responseStreamingMode: "turn" });
+          const changes = yield* service.subscribeChanges;
+          yield* service.publishAppearanceColor("#ff8800");
+          const colored = yield* changes.pipe(Stream.runHead);
+          assert.equal(Option.getOrThrow(colored).environmentColor, "#ff8800");
+          assert.equal(Option.getOrThrow(colored).responseStreamingMode, "turn");
+          const persisted = yield* decodeServerSettingsJson(
+            yield* fs.readFileString(config.settingsPath),
+          );
+          assert.equal(persisted.environmentColor, "#ff8800");
+          assert.equal(persisted.responseStreamingMode, "turn");
 
-        const clearedChanges = yield* service.subscribeChanges;
-        yield* service.updateSettings({ environmentColor: null });
-        const cleared = yield* clearedChanges.pipe(Stream.runHead);
-        assert.isNull(Option.getOrThrow(cleared).environmentColor);
-        assert.isNull(
-          (yield* decodeServerSettingsJson(yield* fs.readFileString(config.settingsPath)))
-            .environmentColor,
-        );
-      }),
-    ).pipe(Effect.provide(makeServerSettingsLayer())),
+          const changedColors = yield* service.subscribeChanges;
+          yield* service.publishAppearanceColor("#123456");
+          const changed = yield* changedColors.pipe(Stream.runHead);
+          assert.equal(Option.getOrThrow(changed).environmentColor, "#123456");
+          assert.equal((yield* service.getSettings).responseStreamingMode, "turn");
+        }),
+      ).pipe(Effect.provide(makeServerSettingsLayer())),
+  );
+  it.effect("rejects invalid host Appearance publication without replacing cached canvas", () =>
+    Effect.gen(function* () {
+      const service = yield* ServerSettingsModule.ServerSettingsService;
+      yield* service.publishAppearanceColor("#123456");
+      const rejected = yield* service.publishAppearanceColor("red").pipe(Effect.flip);
+      assert.equal(rejected.operation, "normalize");
+      assert.equal((yield* service.getSettings).environmentColor, "#123456");
+    }).pipe(Effect.provide(makeServerSettingsLayer())),
   );
   it.effect("migrates saved token delivery to paragraph buffering without resetting settings", () =>
     Effect.gen(function* () {

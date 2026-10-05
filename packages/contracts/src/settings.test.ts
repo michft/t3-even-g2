@@ -37,14 +37,14 @@ describe("environment origin colors", () => {
   it.each(["#ff8800", "#AABBCC", null])("round-trips server color %s", (environmentColor) => {
     const input = { environmentColor };
     expect(encodeServerSettings(decodeServerSettings(input))).toMatchObject(input);
-    expect(decodeServerSettingsPatch(input)).toEqual(input);
+    expect(decodeServerSettingsPatch(input)).toEqual({});
   });
 
   it.each(["red", "#fff", "#ff880080", "url(example)"])(
     "rejects invalid server color %s",
     (environmentColor) => {
       expect(() => decodeServerSettings({ environmentColor })).toThrow();
-      expect(() => decodeServerSettingsPatch({ environmentColor })).toThrow();
+      expect(decodeServerSettingsPatch({ environmentColor })).toEqual({});
     },
   );
 

@@ -259,7 +259,7 @@ export const DefaultThemePreference = Schema.String.check(Schema.isMaxLength(64)
 // would let a client write a theme no client can resolve, bypassing both.
 export type DefaultThemePreference = typeof DefaultThemePreference.Type;
 
-/** Server-owned origin color, rendered automatically by connected clients. */
+/** Cached host Appearance canvas, rendered automatically by connected clients. */
 export const EnvironmentColor = Schema.String.check(Schema.isPattern(/^#[0-9a-fA-F]{6}$/));
 
 export const ThreadOriginColorMode = Schema.Literals(["tint", "solid", "off"]);
@@ -1321,6 +1321,7 @@ export const ServerSettings = Schema.Struct({
   environmentIcon: ForwardCompatibleNullable(EnvironmentMachineKind).pipe(
     Schema.withDecodingDefault(Effect.succeed(null)),
   ),
+  /** Last canvas published by the host desktop; clients cannot edit this projection. */
   environmentColor: Schema.NullOr(EnvironmentColor).pipe(
     Schema.withDecodingDefault(Effect.succeed(null)),
   ),
@@ -1660,7 +1661,6 @@ export const ServerSettingsPatch = Schema.Struct({
   providerHealthRefreshInterval: Schema.optionalKey(Schema.DurationFromMillis),
   backgroundActivityProfile: Schema.optionalKey(BackgroundActivityProfile),
   environmentIcon: Schema.optionalKey(Schema.NullOr(EnvironmentMachineKind)),
-  environmentColor: Schema.optionalKey(Schema.NullOr(EnvironmentColor)),
   defaultThreadEnvMode: Schema.optionalKey(Schema.NullOr(ThreadEnvMode)),
   newWorktreesStartFromOrigin: Schema.optionalKey(Schema.Boolean),
   worktreeSubmodules: Schema.optionalKey(Schema.NullOr(WorktreeSubmodules)),

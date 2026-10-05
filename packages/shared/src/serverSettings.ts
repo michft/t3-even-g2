@@ -295,6 +295,8 @@ export function applyServerSettingsPatch(
   const next = deepMerge(current, patchForMerge);
   const nextWithReplacementsBase = {
     ...next,
+    // Host Appearance publishes this projection; ordinary settings patches cannot change it.
+    environmentColor: current.environmentColor,
     ...(worktreeCleanupPatch === undefined
       ? {}
       : {

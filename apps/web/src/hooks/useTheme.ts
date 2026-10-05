@@ -9,6 +9,9 @@ import {
   canonicalThemePreference,
   isKnownThemePreference,
   getThemePreferenceMode,
+  getThemeDefinition,
+  getThemeColorsForMode,
+  getStandardThemeColors,
   parseThemeHalves,
   resolveDesktopTheme,
   resolveThemeAppearance,
@@ -18,6 +21,7 @@ import {
   THEME_FOLLOW_SYSTEM_STORAGE_KEY,
   THEME_HALVES_STORAGE_KEY,
   ThemePreference,
+  themeColorToHex,
   type ThemeAppearance,
   type ThemeHalves,
   type ThemePreferenceMode,
@@ -135,7 +139,8 @@ export const isDesktopThemeSyncError = Schema.is(DesktopThemeSyncError);
 let listeners: Array<() => void> = [];
 let lastSnapshot: ThemeSnapshot | null = null;
 let snapshotStale = true;
-let lastDesktopTheme: "light" | "dark" | "system" | null = null;
+let lastDesktopTheme: string | null = null;
+let desktopThemeSync: Promise<void> = Promise.resolve();
 let lastAppliedTheme: Omit<ThemeSnapshot, "resolvedTheme"> | null = null;
 let themeStorageReadFailure: ThemeStorageError | null = null;
 
@@ -365,15 +370,52 @@ function applyTheme(theme: Theme, { suppressTransitions = false, preservePreview
   }
 }
 
+function desktopThemeCanvas(
+  theme: Theme,
+  followSystem: boolean | undefined,
+  appearanceMode: ThemePreferenceMode | undefined,
+  halves: ThemeHalves | null,
+): string {
+  const appearance = resolveThemeAppearance(
+    theme,
+    getSystemDark(),
+    followSystem,
+    appearanceMode,
+    halves,
+  );
+  const definition = getThemeDefinition(resolveThemeHalf(theme, halves, appearance));
+  const colors = definition
+    ? (getThemeColorsForMode(definition, appearance) ?? definition.colors)
+    : getStandardThemeColors(appearance);
+  const canvas = themeColorToHex(colors.canvas);
+  const backdrop = themeColorToHex(getStandardThemeColors(appearance).canvas)!;
+  if (!canvas) return backdrop;
+  if (canvas.length === 7) return canvas;
+
+  // Imported canvases may carry alpha; clients receive the opaque surface.
+  const alpha = Number.parseInt(canvas.slice(7), 16) / 255;
+  return `#${[1, 3, 5]
+    .map((offset) =>
+      Math.round(
+        Number.parseInt(canvas.slice(offset, offset + 2), 16) * alpha +
+          Number.parseInt(backdrop.slice(offset, offset + 2), 16) * (1 - alpha),
+      )
+        .toString(16)
+        .padStart(2, "0"),
+    )
+    .join("")}`;
+}
+
 export async function syncDesktopThemePreference(
   bridge: DesktopThemeBridge,
   theme: Theme,
   followSystem?: boolean,
   appearanceMode?: ThemePreferenceMode,
   halves: ThemeHalves | null = readStoredThemeHalves(),
+  canvas = desktopThemeCanvas(theme, followSystem, appearanceMode, halves),
 ): Promise<void> {
   try {
-    await bridge.setTheme(resolveDesktopTheme(theme, followSystem, appearanceMode, halves));
+    await bridge.setTheme(resolveDesktopTheme(theme, followSystem, appearanceMode, halves), canvas);
   } catch (cause) {
     throw new DesktopThemeSyncError({ theme, cause });
   }
@@ -385,16 +427,27 @@ export function syncDesktopTheme(
   appearanceMode?: ThemePreferenceMode,
 ) {
   if (typeof window === "undefined") return;
-  const bridge = window.desktopBridge;
-  const halves = readStoredThemeHalves();
-  const desktopTheme = resolveDesktopTheme(theme, followSystem, appearanceMode, halves);
-  if (!bridge || typeof bridge.setTheme !== "function" || lastDesktopTheme === desktopTheme) {
+  if (
+    typeof document !== "undefined" &&
+    document.documentElement.dataset?.themeId === THEME_PREVIEW_ID
+  ) {
     return;
   }
+  const bridge = window.desktopBridge;
+  if (!bridge || typeof bridge.setTheme !== "function") return;
+  const halves = readStoredThemeHalves();
+  const desktopTheme = resolveDesktopTheme(theme, followSystem, appearanceMode, halves);
+  const canvas = desktopThemeCanvas(theme, followSystem, appearanceMode, halves);
+  const syncKey = `${desktopTheme}:${canvas}`;
+  if (lastDesktopTheme === syncKey) return desktopThemeSync;
 
-  lastDesktopTheme = desktopTheme;
-  void syncDesktopThemePreference(bridge, theme, followSystem, appearanceMode, halves).catch(
-    (cause: unknown) => {
+  lastDesktopTheme = syncKey;
+  // Serialize updates so an earlier IPC write cannot finish after the newest palette.
+  desktopThemeSync = desktopThemeSync
+    .then(() =>
+      syncDesktopThemePreference(bridge, theme, followSystem, appearanceMode, halves, canvas),
+    )
+    .catch((cause: unknown) => {
       const error = isDesktopThemeSyncError(cause)
         ? cause
         : new DesktopThemeSyncError({ theme, cause });
@@ -402,11 +455,11 @@ export function syncDesktopTheme(
         theme: error.theme,
         ...safeErrorLogAttributes(error),
       });
-      if (lastDesktopTheme === desktopTheme) {
+      if (lastDesktopTheme === syncKey) {
         lastDesktopTheme = null;
       }
-    },
-  );
+    });
+  return desktopThemeSync;
 }
 
 // Apply immediately on module load to prevent flash

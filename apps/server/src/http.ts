@@ -3,6 +3,7 @@ import {
   AuthOrchestrationOperateScope,
   AuthOrchestrationReadScope,
   EnvironmentHttpApi,
+  DesktopAppearancePublication,
 } from "@t3tools/contracts";
 import { isDevProxiedPath } from "@t3tools/shared/devProxy";
 import { decodeOtlpTraceRecords } from "@t3tools/shared/observability";
@@ -46,6 +47,7 @@ import {
   failEnvironmentInternal,
 } from "./auth/http.ts";
 import * as ServerEnvironment from "./environment/ServerEnvironment.ts";
+import * as ServerSettings from "./serverSettings.ts";
 import { browserApiCorsAllowedHeaders, browserApiCorsAllowedMethods } from "./httpCors.ts";
 
 const OTLP_TRACES_PROXY_PATH = "/api/observability/v1/traces";
@@ -292,7 +294,31 @@ const authenticateRawRouteWithScope = (
     if (!session.scopes.includes(scope)) {
       return yield* failEnvironmentScopeRequired(scope);
     }
+    return session;
   });
+
+/** Only the owning desktop publishes its Appearance; remote client themes stay local. */
+export const desktopAppearanceRouteLayer = HttpRouter.add(
+  "POST",
+  "/api/desktop/appearance",
+  Effect.gen(function* () {
+    const session = yield* authenticateRawRouteWithScope(AuthOrchestrationOperateScope);
+    if (session.subject !== "desktop-bootstrap") {
+      return HttpServerResponse.empty({ status: 403 });
+    }
+    const request = yield* HttpServerRequest.HttpServerRequest;
+    const body = yield* request.json.pipe(
+      Effect.flatMap(Schema.decodeUnknownEffect(DesktopAppearancePublication)),
+      Effect.option,
+    );
+    if (Option.isNone(body)) return HttpServerResponse.empty({ status: 400 });
+    const settings = yield* ServerSettings.ServerSettingsService;
+    yield* settings
+      .publishAppearanceColor(body.value.canvas)
+      .pipe(Effect.catch((cause) => failEnvironmentInternal("internal_error", cause)));
+    return HttpServerResponse.empty({ status: 204 });
+  }),
+);
 
 export const serverEnvironmentHttpApiLayer = HttpApiBuilder.group(
   EnvironmentHttpApi,
