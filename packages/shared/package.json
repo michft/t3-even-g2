@@ -3,6 +3,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./environmentColor": {
+      "types": "./src/environmentColor.ts",
+      "import": "./src/environmentColor.ts"
+    },
     "./orchestrationV2ThreadError": {
       "types": "./src/orchestrationV2ThreadError.ts",
       "import": "./src/orchestrationV2ThreadError.ts"

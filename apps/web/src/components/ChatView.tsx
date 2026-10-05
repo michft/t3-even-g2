@@ -1,4 +1,5 @@
 import { ChatCanvas } from "./chat/ChatCanvas";
+import { environmentColorForeground } from "@t3tools/shared/environmentColor";
 import { usageLimitRecoveryBannerItem } from "./chat/UsageLimitRecoveryBanner";
 import {
   resolveBackgroundDraftWorkspaceOptions,
@@ -153,6 +154,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
 } from "react";
 import { flushSync } from "react-dom";
 import { useLocation, useNavigate } from "@tanstack/react-router";
@@ -3874,6 +3876,19 @@ export default function ChatView(props: ChatViewProps) {
     activeThreadKey,
   );
   const displayedThreadRef = parseScopedThreadKey(displayedTimelineKey);
+  const originSettings = useEnvironmentSettings(displayedThreadRef?.environmentId ?? environmentId);
+  const originColor =
+    settings.threadOriginColorMode === "off" ? null : originSettings.environmentColor;
+  const originStyle = originColor
+    ? ({
+        "--thread-origin-background":
+          settings.threadOriginColorMode === "solid"
+            ? originColor
+            : `color-mix(in srgb, var(--background) 88%, ${originColor})`,
+        "--thread-origin-foreground": environmentColorForeground(originColor),
+      } as CSSProperties)
+    : undefined;
+
   const worktreeSetupOwnerKey = draftId ?? routeThreadKey;
   const worktreeSetupActive =
     worktreeSetupRef !== null && worktreeSetupRef.ownerKey === worktreeSetupOwnerKey;
@@ -10810,7 +10825,8 @@ export default function ChatView(props: ChatViewProps) {
   return (
     <div
       ref={workspaceLayoutRef}
-      className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-background"
+      className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-thread-origin"
+      style={originStyle}
     >
       <Dialog
         open={
@@ -10929,7 +10945,12 @@ export default function ChatView(props: ChatViewProps) {
               />
             </div>
             {/* Messages Wrapper */}
-            <div className="relative flex min-h-0 flex-1 flex-col bg-background">
+            <div
+              className={cn(
+                "relative flex min-h-0 flex-1 flex-col bg-thread-origin",
+                originColor && settings.threadOriginColorMode === "solid" && "thread-origin-solid",
+              )}
+            >
               {/* Messages — LegendList handles virtualization and scrolling internally */}
               <MessagesTimeline
                 citationRequest={paintOnlyDisplayedTimeline ? null : citationRequest}

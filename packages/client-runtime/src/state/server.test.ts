@@ -413,7 +413,7 @@ describe("server state projection", () => {
       type: "snapshot",
       config: CONFIG,
     });
-    const settings = { ...CONFIG.settings };
+    const settings = { ...CONFIG.settings, environmentColor: "#ff8800" };
     const projected = applyServerConfigProjection(snapshot, {
       version: 1,
       type: "settingsUpdated",
@@ -423,6 +423,13 @@ describe("server state projection", () => {
     const result = Option.getOrThrow(projected);
     expect(result.config.settings).toBe(settings);
     expect(result.latestEvent.type).toBe("settingsUpdated");
+    expect(result.config.settings.environmentColor).toBe("#ff8800");
+    const cleared = applyServerConfigProjection(projected, {
+      version: 1,
+      type: "settingsUpdated",
+      payload: { settings: { ...settings, environmentColor: null } },
+    });
+    expect(Option.getOrThrow(cleared).config.settings.environmentColor).toBeNull();
   });
 
   it("carries published environment themes in and out of the projected snapshot", () => {
