@@ -2309,7 +2309,21 @@ code {
   }
 }
 
-/* Solid origin backgrounds are scoped to the conversation, never the app theme. */
+/* Rows retain local hover/selection surfaces while showing their host at rest. */
+.sidebar-thread-origin:not(:hover):not(:focus-within) {
+  background-color: var(--thread-origin-row-background);
+}
+
+.sidebar-thread-origin-solid:not(:hover):not(:focus-within) {
+  --contrast-foreground: var(--thread-origin-foreground);
+  --contrast-muted-foreground: var(--thread-origin-foreground);
+  --contrast-secondary-label: var(--thread-origin-foreground);
+  --contrast-icon-muted: var(--thread-origin-foreground);
+  --contrast-sidebar-foreground: var(--thread-origin-foreground);
+  --contrast-sidebar-muted-foreground: var(--thread-origin-foreground);
+}
+
+/* Solid origin backgrounds are scoped to threads, never the app theme. */
 .thread-origin-solid {
   --contrast-foreground: var(--thread-origin-foreground);
   --contrast-muted-foreground: var(--thread-origin-foreground);

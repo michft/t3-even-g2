@@ -34,6 +34,7 @@ function selectEnvironment(config: ServerConfig) {
       }),
     ),
     machineKind: resolveEnvironmentMachineKind(config),
+    environmentColor: config.settings.environmentColor ?? null,
     capabilities: config.environment.capabilities,
   };
 }
@@ -62,6 +63,7 @@ function sameProviders(
 function collectEnvironments(environments: ReadonlyMap<EnvironmentId, ListEnvironment>) {
   const providersByEnvironmentId = new Map<EnvironmentId, ReadonlyArray<ThreadListProvider>>();
   const machineByEnvironmentId = new Map<EnvironmentId, EnvironmentMachineKind>();
+  const environmentColorByEnvironmentId = new Map<EnvironmentId, string | null>();
   const settlementEnvironmentIds = new Set<EnvironmentId>();
   const snoozeEnvironmentIds = new Set<EnvironmentId>();
   const pinningEnvironmentIds = new Set<EnvironmentId>();
@@ -69,9 +71,10 @@ function collectEnvironments(environments: ReadonlyMap<EnvironmentId, ListEnviro
   const pinReorderEnvironmentIds = new Set<EnvironmentId>();
   const activeReorderEnvironmentIds = new Set<EnvironmentId>();
   const titleRegenerationEnvironmentIds = new Set<EnvironmentId>();
-  for (const [id, { providers, machineKind, capabilities }] of environments) {
+  for (const [id, { providers, machineKind, environmentColor, capabilities }] of environments) {
     providersByEnvironmentId.set(id, providers);
     machineByEnvironmentId.set(id, machineKind);
+    environmentColorByEnvironmentId.set(id, environmentColor);
     if (capabilities.threadSettlement === true) settlementEnvironmentIds.add(id);
     if (capabilities.threadSnooze === true) snoozeEnvironmentIds.add(id);
     if (capabilities.threadAutoSettleOptOut === true) autoSettleOptOutEnvironmentIds.add(id);
@@ -83,6 +86,7 @@ function collectEnvironments(environments: ReadonlyMap<EnvironmentId, ListEnviro
   return {
     providersByEnvironmentId,
     machineByEnvironmentId,
+    environmentColorByEnvironmentId,
     settlementEnvironmentIds,
     snoozeEnvironmentIds,
     pinningEnvironmentIds,
@@ -113,6 +117,7 @@ export function createThreadListEnvironmentsAtom(
         prior &&
         prior.providers === selected.providers &&
         prior.machineKind === selected.machineKind &&
+        prior.environmentColor === selected.environmentColor &&
         capabilityKeys.every(
           (key) => (prior.capabilities[key] === true) === (selected.capabilities[key] === true),
         );

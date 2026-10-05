@@ -1,4 +1,5 @@
 import { ThreadHoverCard, ThreadHoverCardPopup } from "./ThreadHoverCard";
+import { environmentColorForeground } from "@t3tools/shared/environmentColor";
 import { CollapsibleSectionHeader } from "./ui/collapsible-section-header";
 import { setThreadChangeRequestSnapshot } from "./ThreadStatusIndicators";
 import { ThreadContextDragGhost } from "./chat/ThreadContextDragGhost";
@@ -57,7 +58,7 @@ import {
   type ThreadId,
 } from "@t3tools/contracts";
 
-import type { TimestampFormat } from "@t3tools/contracts/settings";
+import type { ThreadOriginColorMode, TimestampFormat } from "@t3tools/contracts/settings";
 import {
   AlarmClockIcon,
   AlarmClockOffIcon,
@@ -90,6 +91,7 @@ import {
   useReducer,
   useRef,
   useState,
+  type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
@@ -1073,6 +1075,8 @@ const dropVerbBadge: Record<SidebarDropVerb, ReactNode> = {
 
 const SidebarThreadRow = memo(function SidebarThreadRow(props: {
   thread: SidebarThreadSummary;
+  originColor: string | null;
+  originColorMode: ThreadOriginColorMode;
   variant: "card" | "slim";
   // Settled rows un-settle, snoozed rows wake, and cards settle.
   variantAction: SidebarSweepAction;
@@ -1178,6 +1182,18 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
   const localLastVisitedAt = useUiStateStore((state) => state.threadLastVisitedAtById[threadKey]);
   const lastVisitedAt = resolveThreadLastVisitedAt(thread.lastVisitedAt, localLastVisitedAt);
   const isSelected = useThreadSelectionStore((state) => state.selectedThreadKeys.has(threadKey));
+  const originColor = props.originColorMode === "off" ? null : props.originColor;
+  const showOriginColor =
+    originColor !== null && !props.isActive && !isSelected && props.sweepAction === null;
+  const originStyle = originColor
+    ? ({
+        "--thread-origin-row-background":
+          props.originColorMode === "solid"
+            ? originColor
+            : `color-mix(in srgb, var(--sidebar) 88%, ${originColor})`,
+        "--thread-origin-foreground": environmentColorForeground(originColor),
+      } as CSSProperties)
+    : undefined;
   const openPrLink = useOpenPrLink();
   const runningTerminalIds = useThreadRunningTerminalIds({
     environmentId: thread.environmentId,
@@ -1533,6 +1549,8 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
   // content; surface is reserved for interaction (hover, multi-select, route).
   const rowSurfaceClassName = cn(
     "group/sidebar-row relative w-full cursor-pointer overflow-hidden rounded-md text-left outline-none select-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+    showOriginColor && "sidebar-thread-origin",
+    showOriginColor && props.originColorMode === "solid" && "sidebar-thread-origin-solid",
     variantAction === "unsettle" && "[&:not(:hover):not(:focus-within)_*]:text-secondary-label/70",
     props.isActive
       ? "bg-sidebar-row-active text-sidebar-foreground"
@@ -1761,6 +1779,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
                 aria-label={accessibility.label}
                 aria-current={accessibility.current}
                 data-testid="sidebar-row-slim"
+                style={originStyle}
                 aria-busy={isRegeneratingTitle || undefined}
                 className={cn(rowSurfaceClassName, "flex h-9 items-center gap-2.5 px-2.5")}
                 onClick={handleClick}
@@ -1926,6 +1945,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
               aria-label={accessibility.label}
               aria-current={accessibility.current}
               data-testid="sidebar-row-card"
+              style={originStyle}
               aria-busy={isRegeneratingTitle || undefined}
               className={rowSurfaceClassName}
               onClick={handleClick}
@@ -2332,6 +2352,7 @@ export default function Sidebar() {
   const confirmThreadArchive = useClientSettings((s) => s.confirmThreadArchive);
   const sidebarProjectSortOrder = useClientSettings((s) => s.sidebarProjectSortOrder);
   const timestampFormat = useClientSettings((s) => s.timestampFormat);
+  const threadOriginColorMode = useClientSettings((s) => s.threadOriginColorMode);
   const workingShelfEnabled = useClientSettings((s) => s.sidebarWorkingShelfEnabled);
   const projectGroupingSettings = useClientSettings(selectProjectGroupingSettings);
   const {
@@ -5119,6 +5140,11 @@ export default function Sidebar() {
                             // sortable wrapper keeps its identity during a drag.
                             key={`${threadKey}:${rowVariant}`}
                             thread={thread}
+                            originColor={
+                              serverConfigs.get(thread.environmentId)?.settings.environmentColor ??
+                              null
+                            }
+                            originColorMode={threadOriginColorMode}
                             variant={rowVariant}
                             // Snoozed rows wake, settled rows un-settle, and cards settle.
                             variantAction={

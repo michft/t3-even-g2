@@ -64,6 +64,31 @@ function harness() {
 }
 
 describe("thread list environment projection", () => {
+  it("publishes colour-only updates and clearing without replacing provider references", () => {
+    const h = harness();
+    try {
+      const initial = h.read();
+      const providers = initial.providersByEnvironmentId.get(ID);
+      const otherProviders = initial.providersByEnvironmentId.get(OTHER_ID);
+      expect(initial.environmentColorByEnvironmentId.get(ID)).toBeNull();
+      h.write({ ...config, settings: { ...config.settings, environmentColor: "#1b2821" } });
+      const coloured = h.read();
+      expect(coloured).not.toBe(initial);
+      expect(coloured.environmentColorByEnvironmentId.get(ID)).toBe("#1b2821");
+      expect(coloured.environmentColorByEnvironmentId.get(OTHER_ID)).toBeNull();
+      expect(coloured.providersByEnvironmentId.get(ID)).toBe(providers);
+      expect(coloured.providersByEnvironmentId.get(OTHER_ID)).toBe(otherProviders);
+      h.write({ ...config, settings: { ...config.settings, environmentColor: "#1b2821" } });
+      expect(h.read()).toBe(coloured);
+      h.write({ ...config, settings: { ...config.settings, environmentColor: null } });
+      expect(h.read().environmentColorByEnvironmentId.get(ID)).toBeNull();
+      expect(h.read().providersByEnvironmentId.get(ID)).toBe(providers);
+      expect(h.notifications().list).toBe(2);
+    } finally {
+      h.registry.dispose();
+    }
+  });
+
   it("keeps navigation stable while freshness, catalog and workspace updates reach full-config consumers", () => {
     const h = harness();
     try {
@@ -212,8 +237,10 @@ describe("thread list environment projection", () => {
       h.registry.set(h.configs, new Map());
       expect(h.read().providersByEnvironmentId.size).toBe(0);
       expect(h.read().machineByEnvironmentId.size).toBe(0);
+      expect(h.read().environmentColorByEnvironmentId.size).toBe(0);
       h.write(config);
       expect([...h.read().providersByEnvironmentId.keys()]).toEqual([ID, OTHER_ID]);
+      expect([...h.read().environmentColorByEnvironmentId.keys()]).toEqual([ID, OTHER_ID]);
       expect(h.notifications().list).toBe(2);
     } finally {
       h.registry.dispose();
