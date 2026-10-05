@@ -1054,7 +1054,9 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
   const showScrollToEndButton = contentPresentationKind === "ready" && !endFollowEnabled;
   const { themeAppearance, threadOriginColorMode } = useAppearancePreferences();
   const originColor =
-    threadOriginColorMode === "off" ? null : resolveMobileEnvironmentThemeColor(props.serverConfig);
+    threadOriginColorMode === "off"
+      ? null
+      : resolveMobileEnvironmentThemeColor(props.serverConfig, themeAppearance);
   const originVariables = useMemo(() => {
     if (!originColor || threadOriginColorMode !== "solid") return {};
     const foreground = environmentColorForeground(originColor);

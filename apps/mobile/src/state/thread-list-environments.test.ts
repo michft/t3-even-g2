@@ -64,6 +64,28 @@ function harness() {
 }
 
 describe("thread list environment projection", () => {
+  it("keeps light and dark origin colours current across remote default changes", () => {
+    const registry = AtomRegistry.make();
+    const configs = Atom.make<ReadonlyMap<EnvironmentId, ServerConfig>>(new Map());
+    const light = createThreadListEnvironmentsAtom(configs, "light");
+    const dark = createThreadListEnvironmentsAtom(configs, "dark");
+    try {
+      for (const [defaultTheme, lightColor, darkColor] of [
+        ["ember", "#f9f7f5", "#291e1a"],
+        ["grove", "#f3f7f4", "#1b2821"],
+      ] as const) {
+        registry.set(
+          configs,
+          new Map([[ID, { ...config, settings: { ...config.settings, defaultTheme } }]]),
+        );
+        expect(registry.get(light).environmentColorByEnvironmentId.get(ID)).toBe(lightColor);
+        expect(registry.get(dark).environmentColorByEnvironmentId.get(ID)).toBe(darkColor);
+      }
+    } finally {
+      registry.dispose();
+    }
+  });
+
   it("publishes remote default-theme updates and clearing without replacing provider references", () => {
     const h = harness();
     try {

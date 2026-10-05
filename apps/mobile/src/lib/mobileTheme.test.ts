@@ -29,6 +29,31 @@ import {
 
 describe("remote server theme origin colour", () => {
   it.each([
+    ["grove", "#1b2821"],
+    ["ember", "#291e1a"],
+  ])("uses %s's dark canvas on a dark phone", (defaultTheme, color) => {
+    expect(resolveMobileEnvironmentThemeColor({ settings: { defaultTheme } }, "dark")).toBe(color);
+  });
+
+  it("uses a remote custom theme's matching appearance variant", () => {
+    const config = {
+      settings: { defaultTheme: "custom" },
+      environmentThemes: [
+        {
+          id: "custom",
+          name: "Custom",
+          appearance: "light" as const,
+          canvas: "#fafafa",
+          accent: "#abcdef",
+          variants: { dark: { canvas: "#281e19" } },
+        },
+      ],
+    };
+    expect(resolveMobileEnvironmentThemeColor(config, "dark")).toBe("#281e19");
+    expect(resolveMobileEnvironmentThemeColor(config, "light")).toBe("#fafafa");
+  });
+
+  it.each([
     ["grove", "#f3f7f4"],
     ["t3-chat", "#fdf7fd"],
     ["ocean", "#f5f7f8"],

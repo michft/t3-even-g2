@@ -1,5 +1,7 @@
 import { createServerEnvironmentAtoms } from "@t3tools/client-runtime/state/server";
 import { createEnvironmentServerConfigsAtom } from "@t3tools/client-runtime/state/shell";
+import { Atom } from "effect/unstable/reactivity";
+import type { ThemeAppearance } from "@t3tools/shared/themePalettes";
 
 import { environmentCatalog } from "../connection/catalog";
 import { connectionAtomRuntime } from "../connection/runtime";
@@ -17,6 +19,6 @@ export const environmentServerConfigsAtom = createEnvironmentServerConfigsAtom({
   serverConfigValueAtom: serverEnvironment.configValueAtom,
 });
 
-export const threadListEnvironmentsAtom = createThreadListEnvironmentsAtom(
-  environmentServerConfigsAtom,
+export const threadListEnvironmentsAtom = Atom.family((appearance: ThemeAppearance) =>
+  createThreadListEnvironmentsAtom(environmentServerConfigsAtom, appearance),
 );

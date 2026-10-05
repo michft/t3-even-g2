@@ -7,6 +7,7 @@ import {
 } from "@t3tools/contracts";
 import { Atom } from "effect/unstable/reactivity";
 import { resolveMobileEnvironmentThemeColor } from "../lib/mobileTheme";
+import type { ThemeAppearance } from "@t3tools/shared/themePalettes";
 
 export type ThreadListProvider = Pick<
   ServerProvider,
@@ -23,7 +24,7 @@ const capabilityKeys = [
   "threadTitleRegeneration",
 ] as const;
 
-function selectEnvironment(config: ServerConfig) {
+function selectEnvironment(config: ServerConfig, appearance?: ThemeAppearance) {
   return {
     providers: config.providers.map(
       ({ instanceId, driver, displayName, accentColor, iconUrl }) => ({
@@ -35,7 +36,7 @@ function selectEnvironment(config: ServerConfig) {
       }),
     ),
     machineKind: resolveEnvironmentMachineKind(config),
-    environmentColor: resolveMobileEnvironmentThemeColor(config),
+    environmentColor: resolveMobileEnvironmentThemeColor(config, appearance),
     capabilities: config.environment.capabilities,
   };
 }
@@ -101,6 +102,7 @@ function collectEnvironments(environments: ReadonlyMap<EnvironmentId, ListEnviro
 /** Provider freshness and model catalogs do not affect the navigation lists. */
 export function createThreadListEnvironmentsAtom(
   configsAtom: Atom.Atom<ReadonlyMap<EnvironmentId, ServerConfig>>,
+  appearance?: ThemeAppearance,
 ) {
   let previous = new Map<EnvironmentId, ListEnvironment>();
   let result = collectEnvironments(previous);
@@ -109,7 +111,7 @@ export function createThreadListEnvironmentsAtom(
     const next = new Map<EnvironmentId, ListEnvironment>();
     let changed = configs.size !== previous.size;
     for (const [id, config] of configs) {
-      const selected = selectEnvironment(config);
+      const selected = selectEnvironment(config, appearance);
       const prior = previous.get(id);
       if (prior && sameProviders(prior.providers, selected.providers)) {
         selected.providers = prior.providers;

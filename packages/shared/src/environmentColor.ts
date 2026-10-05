@@ -17,6 +17,7 @@ export interface EnvironmentThemeConfig {
 export function resolveEnvironmentThemeColor(
   config: EnvironmentThemeConfig | null | undefined,
   toHex: (color: string) => string | null,
+  requestedAppearance?: ThemeAppearance,
 ): string | null {
   const id = config?.settings.defaultTheme;
   if (!id) return null;
@@ -25,11 +26,17 @@ export function resolveEnvironmentThemeColor(
   const theme = builtIn ?? published;
   if (!theme) return null;
 
-  const appearance = theme.appearance;
+  const variant =
+    requestedAppearance && requestedAppearance !== theme.appearance
+      ? theme.variants?.[requestedAppearance]
+      : undefined;
+  const appearance = variant ? requestedAppearance! : theme.appearance;
   const fallback = getThemeColorsForAppearance(T3_CHAT_THEME, appearance)!.canvas;
-  const candidates = builtIn
-    ? [builtIn.colors.canvas]
-    : [published?.colors?.canvas, published?.canvas, fallback];
+  const candidates = variant
+    ? [variant.canvas, fallback]
+    : builtIn
+      ? [builtIn.colors.canvas]
+      : [published?.colors?.canvas, published?.canvas, fallback];
   for (const canvas of candidates) {
     if (canvas === undefined) continue;
     const hex = toHex(canvas);

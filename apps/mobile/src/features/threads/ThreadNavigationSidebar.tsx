@@ -131,7 +131,7 @@ function NativeSidebarContainer(props: ThreadNavigationSidebarProps) {
 function ThreadNavigationSidebarPane(
   props: ThreadNavigationSidebarProps & { readonly nativeChrome: boolean },
 ) {
-  const { themeVariables: materialTheme } = useAppearancePreferences();
+  const { themeVariables: materialTheme, themeAppearance } = useAppearancePreferences();
   const drawerColor = materialTheme["--color-drawer"];
 
   const insets = useSafeAreaInsets();
@@ -313,7 +313,7 @@ function ThreadNavigationSidebarPane(
   }, []);
   // Threads on servers without the settlement capability never classify as
   // settled (the user could neither un-settle nor pin them).
-  const listEnvironments = useAtomValue(threadListEnvironmentsAtom);
+  const listEnvironments = useAtomValue(threadListEnvironmentsAtom(themeAppearance));
   const {
     providersByEnvironmentId,
     machineByEnvironmentId,

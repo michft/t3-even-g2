@@ -36,6 +36,7 @@ import { useThreadSearch } from "../../state/queries";
 import { useThreadJumpShortcuts } from "../keyboard/threadKeyboardShortcuts";
 import { usePendingThreadOrder } from "../../state/thread-order";
 import { threadListEnvironmentsAtom } from "../../state/server";
+import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import type { PendingNewTask } from "../../state/use-pending-new-tasks";
 import { useQueuedThreadKeys } from "../../state/use-thread-outbox";
 import {
@@ -490,7 +491,8 @@ export function HomeScreen(props: HomeScreenProps) {
   );
   // Threads on servers without the settlement capability never classify as
   // settled (the user could neither un-settle nor pin them).
-  const listEnvironments = useAtomValue(threadListEnvironmentsAtom);
+  const { themeAppearance } = useAppearancePreferences();
+  const listEnvironments = useAtomValue(threadListEnvironmentsAtom(themeAppearance));
   const {
     providersByEnvironmentId,
     machineByEnvironmentId,
