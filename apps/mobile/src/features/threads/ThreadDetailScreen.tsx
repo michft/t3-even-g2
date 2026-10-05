@@ -1,6 +1,6 @@
 import { useThreadReportedModelSelection } from "../../state/entities";
 import { environmentColorForeground } from "@t3tools/shared/environmentColor";
-import { themeColorWithAlpha } from "../../lib/mobileTheme";
+import { resolveMobileEnvironmentThemeColor, themeColorWithAlpha } from "../../lib/mobileTheme";
 import { UsageLimitRecoveryCard } from "./UsageLimitRecoveryCard";
 import { useIsFocused, useNavigation } from "@react-navigation/native";
 import type { WorktreeSetupCardProps } from "./worktree-setup-card";
@@ -1054,7 +1054,7 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
   const showScrollToEndButton = contentPresentationKind === "ready" && !endFollowEnabled;
   const { themeAppearance, threadOriginColorMode } = useAppearancePreferences();
   const originColor =
-    threadOriginColorMode === "off" ? null : props.serverConfig?.settings.environmentColor;
+    threadOriginColorMode === "off" ? null : resolveMobileEnvironmentThemeColor(props.serverConfig);
   const originVariables = useMemo(() => {
     if (!originColor || threadOriginColorMode !== "solid") return {};
     const foreground = environmentColorForeground(originColor);

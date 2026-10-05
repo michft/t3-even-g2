@@ -22,9 +22,67 @@ import {
   normalizeMobileThemeId,
   normalizeMobileThemeMode,
   resolveMobileThemeIds,
+  resolveMobileEnvironmentThemeColor,
   themeColorWithAlpha,
   themeColorToNativeColor,
 } from "./mobileTheme";
+
+describe("remote server theme origin colour", () => {
+  it.each([
+    ["grove", "#f3f7f4"],
+    ["t3-chat", "#fdf7fd"],
+    ["ocean", "#f5f7f8"],
+  ])("resolves %s without changing phone appearance", (defaultTheme, color) => {
+    expect(resolveMobileEnvironmentThemeColor({ settings: { defaultTheme } })).toBe(color);
+  });
+
+  it.each(["", "not-published"])("leaves the ordinary background for %s", (defaultTheme) => {
+    expect(resolveMobileEnvironmentThemeColor({ settings: { defaultTheme } })).toBeNull();
+  });
+
+  it("uses the selected remote's exported canvas ahead of its seed or opposite appearance", () => {
+    expect(
+      resolveMobileEnvironmentThemeColor({
+        settings: { defaultTheme: "nightfall" },
+        environmentThemes: [
+          {
+            id: "nightfall",
+            name: "Nightfall",
+            appearance: "dark",
+            canvas: "#123456",
+            accent: "#abcdef",
+            colors: { canvas: "rgb(27, 40, 33)" },
+            variants: { light: { canvas: "#ffffff" } },
+          },
+        ],
+      }),
+    ).toBe("#1b2821");
+  });
+
+  it("expands short seeds and flattens alpha over the standard backdrop", () => {
+    const config = {
+      settings: { defaultTheme: "nightfall" },
+      environmentThemes: [
+        {
+          id: "nightfall",
+          name: "Nightfall",
+          appearance: "dark" as const,
+          canvas: "#123",
+          accent: "#abc",
+        },
+      ],
+    };
+    expect(resolveMobileEnvironmentThemeColor(config)).toBe("#112233");
+    expect(
+      resolveMobileEnvironmentThemeColor({
+        ...config,
+        environmentThemes: [
+          { ...config.environmentThemes[0]!, colors: { canvas: "rgba(255, 0, 0, 0.5)" } },
+        ],
+      }),
+    ).toBe("#850505");
+  });
+});
 
 function relativeLuminance(hex: string): number {
   const channels = hex

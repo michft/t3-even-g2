@@ -1,4 +1,8 @@
 import {
+  resolveEnvironmentThemeColor,
+  type EnvironmentThemeConfig,
+} from "@t3tools/shared/environmentColor";
+import {
   BUILT_IN_THEMES,
   T3_CHAT_THEME,
   T3_CODE_LIGHT_THEME_COLORS,
@@ -121,6 +125,24 @@ export function themeColorToNativeColor(value: string): string {
   return alpha < 1
     ? `rgba(${red}, ${green}, ${blue}, ${Number(alpha.toFixed(4))})`
     : `#${[red, green, blue].map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
+}
+
+/** Thread origin follows the server default, independently of this phone's appearance. */
+export function resolveMobileEnvironmentThemeColor(
+  config: EnvironmentThemeConfig | null | undefined,
+): string | null {
+  return resolveEnvironmentThemeColor(config, (color) => {
+    const native = themeColorToNativeColor(color);
+    const rgba = /^rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)(?:[,\s/]+([\d.]+))?\s*\)$/i.exec(native);
+    if (!rgba) return native;
+    const channels = [rgba[1], rgba[2], rgba[3]].map(Number);
+    if (channels.some((channel) => channel > 255)) return null;
+    const alpha = rgba[4] === undefined ? 1 : Number(rgba[4]);
+    if (alpha < 0 || alpha > 1) return null;
+    return `#${[...channels, Math.round(alpha * 255)]
+      .map((channel) => channel.toString(16).padStart(2, "0"))
+      .join("")}`;
+  });
 }
 
 function nativeColors(colors: ThemeColors): ThemeColors {

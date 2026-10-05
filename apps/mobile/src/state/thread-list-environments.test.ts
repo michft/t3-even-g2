@@ -64,26 +64,64 @@ function harness() {
 }
 
 describe("thread list environment projection", () => {
-  it("publishes colour-only updates and clearing without replacing provider references", () => {
+  it("publishes remote default-theme updates and clearing without replacing provider references", () => {
     const h = harness();
     try {
       const initial = h.read();
       const providers = initial.providersByEnvironmentId.get(ID);
       const otherProviders = initial.providersByEnvironmentId.get(OTHER_ID);
       expect(initial.environmentColorByEnvironmentId.get(ID)).toBeNull();
-      h.write({ ...config, settings: { ...config.settings, environmentColor: "#1b2821" } });
+      h.write({
+        ...config,
+        settings: { ...config.settings, defaultTheme: "grove", environmentColor: "#1b2821" },
+      });
       const coloured = h.read();
       expect(coloured).not.toBe(initial);
-      expect(coloured.environmentColorByEnvironmentId.get(ID)).toBe("#1b2821");
+      expect(coloured.environmentColorByEnvironmentId.get(ID)).toBe("#f3f7f4");
       expect(coloured.environmentColorByEnvironmentId.get(OTHER_ID)).toBeNull();
       expect(coloured.providersByEnvironmentId.get(ID)).toBe(providers);
       expect(coloured.providersByEnvironmentId.get(OTHER_ID)).toBe(otherProviders);
-      h.write({ ...config, settings: { ...config.settings, environmentColor: "#1b2821" } });
+      h.write({ ...config, settings: { ...config.settings, defaultTheme: "grove" } });
       expect(h.read()).toBe(coloured);
-      h.write({ ...config, settings: { ...config.settings, environmentColor: null } });
+      h.write({ ...config, settings: { ...config.settings, defaultTheme: "" } });
       expect(h.read().environmentColorByEnvironmentId.get(ID)).toBeNull();
       expect(h.read().providersByEnvironmentId.get(ID)).toBe(providers);
       expect(h.notifications().list).toBe(2);
+    } finally {
+      h.registry.dispose();
+    }
+  });
+
+  it("updates each remote's colour when its published canvas changes or disappears", () => {
+    const h = harness();
+    const themed: ServerConfig = {
+      ...config,
+      settings: { ...config.settings, defaultTheme: "nightfall" },
+      environmentThemes: [
+        {
+          id: "nightfall",
+          name: "Nightfall",
+          appearance: "dark",
+          canvas: "#123456",
+          accent: "#abcdef",
+        },
+      ],
+    };
+    try {
+      h.write(themed);
+      const initial = h.read();
+      expect(initial.environmentColorByEnvironmentId.get(ID)).toBe("#123456");
+      expect(initial.environmentColorByEnvironmentId.get(OTHER_ID)).toBeNull();
+      h.write({
+        ...themed,
+        environmentThemes: [{ ...themed.environmentThemes![0]!, canvas: "#654321" }],
+      });
+      expect(h.read().environmentColorByEnvironmentId.get(ID)).toBe("#654321");
+      expect(h.read().providersByEnvironmentId.get(ID)).toBe(
+        initial.providersByEnvironmentId.get(ID),
+      );
+      h.write({ ...themed, environmentThemes: [] });
+      expect(h.read().environmentColorByEnvironmentId.get(ID)).toBeNull();
     } finally {
       h.registry.dispose();
     }

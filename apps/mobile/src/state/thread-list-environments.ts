@@ -6,6 +6,7 @@ import {
   type ServerProvider,
 } from "@t3tools/contracts";
 import { Atom } from "effect/unstable/reactivity";
+import { resolveMobileEnvironmentThemeColor } from "../lib/mobileTheme";
 
 export type ThreadListProvider = Pick<
   ServerProvider,
@@ -34,7 +35,7 @@ function selectEnvironment(config: ServerConfig) {
       }),
     ),
     machineKind: resolveEnvironmentMachineKind(config),
-    environmentColor: config.settings.environmentColor ?? null,
+    environmentColor: resolveMobileEnvironmentThemeColor(config),
     capabilities: config.environment.capabilities,
   };
 }

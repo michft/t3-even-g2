@@ -8,6 +8,7 @@ import { createThreadListEnvironmentsAtom } from "./thread-list-environments";
 
 export const serverEnvironment = createServerEnvironmentAtoms(connectionAtomRuntime, {
   initialConfigValueAtom: environmentSession.initialConfigValueAtom,
+  environmentThemes: true,
   usageLimitSources: true,
   usageLimitsCommand: true,
 });
