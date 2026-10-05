@@ -73,6 +73,11 @@ use the same workflow. `.plans/` is reserved for planning, not documentation.
 
 ## Pasted CodeRabbit reviews
 
+Every PR also follows [PR quality and human acceptance](pr-quality.md),
+including documentation relevance decisions, passing CI, and review by a
+different agent execution. Keep current review evidence in the PR, not local
+plans. Human acceptance and publishing authorization remain required.
+
 - Preserve the existing automatic Nightly merge skip in `.coderabbit.yaml`:
   titles containing `merge T3 Nightly` are excluded. A green skipped status
   does not mean a completed review with zero findings. Record that distinction

@@ -24,6 +24,32 @@ Closes #<issue-number>
 <!-- Include before/after images for UI changes and video for motion or timing.
      Upload evidence to GitHub; do not commit PR-only assets. Delete if unused. -->
 
+## Quality evidence
+
+<!-- Complete this JSON block. README/changelog: updated with changed files,
+     or not-needed with a concrete reason and []. All PRs need both decisions.
+     See docs/agents/pr-quality.md. A different agent reviews the final diff
+     and this description; a collaborator posts its attestation in a comment. -->
+
+```pr-quality
+{
+  "author_agent": "<author task or execution ID, or human:login>",
+  "readme": {
+    "status": "updated",
+    "reason": "<why README needs an update, or why not-needed>",
+    "files": ["README.md"]
+  },
+  "changelog": {
+    "status": "updated",
+    "reason": "<why changelog needs an update, or why not-needed>",
+    "files": ["CHANGELOG.md"]
+  },
+  "validation": "<commands, results, remaining verification gaps>",
+  "design": "<smallest sufficient design and scope>",
+  "regression": "<affected areas, neighboring checks, residual risks>"
+}
+```
+
 ## Checklist
 
 - [ ] Linked an accepted issue in michft/t3-even-g2

@@ -4,6 +4,9 @@
 
 Before working in this fork, read
 [fork instructions](docs/agents/fork-instructions.md).
+Follow [PR quality and human acceptance](docs/agents/pr-quality.md) for every
+PR: documentation relevance, focused validation, minimal design, regression
+assessment, and independent agent review evidence are required.
 `.plans/` is for planning only. Building, deployment, issues, debugging, and
 contributor guidance belong in tracked public `docs/`, with explicit G2 examples.
 Link guides from the README, docs index, or contribution guide. Use placeholders

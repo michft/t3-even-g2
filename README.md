@@ -18,6 +18,8 @@ To help investigate fork issues, see the
 from the phone and collecting diagnostics.
 See [glasses setup and controls](docs/user/even-g2.md) and
 [native builds and diagnostics](docs/operations/even-g2.md) for G2 examples.
+Fork contributors follow [PR quality and human acceptance](docs/agents/pr-quality.md).
+See the [fork changelog](CHANGELOG.md) for downstream changes.
 
 # T3 Code
 
