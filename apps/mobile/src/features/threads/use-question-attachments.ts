@@ -1,18 +1,10 @@
-import { TextInputWrapper } from "expo-paste-input";
-import { AppTextInput as TextInput } from "../../components/AppText";
-import { useNativePaste } from "../../lib/useNativePaste";
 import { convertPastedImagesToAttachments } from "../../lib/composerImages";
 import { PROVIDER_SEND_TURN_MAX_ATTACHMENTS, type UserInputQuestion } from "@t3tools/contracts";
 import { useAtomValue } from "@effect/atom-react";
-import { Alert, View } from "react-native";
-import { useEffect, useRef, useState } from "react";
-import { ComposerAttachmentButton } from "../../components/ComposerAttachmentButton";
-import { ComposerAttachmentStrip } from "../../components/ComposerAttachmentStrip";
+import { Alert } from "react-native";
+import { useEffect, useRef } from "react";
 import { pickComposerFiles, pickComposerMedia } from "../../lib/composerImages";
 import { useThreadSelection } from "../../state/use-thread-selection";
-import { useNavigation } from "@react-navigation/native";
-import { FilePreviewModal, type FilePreviewSource } from "../../components/FilePreviewModal";
-import { VideoPreviewModal, type VideoPreviewSource } from "../../components/VideoPreviewModal";
 import { useServerConfigs } from "../../state/entities";
 import { appAtomRegistry } from "../../state/atom-registry";
 import {
@@ -27,19 +19,14 @@ import {
   questionAttachmentPreparationAtom,
 } from "../../state/question-attachments";
 
-export function QuestionAttachments(props: {
+/** Own question-scoped pickers and preparation reservations for either composer. */
+export function useQuestionAttachments(props: {
   requestId: string;
   question: UserInputQuestion;
   questions: ReadonlyArray<UserInputQuestion>;
   disabled: boolean;
-  value: string;
-  onChangeText: (value: string) => void;
-  onInputFocusChange?: ((focused: boolean) => void) | undefined;
 }) {
   const { selectedThread } = useThreadSelection();
-  const navigation = useNavigation();
-  const [previewFile, setPreviewFile] = useState<FilePreviewSource | null>(null);
-  const [previewVideo, setPreviewVideo] = useState<VideoPreviewSource | null>(null);
   const configs = useServerConfigs();
   const drafts = useAtomValue(composerDraftsAtom);
   const scopeKey = JSON.stringify([
@@ -75,11 +62,12 @@ export function QuestionAttachments(props: {
       maxAttachments: Math.max(0, PROVIDER_SEND_TURN_MAX_ATTACHMENTS - otherCount),
     });
   };
-  const paste = useNativePaste((uris) => {
+  const pasteImages = async (uris: ReadonlyArray<string>) => {
     const scope = pickerScope.current;
     if (
       !selectedThread ||
       props.disabled ||
+      props.question.allowCustomAnswer === false ||
       !configs.get(selectedThread.environmentId)?.environment.capabilities.questionAttachments
     )
       return;
@@ -90,7 +78,7 @@ export function QuestionAttachments(props: {
       props.question.id,
     );
     changeQuestionAttachmentPreparation(key, 1);
-    void convertPastedImagesToAttachments({
+    await convertPastedImagesToAttachments({
       uris,
       existingCount: appAtomRegistry.get(composerDraftsAtom)[key]?.attachments.length ?? 0,
     })
@@ -107,19 +95,21 @@ export function QuestionAttachments(props: {
         Alert.alert("Could not paste image", error instanceof Error ? error.message : "Try again."),
       )
       .finally(() => changeQuestionAttachmentPreparation(key, -1));
-  });
-  if (!selectedThread || props.question.allowCustomAnswer === false) return null;
-  const { environmentId, id: threadId } = selectedThread;
-  const capabilities = configs.get(environmentId)?.environment.capabilities;
-  const canAttach = capabilities?.questionAttachments === true;
-  const key = questionAttachmentDraftKey(
-    environmentId,
-    threadId,
-    props.requestId,
-    props.question.id,
-  );
+  };
+  const environmentId = selectedThread?.environmentId;
+  const threadId = selectedThread?.id;
+  const capabilities = environmentId
+    ? configs.get(environmentId)?.environment.capabilities
+    : undefined;
+  const canAttach =
+    capabilities?.questionAttachments === true && props.question.allowCustomAnswer !== false;
+  const key =
+    environmentId && threadId
+      ? questionAttachmentDraftKey(environmentId, threadId, props.requestId, props.question.id)
+      : "";
   const attachments = drafts[key]?.attachments ?? [];
   const pick = async (kind: "media" | "files") => {
+    if (!canAttach || props.disabled || !selectedThread) return;
     const scope = pickerScope.current;
     changeQuestionAttachmentPreparation(key, 1);
     try {
@@ -152,51 +142,15 @@ export function QuestionAttachments(props: {
       changeQuestionAttachmentPreparation(key, -1);
     }
   };
-  return (
-    <View className="gap-2">
-      {canAttach ? (
-        <ComposerAttachmentButton
-          disabled={props.disabled}
-          supportsFiles={Boolean(capabilities?.fileAttachments)}
-          onPickMedia={() => pick("media")}
-          onPickFiles={() => pick("files")}
-        />
-      ) : null}
-      <ComposerAttachmentStrip
-        environmentId={environmentId}
-        attachments={attachments}
-        onRemove={(id) => {
-          if (!props.disabled) removeComposerDraftAttachment(key, id);
-        }}
-        onPressPreview={setPreviewFile}
-        onPressVideo={(attachment, sourceIdentifier) =>
-          setPreviewVideo({ type: "local", attachment, sourceIdentifier })
-        }
-        onPressDocument={(attachment) =>
-          navigation.navigate("ThreadAttachment", {
-            environmentId: String(environmentId),
-            threadId: String(threadId),
-            attachmentId: attachment.id,
-            name: attachment.name,
-            mimeType: attachment.mimeType,
-            sizeBytes: String(attachment.sizeBytes),
-            draftKey: key,
-          })
-        }
-      />
-      <FilePreviewModal source={previewFile} onRequestClose={() => setPreviewFile(null)} />
-      <VideoPreviewModal source={previewVideo} onRequestClose={() => setPreviewVideo(null)} />
-      <TextInputWrapper onPaste={paste}>
-        <TextInput
-          value={props.value}
-          editable={!props.disabled}
-          onChangeText={props.onChangeText}
-          onFocus={() => props.onInputFocusChange?.(true)}
-          onBlur={() => props.onInputFocusChange?.(false)}
-          placeholder="Or type a custom answer"
-          className="min-h-[54px] rounded-2xl border border-input-border bg-input px-3.5 py-3 font-sans text-base text-foreground"
-        />
-      </TextInputWrapper>
-    </View>
-  );
+  return {
+    key,
+    attachments,
+    canAttach,
+    onPickMedia: () => pick("media"),
+    onPickFiles: () => pick("files"),
+    onPasteImages: pasteImages,
+    onRemove: (id: string) => {
+      if (!props.disabled) removeComposerDraftAttachment(key, id);
+    },
+  };
 }

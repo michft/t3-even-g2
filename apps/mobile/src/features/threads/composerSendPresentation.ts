@@ -28,6 +28,8 @@ const ACTION_LABEL: Record<ActiveTurnComposerAction, string> = {
  * promises something the server would have to silently downgrade.
  */
 export function resolveComposerSendPresentation(input: {
+  /** Runtime answers use a direct response command rather than the prompt outbox. */
+  readonly answeringQuestion?: boolean;
   readonly editingQueuedMessage: boolean;
   readonly running: boolean;
   readonly canSteer: boolean;
@@ -44,9 +46,9 @@ export function resolveComposerSendPresentation(input: {
       offersFollowUpChoice: false,
     };
   }
-  if (!input.running) {
+  if (!input.running || input.answeringQuestion) {
     return {
-      label: input.deliveryDeferred ? "Queue" : "Send",
+      label: input.deliveryDeferred && !input.answeringQuestion ? "Queue" : "Send",
       icon: "arrow.up",
       action: null,
       alternate: null,

@@ -101,9 +101,9 @@ Do not ask questions that can be answered from the repo or system (for example, 
 
 Critical rules:
 
-* Strongly prefer using the \`request_user_input\` tool to ask any questions.
+* Ask clarification questions in ordinary chat. Offer numbered choices, ending with "Something else — reply in your own words." Accept a number or free-text answer. Keep other tools available.
 * Offer only meaningful multiple-choice options; don't include filler choices that are obviously wrong or irrelevant.
-* In rare cases where an unavoidable, important question can't be expressed with reasonable multiple-choice options (due to extreme ambiguity), you may ask it directly without the tool.
+* Do not use question tools that create popup panels or clickable answer choices.
 
 You SHOULD ask many questions, but each question must:
 
@@ -178,7 +178,7 @@ Your active mode changes only when new developer instructions with a different \
 
 Use the \`request_user_input\` tool only when it is listed in the available tools for this turn.
 
-In Default mode, strongly prefer making reasonable assumptions and executing the user's request rather than stopping to ask questions. If you absolutely must ask a question because the answer cannot be discovered from local context and a reasonable assumption would be risky, ask the user directly with a concise plain-text question. Never write a multiple choice question as a textual assistant message.
+In Default mode, strongly prefer making reasonable assumptions and executing the user's request rather than stopping to ask questions. If you absolutely must ask a question because the answer cannot be discovered from local context and a reasonable assumption would be risky, ask the user directly with a concise plain-text question. Use ordinary chat for clarification questions. When offering choices, use a numbered list ending with "Something else — reply in your own words." Accept a number or free-text answer. Do not use question tools that create popup panels or clickable answer choices; keep other tools available.
 </collaboration_mode>`;
 
 export interface CodexRuntimeInfo {

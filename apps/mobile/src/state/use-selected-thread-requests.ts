@@ -236,85 +236,88 @@ export function useSelectedThreadRequests() {
     [activePendingApprovals, respondToApproval, selectedThreadShell],
   );
 
-  const onSubmitUserInput = useCallback(async () => {
-    if (
-      !selectedThreadShell ||
-      !activePendingUserInput ||
-      activePendingUserInput.responseCapability === "not_resumable" ||
-      !activePendingUserInputAnswers
-    ) {
-      return;
-    }
+  const onSubmitUserInput = useCallback(
+    async (answers = activePendingUserInputAnswers) => {
+      if (
+        !selectedThreadShell ||
+        !activePendingUserInput ||
+        activePendingUserInput.responseCapability === "not_resumable" ||
+        !answers
+      ) {
+        return;
+      }
 
-    const responseKey = questionAttachmentDraftKey(
-      selectedThreadShell.environmentId,
-      selectedThreadShell.id,
-      activePendingUserInput.requestId,
-      "",
-    );
-    if (userInputResponsesInFlight.current.has(responseKey)) return;
-    const attachmentsByQuestionId = new Map<
-      string,
-      import("@t3tools/contracts").UserInputAttachments[string]
-    >();
-    for (const question of activePendingUserInput.questions) {
-      const key = questionAttachmentDraftKey(
+      const responseKey = questionAttachmentDraftKey(
         selectedThreadShell.environmentId,
         selectedThreadShell.id,
         activePendingUserInput.requestId,
-        question.id,
+        "",
       );
-      if ((appAtomRegistry.get(questionAttachmentPreparationAtom)[key] ?? 0) > 0) return;
-      const attachments = appAtomRegistry.get(composerDraftsAtom)[key]?.attachments ?? [];
-      if (attachments.length === 0) continue;
-      if (
-        attachments.some(
-          (attachment) =>
-            !attachment.uploadedAttachmentId ||
-            attachment.uploadEnvironmentId !== selectedThreadShell.environmentId,
-        )
-      ) {
-        Alert.alert(
-          "Attachments are not ready",
-          "Wait for uploads to finish, or retry failed uploads.",
+      if (userInputResponsesInFlight.current.has(responseKey)) return;
+      const attachmentsByQuestionId = new Map<
+        string,
+        import("@t3tools/contracts").UserInputAttachments[string]
+      >();
+      for (const question of activePendingUserInput.questions) {
+        const key = questionAttachmentDraftKey(
+          selectedThreadShell.environmentId,
+          selectedThreadShell.id,
+          activePendingUserInput.requestId,
+          question.id,
         );
-        return;
+        if ((appAtomRegistry.get(questionAttachmentPreparationAtom)[key] ?? 0) > 0) return;
+        const attachments = appAtomRegistry.get(composerDraftsAtom)[key]?.attachments ?? [];
+        if (attachments.length === 0) continue;
+        if (
+          attachments.some(
+            (attachment) =>
+              !attachment.uploadedAttachmentId ||
+              attachment.uploadEnvironmentId !== selectedThreadShell.environmentId,
+          )
+        ) {
+          Alert.alert(
+            "Attachments are not ready",
+            "Wait for uploads to finish, or retry failed uploads.",
+          );
+          return;
+        }
+        attachmentsByQuestionId.set(
+          question.id,
+          attachments.map((attachment) => ({
+            type: attachment.type,
+            id: attachment.uploadedAttachmentId!,
+            name: attachment.name,
+            mimeType: attachment.mimeType,
+            sizeBytes: attachment.sizeBytes,
+          })),
+        );
       }
-      attachmentsByQuestionId.set(
-        question.id,
-        attachments.map((attachment) => ({
-          type: attachment.type,
-          id: attachment.uploadedAttachmentId!,
-          name: attachment.name,
-          mimeType: attachment.mimeType,
-          sizeBytes: attachment.sizeBytes,
-        })),
+      userInputResponsesInFlight.current.add(responseKey);
+      setRespondingUserInputId(activePendingUserInput.requestId);
+      const result = await respondToUserInput({
+        environmentId: selectedThreadShell.environmentId,
+        input: {
+          threadId: selectedThreadShell.id,
+          requestId: activePendingUserInput.requestId,
+          answers,
+          ...(attachmentsByQuestionId.size > 0
+            ? { attachmentsByQuestionId: Object.fromEntries(attachmentsByQuestionId) }
+            : {}),
+        },
+      });
+      userInputResponsesInFlight.current.delete(responseKey);
+      setRespondingUserInputId((current) =>
+        current === activePendingUserInput.requestId ? null : current,
       );
-    }
-    userInputResponsesInFlight.current.add(responseKey);
-    setRespondingUserInputId(activePendingUserInput.requestId);
-    const result = await respondToUserInput({
-      environmentId: selectedThreadShell.environmentId,
-      input: {
-        threadId: selectedThreadShell.id,
-        requestId: activePendingUserInput.requestId,
-        answers: activePendingUserInputAnswers,
-        ...(attachmentsByQuestionId.size > 0
-          ? { attachmentsByQuestionId: Object.fromEntries(attachmentsByQuestionId) }
-          : {}),
-      },
-    });
-    userInputResponsesInFlight.current.delete(responseKey);
-    setRespondingUserInputId((current) =>
-      current === activePendingUserInput.requestId ? null : current,
-    );
-    return result;
-  }, [
-    activePendingUserInput,
-    activePendingUserInputAnswers,
-    respondToUserInput,
-    selectedThreadShell,
-  ]);
+      return result;
+    },
+    [
+      activePendingUserInput,
+      activePendingUserInputAnswers,
+      respondToUserInput,
+      selectedThreadShell,
+    ],
+  );
 
   // Closes an async question without messaging the agent.
   const onDismissUserInput = useCallback(async () => {

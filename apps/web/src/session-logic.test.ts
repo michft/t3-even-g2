@@ -1004,7 +1004,14 @@ describe("native provider presentation in the v2 timeline", () => {
       ...base,
       type: "user_input_request",
       requestId,
-      questions: [],
+      questions: [
+        {
+          id: "color",
+          header: "Color",
+          question: "Which color?",
+          options: [{ label: "Blue", description: "Blue palette" }],
+        },
+      ],
       questionAnswer: { requestId, answers: { color: "Blue" }, attachmentsByQuestionId: {} },
     };
     const reply: OrchestrationV2TurnItem = {
@@ -1023,7 +1030,11 @@ describe("native provider presentation in the v2 timeline", () => {
     const nextInput = { ...input, visibleTurnItems: [...input.visibleTurnItems, visible(reply)] };
     const next = deriveTimelineEntriesFromVisibleTurnItemsWithState(nextInput, previous);
     expect(next.entries).toEqual(deriveTimelineEntriesFromVisibleTurnItems(nextInput));
-    expect(next.entries).toHaveLength(1);
+    expect(next.entries).toHaveLength(2);
+    expect(next.entries[0]).toMatchObject({
+      kind: "message",
+      message: { role: "assistant", text: expect.stringContaining("1. Blue") },
+    });
     const replyFirst = { ...input, visibleTurnItems: [visible(reply)] };
     const replyProjection = deriveTimelineEntriesFromVisibleTurnItemsWithState(replyFirst);
     const questionAfterReply = {
@@ -1035,7 +1046,7 @@ describe("native provider presentation in the v2 timeline", () => {
         .entries,
     ).toEqual(deriveTimelineEntriesFromVisibleTurnItems(questionAfterReply));
 
-    expect(next.entries[0]).toMatchObject({
+    expect(next.entries[1]).toMatchObject({
       kind: "work",
       entry: { questionAnswer: question.questionAnswer },
     });

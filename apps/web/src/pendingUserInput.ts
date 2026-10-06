@@ -1,3 +1,4 @@
+import { resolveUserInputTextAnswer } from "@t3tools/client-runtime/work-log/user-input";
 import type { UserInputQuestion } from "@t3tools/contracts";
 
 export interface PendingUserInputDraftAnswer {
@@ -21,15 +22,6 @@ export interface PendingUserInputProgress {
   canAdvance: boolean;
 }
 
-function normalizeDraftAnswer(value: string | undefined): string | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
 function normalizeSelectedOptionValues(value: string[] | undefined): string[] {
   if (!Array.isArray(value)) {
     return [];
@@ -44,9 +36,8 @@ export function resolvePendingUserInputAnswer(
   draft: PendingUserInputDraftAnswer | undefined,
 ): string | string[] | null {
   if (draft?.attachmentsBlocked) return null;
-  const customAnswer =
-    question.allowCustomAnswer === false ? null : normalizeDraftAnswer(draft?.customAnswer);
-  if (customAnswer) {
+  const customAnswer = resolveUserInputTextAnswer(question, draft?.customAnswer ?? "");
+  if (customAnswer !== null) {
     return customAnswer;
   }
 
@@ -180,8 +171,7 @@ export function derivePendingUserInputProgress(
   const resolvedAnswer = activeQuestion
     ? resolvePendingUserInputAnswer(activeQuestion, activeDraft)
     : null;
-  const customAnswer =
-    activeQuestion?.allowCustomAnswer === false ? "" : (activeDraft?.customAnswer ?? "");
+  const customAnswer = activeDraft?.customAnswer ?? "";
   const answeredQuestionCount = countAnsweredPendingUserInputQuestions(questions, draftAnswers);
   const isLastQuestion =
     questions.length === 0 ? true : normalizedQuestionIndex >= questions.length - 1;

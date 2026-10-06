@@ -7,6 +7,9 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ### Changed
 
+- Render structured clarification questions as ordinary conversation text on
+  web, desktop, and mobile; accept numbered choices through the text composer.
+
 - Document enrolled Developer Team signing for longer-lived iOS deployments,
   including profile expiry and app identity/Keychain compatibility checks.
 - Ask agent clarification questions in chat, using numbered choices with

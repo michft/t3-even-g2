@@ -9893,7 +9893,7 @@ export default function ChatView(props: ChatViewProps) {
         return;
       }
       const question = activePendingUserInput.questions.find((entry) => entry.id === questionId);
-      if (!question || question.allowCustomAnswer === false) {
+      if (!question) {
         return;
       }
       promptRef.current = value;

@@ -207,7 +207,14 @@ describe("buildThreadFeed", () => {
       ...base("question", "2026-06-20T00:00:01.000Z", 0),
       type: "user_input_request",
       requestId,
-      questions: [],
+      questions: [
+        {
+          id: "color",
+          header: "Color",
+          question: "Which color?",
+          options: [{ label: "Blue", description: "Blue palette" }],
+        },
+      ],
       questionAnswer: { requestId, answers: { color: "Blue" }, attachmentsByQuestionId: {} },
     };
     const reply: OrchestrationV2TurnItem = {
@@ -216,8 +223,12 @@ describe("buildThreadFeed", () => {
       messageId: MessageId.make(`async-answer:${requestId}`),
     };
     const feed = buildThreadFeed([projected(question, 0), projected(reply, 1)]);
-    expect(feed).toHaveLength(1);
+    expect(feed).toHaveLength(2);
     expect(feed[0]).toMatchObject({
+      type: "message",
+      message: { role: "assistant", text: expect.stringContaining("1. Blue") },
+    });
+    expect(feed[1]).toMatchObject({
       type: "activity-group",
       activities: [{ workEntry: { questionAnswer: question.questionAnswer } }],
     });
@@ -2038,7 +2049,9 @@ describe("provider question values", () => {
   });
 
   it("rejects arbitrary text when the provider only accepts offered options", () => {
-    expect(setPendingUserInputCustomAnswer(question, undefined, "Other")).toEqual({});
+    expect(setPendingUserInputCustomAnswer(question, undefined, "Other")).toEqual({
+      customAnswer: "Other",
+    });
     expect(
       buildPendingUserInputAnswers([question], { runtime: { customAnswer: "Other" } }),
     ).toBeNull();
@@ -2375,3 +2388,17 @@ it.each(["provider_error", "usage_limit"] as const)(
     });
   },
 );
+
+it("accepts typed option numbers whose exact provider value is empty", () => {
+  const question = {
+    id: "empty",
+    header: "Empty",
+    question: "Choose a result",
+    options: [{ label: "Empty result", description: "No value", value: "" }],
+    multiSelect: false,
+    allowCustomAnswer: false,
+  };
+  expect(buildPendingUserInputAnswers([question], { empty: { customAnswer: "1" } })).toEqual({
+    empty: "",
+  });
+});

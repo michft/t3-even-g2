@@ -140,6 +140,10 @@ export const COMPOSER_COLLAPSED_CHROME = 60;
 export const COMPOSER_EXPANDED_CHROME = 156;
 
 export interface ThreadComposerProps {
+  /** A pending runtime question uses normal editing without interpreting answers as commands. */
+  readonly answeringQuestion?: boolean;
+  /** Question providers may reject attachments even when the environment can upload files. */
+  readonly supportsAnswerAttachments?: boolean;
   readonly draftMessage: string;
   readonly draftAttachments: ReadonlyArray<DraftComposerAttachment>;
   readonly placeholder: string;
@@ -418,9 +422,10 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
       serverConfig: props.serverConfig,
       states: uploadStates,
     });
-  // Every send goes through the outbox; the label says whether it leaves now
-  // or waits (for the connection, an earlier queued message, or an upload).
+  // Ordinary prompts use the outbox; runtime answers respond directly.
+  // The label must not promise to queue a response that cannot be queued.
   const sendPresentation = resolveComposerSendPresentation({
+    answeringQuestion: props.answeringQuestion,
     editingQueuedMessage: queuedEdit !== null,
     running: props.activeThreadBusy,
     canSteer: props.canSteerActiveTurn,
@@ -431,7 +436,9 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
   const sendLabel = sendPresentation.label;
   const currentModelSelection = props.selectedThread.modelSelection;
   const currentRuntimeMode = props.selectedThread.runtimeMode;
+  // A live runtime response does not start a turn with the selected prompt model.
   const modelUnavailable =
+    !props.answeringQuestion &&
     props.connectionState === "connected" &&
     isModelSelectionUnavailable(props.serverConfig, currentModelSelection);
   const selectedProviderStatus = useMemo(() => {
@@ -462,6 +469,7 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
   // T3 owns /usage-limits only where Limits has data for the selected provider;
   // elsewhere the name stays the provider's own and is sent through untouched.
   const usageLimitsOffered =
+    !props.answeringQuestion &&
     selectedProviderStatus !== null &&
     hasProviderUsageLimits(
       selectedProviderStatus.driver,
@@ -484,6 +492,7 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
   }, [currentModelSelection.instanceId, onShowUsageLimits, props.serverConfig]);
 
   const composerMenu = useComposerCommandMenu({
+    enabled: !props.answeringQuestion,
     draftMessage: props.draftMessage,
     ownerKey: composerOwnerKey,
     environmentId: props.environmentId,
@@ -513,7 +522,10 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
     readDraftMessage: () => getComposerDraftSnapshot(composerDraftKey).text,
     subscribeToDraftChanges: (onChange) => appAtomRegistry.subscribe(composerDraftsAtom, onChange),
     selection: composerMenu.selection,
-    onChangeDraftMessage: (text) => setComposerDraftText(composerDraftKey, text),
+    onChangeDraftMessage: (text) => {
+      setComposerDraftText(composerDraftKey, text);
+      props.onChangeDraftMessage(text);
+    },
     onChangeSelection: composerMenu.onSelectionChange,
   });
   const voicePresentation = resolveVoiceComposerPresentation(
@@ -834,7 +846,7 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
             compact={!isExpanded}
             hidden={showsCompactDictation}
           >
-            {!isExpanded ? (
+            {!isExpanded && props.supportsAnswerAttachments !== false ? (
               <ComposerAttachmentButton
                 supportsFiles={Boolean(
                   props.serverConfig?.environment.capabilities.fileAttachments,
@@ -1112,13 +1124,15 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
                   />
                 ) : (
                   <View className="min-w-0 flex-1 flex-row items-center justify-between">
-                    <ComposerAttachmentButton
-                      supportsFiles={Boolean(
-                        props.serverConfig?.environment.capabilities.fileAttachments,
-                      )}
-                      onPickMedia={props.onPickDraftMedia}
-                      onPickFiles={props.onPickDraftFiles}
-                    />
+                    {props.supportsAnswerAttachments !== false ? (
+                      <ComposerAttachmentButton
+                        supportsFiles={Boolean(
+                          props.serverConfig?.environment.capabilities.fileAttachments,
+                        )}
+                        onPickMedia={props.onPickDraftMedia}
+                        onPickFiles={props.onPickDraftFiles}
+                      />
+                    ) : null}
                     <View className="min-w-0 shrink">
                       <ComposerInlineControl
                         accessibilityLabel="Model and reasoning settings"

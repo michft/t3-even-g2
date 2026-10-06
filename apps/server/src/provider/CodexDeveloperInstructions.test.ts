@@ -8,6 +8,17 @@ import {
 } from "./CodexDeveloperInstructions.ts";
 
 describe("buildCodexDeveloperInstructions", () => {
+  it("asks plain chat questions in both modes without suppressing other tools", () => {
+    for (const mode of ["default", "plan"] as const) {
+      const instructions = buildCodexDeveloperInstructions(mode);
+      NodeAssert.match(instructions, /numbered/);
+      NodeAssert.match(instructions, /Something else — reply in your own words/);
+      NodeAssert.match(instructions, /[Kk]eep other tools available/);
+      NodeAssert.doesNotMatch(instructions, /Strongly prefer using the `request_user_input`/);
+      NodeAssert.doesNotMatch(instructions, /Never write a multiple choice question as a textual/);
+    }
+  });
+
   it("appends runtime info after the mode instructions", () => {
     const instructions = runtimeInstructions({
       model: "gpt-5.3-codex",

@@ -1,3 +1,7 @@
+import {
+  formatUserInputQuestions,
+  resolveUserInputTextAnswer,
+} from "@t3tools/client-runtime/work-log/user-input";
 import type {
   ThreadPendingApproval,
   ThreadPendingUserInput,
@@ -35,7 +39,6 @@ import {
 } from "@t3tools/shared/t3McpToolPresentation";
 import type {
   ChatAttachment,
-  MessageId,
   OrchestrationV2Actor,
   OrchestrationV2CreationSource,
   OrchestrationV2ExecutionNode,
@@ -48,7 +51,7 @@ import type {
   RunAttemptId,
   ScheduledTaskId,
 } from "@t3tools/contracts";
-import { RunId, ThreadId } from "@t3tools/contracts";
+import { MessageId, RunId, ThreadId } from "@t3tools/contracts";
 import {
   classifyToolActivity,
   collectToolFilePaths,
@@ -276,6 +279,10 @@ const projectedEntriesCache = new WeakMap<
     readonly entry: RawThreadFeedEntry;
   }
 >();
+const questionEntriesCache = new WeakMap<
+  OrchestrationV2ProjectedTurnItem,
+  { attemptId: RunAttemptId | null; entry: RawThreadFeedEntry }
+>();
 const localMessageEntriesCache = new WeakMap<
   LocalThreadMessage,
   Extract<RawThreadFeedEntry, { readonly type: "message" }>
@@ -359,9 +366,8 @@ function resolvePendingUserInputAnswer(
   draft: PendingUserInputDraftAnswer | undefined,
 ): string | ReadonlyArray<string> | null {
   if (draft?.attachmentsBlocked) return null;
-  const customAnswer =
-    question.allowCustomAnswer === false ? null : normalizeDraftAnswer(draft?.customAnswer);
-  if (customAnswer) {
+  const customAnswer = resolveUserInputTextAnswer(question, draft?.customAnswer ?? "");
+  if (customAnswer !== null) {
     return customAnswer;
   }
 
@@ -1560,10 +1566,6 @@ export function setPendingUserInputCustomAnswer(
   draft: PendingUserInputDraftAnswer | undefined,
   customAnswer: string,
 ): PendingUserInputDraftAnswer {
-  if (question.allowCustomAnswer === false) {
-    return draft ?? {};
-  }
-
   const selectedOptionValues =
     customAnswer.trim().length > 0
       ? undefined
@@ -1694,6 +1696,35 @@ export function buildThreadFeed(
       continue;
     }
     const attemptId = resolveAttemptId(item);
+    if (item.type === "user_input_request" && item.questions.length > 0) {
+      const createdAt = DateTime.formatIso(item.startedAt ?? item.updatedAt);
+      const messageId = MessageId.make(`question:${item.requestId}`);
+      const cachedQuestion = questionEntriesCache.get(row);
+      const entry: RawThreadFeedEntry =
+        cachedQuestion?.attemptId === attemptId
+          ? cachedQuestion.entry
+          : {
+              type: "message",
+              id: messageId,
+              createdAt,
+              message: {
+                id: messageId,
+                role: "assistant",
+                text: formatUserInputQuestions(item.questions),
+                attachments: [],
+                runId: item.runId,
+                streaming: false,
+                visibility: row.visibility,
+                sourceThreadId: row.sourceThreadId,
+                createdAt,
+                updatedAt: DateTime.formatIso(item.updatedAt),
+                projectedItem: row,
+              },
+            };
+      questionEntriesCache.set(row, { attemptId, entry });
+      entries.push(entry);
+      if (!item.questionAnswer) continue;
+    }
     const cached = projectedEntriesCache.get(row);
     if (cached?.attemptId === attemptId) {
       entries.push(cached.entry);
