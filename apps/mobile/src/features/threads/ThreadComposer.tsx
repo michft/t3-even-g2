@@ -406,10 +406,13 @@ function ThreadComposer(props: ThreadComposerProps) {
     props.draftMessage.trim().length > 0 ||
     props.draftAttachments.length > 0 ||
     (queuedEdit?.existingAttachments.length ?? 0) > 0;
-  // Only media belongs above the composer; every other file reads as its inline chip.
+  // Question files have no inline chips, so every attachment needs strip controls.
   const stripAttachments = useMemo(
-    () => composerStripAttachments(props.draftAttachments),
-    [props.draftAttachments],
+    () =>
+      props.answeringQuestion
+        ? props.draftAttachments
+        : composerStripAttachments(props.draftAttachments),
+    [props.answeringQuestion, props.draftAttachments],
   );
   // Stopping the agent is not what the send button means in edit mode.
   const showStopAction = !hasContent && props.canStopThread && queuedEdit === null;
