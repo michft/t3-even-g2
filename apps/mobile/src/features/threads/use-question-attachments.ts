@@ -44,28 +44,35 @@ export function useQuestionAttachments(props: {
     props.question.id,
   ]);
   const pickerScope = useRef<{ key: string; active: boolean } | null>(null);
-  useEffect(() => {
-    const scope = { key: scopeKey, active: true };
-    pickerScope.current = scope;
-    return () => {
-      scope.active = false;
-    };
-  }, [scopeKey]);
+  useEffect(
+    /** Track whether asynchronous attachment work still belongs to the active question. */ () => {
+      const scope = { key: scopeKey, active: true };
+      pickerScope.current = scope;
+      return /** Invalidate pending picker and paste results when the question changes or unmounts. */ () => {
+        scope.active = false;
+      };
+    },
+    [scopeKey],
+  );
+  /** Append within the request's remaining attachment allowance and return the rejected count. */
   const append = (
     key: string,
     attachments: Parameters<typeof appendComposerDraftAttachments>[1],
   ) => {
     if (!selectedThread) return 0;
     const current = appAtomRegistry.get(composerDraftsAtom);
-    const otherCount = props.questions.reduce((count, question) => {
-      const target = questionAttachmentDraftKey(
-        selectedThread.environmentId,
-        selectedThread.id,
-        props.requestId,
-        question.id,
-      );
-      return target === key ? count : count + (current[target]?.attachments.length ?? 0);
-    }, 0);
+    const otherCount = props.questions.reduce(
+      /** Count attachments reserved by the request's other questions. */ (count, question) => {
+        const target = questionAttachmentDraftKey(
+          selectedThread.environmentId,
+          selectedThread.id,
+          props.requestId,
+          question.id,
+        );
+        return target === key ? count : count + (current[target]?.attachments.length ?? 0);
+      },
+      0,
+    );
     return appendComposerDraftAttachments(key, attachments, {
       maxAttachments: Math.max(0, PROVIDER_SEND_TURN_MAX_ATTACHMENTS - otherCount),
     });
@@ -91,19 +98,30 @@ export function useQuestionAttachments(props: {
       uris,
       existingCount: appAtomRegistry.get(composerDraftsAtom)[key]?.attachments.length ?? 0,
     })
-      .then(async (images) => {
-        if (
-          scope?.active &&
-          (appAtomRegistry.get(questionAttachmentPreparationAtom)[key] ?? 0) > 0
-        ) {
-          if (append(key, images) > 0)
-            Alert.alert("Could not paste image", "Too many attachments.");
-        } else await releaseUnusedComposerAttachmentFiles(images);
-      })
-      .catch((error) =>
-        Alert.alert("Could not paste image", error instanceof Error ? error.message : "Try again."),
+      .then(
+        /** Append converted images if the question is still active; otherwise release unused files. */ async (
+          images,
+        ) => {
+          if (
+            scope?.active &&
+            (appAtomRegistry.get(questionAttachmentPreparationAtom)[key] ?? 0) > 0
+          ) {
+            if (append(key, images) > 0)
+              Alert.alert("Could not paste image", "Too many attachments.");
+          } else await releaseUnusedComposerAttachmentFiles(images);
+        },
       )
-      .finally(() => changeQuestionAttachmentPreparation(key, -1));
+      .catch(
+        /** Report a rejected paste operation using its error message when available. */ (error) =>
+          Alert.alert(
+            "Could not paste image",
+            error instanceof Error ? error.message : "Try again.",
+          ),
+      )
+      .finally(
+        /** Release the preparation reservation after either paste success or failure. */ () =>
+          changeQuestionAttachmentPreparation(key, -1),
+      );
   };
   const environmentId = selectedThread?.environmentId;
   const threadId = selectedThread?.id;
