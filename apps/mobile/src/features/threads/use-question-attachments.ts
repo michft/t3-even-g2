@@ -2,7 +2,7 @@ import { convertPastedImagesToAttachments } from "../../lib/composerImages";
 import { PROVIDER_SEND_TURN_MAX_ATTACHMENTS, type UserInputQuestion } from "@t3tools/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import { Alert } from "react-native";
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { pickComposerFiles, pickComposerMedia } from "../../lib/composerImages";
 import { useThreadSelection } from "../../state/use-thread-selection";
 import { useServerConfigs } from "../../state/entities";
@@ -44,6 +44,13 @@ export function useQuestionAttachments(props: {
     props.question.id,
   ]);
   const pickerScope = useRef<{ key: string; active: boolean } | null>(null);
+  const disabledRef = useRef(props.disabled);
+  useLayoutEffect(
+    /** Keep async completion guards aligned with the question's committed editable state. */ () => {
+      disabledRef.current = props.disabled;
+    },
+    [props.disabled],
+  );
   useEffect(
     /** Track whether asynchronous attachment work still belongs to the active question. */ () => {
       const scope = { key: scopeKey, active: true };
@@ -104,6 +111,7 @@ export function useQuestionAttachments(props: {
         ) => {
           if (
             scope?.active &&
+            !disabledRef.current &&
             (appAtomRegistry.get(questionAttachmentPreparationAtom)[key] ?? 0) > 0
           ) {
             if (append(key, images) > 0)
@@ -156,6 +164,7 @@ export function useQuestionAttachments(props: {
       // Resolution on another client clears the reservation while the picker is open.
       if (
         !scope?.active ||
+        disabledRef.current ||
         (appAtomRegistry.get(questionAttachmentPreparationAtom)[key] ?? 0) === 0
       ) {
         await releaseUnusedComposerAttachmentFiles(picked);
