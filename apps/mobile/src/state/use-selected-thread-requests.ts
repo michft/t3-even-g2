@@ -239,6 +239,7 @@ export function useSelectedThreadRequests() {
 
   /** Submit answers with uploaded question attachments, rejecting duplicate or unready responses. */
   const onSubmitUserInput = useCallback(
+    /** Submit the current answers and attachments through the existing request callback. */
     async (answers = activePendingUserInputAnswers) => {
       if (
         !selectedThreadShell ||
@@ -322,24 +323,27 @@ export function useSelectedThreadRequests() {
   );
 
   /** Close an asynchronous question without sending an answer or messaging the agent. */
-  const onDismissUserInput = useCallback(async () => {
-    if (!selectedThreadShell || !activePendingUserInput) {
-      return;
-    }
+  const onDismissUserInput = useCallback(
+    /** Dismiss the selected asynchronous request without submitting answers. */ async () => {
+      if (!selectedThreadShell || !activePendingUserInput) {
+        return;
+      }
 
-    setRespondingUserInputId(activePendingUserInput.requestId);
-    const result = await dismissUserInput({
-      environmentId: selectedThreadShell.environmentId,
-      input: {
-        threadId: selectedThreadShell.id,
-        requestId: activePendingUserInput.requestId,
-      },
-    });
-    setRespondingUserInputId((current) =>
-      current === activePendingUserInput.requestId ? null : current,
-    );
-    return result;
-  }, [activePendingUserInput, dismissUserInput, selectedThreadShell]);
+      setRespondingUserInputId(activePendingUserInput.requestId);
+      const result = await dismissUserInput({
+        environmentId: selectedThreadShell.environmentId,
+        input: {
+          threadId: selectedThreadShell.id,
+          requestId: activePendingUserInput.requestId,
+        },
+      });
+      setRespondingUserInputId((current) =>
+        current === activePendingUserInput.requestId ? null : current,
+      );
+      return result;
+    },
+    [activePendingUserInput, dismissUserInput, selectedThreadShell],
+  );
 
   return {
     activePendingApproval,

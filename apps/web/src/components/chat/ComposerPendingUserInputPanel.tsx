@@ -11,7 +11,7 @@ interface PendingUserInputPanelProps {
 }
 
 /** Questions live in the transcript; the composer only reports answer progress. */
-export const ComposerPendingUserInputPanel = memo(function ComposerPendingUserInputPanel({
+function ComposerPendingUserInputPanel({
   pendingUserInputs,
   respondingRequestIds,
   questionIndex,
@@ -41,4 +41,7 @@ export const ComposerPendingUserInputPanel = memo(function ComposerPendingUserIn
       ) : null}
     </ComposerBanner.Row>
   );
-});
+}
+
+const MemoizedComposerPendingUserInputPanel = memo(ComposerPendingUserInputPanel);
+export { MemoizedComposerPendingUserInputPanel as ComposerPendingUserInputPanel };

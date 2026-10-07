@@ -15,6 +15,7 @@ describe("buildCodexDeveloperInstructions", () => {
       NodeAssert.match(instructions, /Something else — reply in your own words/);
       NodeAssert.match(instructions, /[Kk]eep other tools available/);
       NodeAssert.doesNotMatch(instructions, /Strongly prefer using the `request_user_input`/);
+      NodeAssert.doesNotMatch(instructions, /Use the `request_user_input` tool only for decisions/);
       NodeAssert.doesNotMatch(instructions, /Never write a multiple choice question as a textual/);
     }
   });

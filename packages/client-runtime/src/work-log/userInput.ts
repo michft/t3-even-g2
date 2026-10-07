@@ -115,9 +115,19 @@ export function resolveUserInputTextAnswer(
   )
     return null;
   const option = question.options.find(
-    (option) => option.label === answer || option.value === answer,
+    (option) => option.label.toLowerCase() === answer.toLowerCase() || option.value === answer,
   );
   if (option)
     return question.multiSelect ? [option.value ?? option.label] : (option.value ?? option.label);
+  if (question.multiSelect) {
+    const options = answer.split(",").map((part) => {
+      const choice = part.trim();
+      return question.options.find(
+        (option) => option.label.toLowerCase() === choice.toLowerCase() || option.value === choice,
+      );
+    });
+    if (options.every((option) => option !== undefined))
+      return [...new Set(options.map((option) => option!.value ?? option!.label))];
+  }
   return question.allowCustomAnswer === false ? null : answer;
 }

@@ -9884,6 +9884,7 @@ export default function ChatView(props: ChatViewProps) {
 
   /** Update the active question draft and cursor without overwriting the ordinary prompt. */
   const onChangeActivePendingUserInputCustomAnswer = useCallback(
+    /** Store editor text and cursor state for the active question draft. */
     (
       questionId: string,
       value: string,

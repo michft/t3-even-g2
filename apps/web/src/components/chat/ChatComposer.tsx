@@ -1682,7 +1682,7 @@ export interface ChatComposerProps {
 // --------------------------------------------------------------------------
 
 /** Edit prompts and pending answers with shared attachment, cursor and submission controls. */
-export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps) {
+function ChatComposer(props: ChatComposerProps) {
   const {
     composerDraftTarget,
     environmentId,
@@ -3632,6 +3632,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
 
   /** Route editor changes to the active question or reconcile the ordinary prompt's context chips. */
   const onPromptChange = useCallback(
+    /** Route editor changes to the active question before touching the thread prompt. */
     (
       nextPrompt: string,
       nextCursor: number,
@@ -3790,6 +3791,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   // ------------------------------------------------------------------
   /** Replace a guarded text range, preserving cursor coordinates and active-question routing. */
   const applyPromptReplacement = useCallback(
+    /** Replace a verified editor range while preserving question-answer routing. */
     (
       rangeStart: number,
       rangeEnd: number,
@@ -6386,7 +6388,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
         );
       },
       addTerminalContext: (selection: TerminalContextSelection) => {
-        if (!activeThread) return;
+        if (!activeThread || pendingUserInputs.length > 0) return;
         const snapshot = readComposerSnapshot();
         const context = {
           id: randomUUID(),
@@ -7556,4 +7558,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       </div>
     </form>
   );
-});
+}
+
+const MemoizedChatComposer = memo(ChatComposer);
+export { MemoizedChatComposer as ChatComposer };

@@ -82,6 +82,33 @@ describe("plain text question answers", () => {
     expect(resolveUserInputTextAnswer(multi, "2")).toEqual(["second"]);
     expect(resolveUserInputTextAnswer(multi, "2,99")).toBeNull();
   });
+  it("matches labels without changing provider value casing or whitespace", () => {
+    const constrained = { ...question, allowCustomAnswer: false };
+    expect(resolveUserInputTextAnswer(constrained, "same LABEL")).toBe(" first\t");
+    expect(resolveUserInputTextAnswer(constrained, "SECOND")).toBeNull();
+    expect(resolveUserInputTextAnswer(constrained, "second")).toBe("second");
+  });
+  it("resolves multi-select labels and values in reply order without partial selection", () => {
+    const multi = {
+      ...question,
+      multiSelect: true,
+      allowCustomAnswer: false,
+      options: [
+        { label: "Blue", description: "", value: " blue-id\t" },
+        { label: "Red", description: "", value: "red-id" },
+        { label: "Green, Gold", description: "", value: "green-gold" },
+      ],
+    };
+    expect(resolveUserInputTextAnswer(multi, "red-id, BLUE, Red")).toEqual([
+      "red-id",
+      " blue-id\t",
+    ]);
+    expect(resolveUserInputTextAnswer(multi, "Green, Gold")).toEqual(["green-gold"]);
+    expect(resolveUserInputTextAnswer(multi, "Blue, unknown")).toBeNull();
+    expect(resolveUserInputTextAnswer({ ...multi, allowCustomAnswer: true }, "Blue, unknown")).toBe(
+      "Blue, unknown",
+    );
+  });
   it("renders numbered inert choices and only offers free text when supported", () => {
     expect(formatUserInputQuestions([question])).toContain("1. Same label — First runtime");
     expect(formatUserInputQuestions([question])).toContain(

@@ -112,7 +112,7 @@ You SHOULD ask many questions, but each question must:
 * choose between meaningful tradeoffs.
 * not be answerable by non-mutating commands.
 
-Use the \`request_user_input\` tool only for decisions that materially change the plan, for confirming important assumptions, or for information that cannot be discovered via non-mutating exploration.
+Ask in ordinary chat only for decisions that materially change the plan, for confirming important assumptions, or for information that cannot be discovered via non-mutating exploration.
 
 ## Two kinds of unknowns (treat differently)
 

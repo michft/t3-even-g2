@@ -377,7 +377,7 @@ export function ComposerSurface(props: {
 }
 
 /** Edit prompts or pending answers, keeping question replies out of command dispatch. */
-export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposerProps) {
+function ThreadComposer(props: ThreadComposerProps) {
   const project = useProject(scopeProjectRef(props.environmentId, props.selectedThread.projectId));
   const { themeVariables: materialTheme } = useAppearancePreferences();
   const composerPanel = materialTheme["--color-composer-panel"];
@@ -1187,4 +1187,7 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
       <FilePreviewModal source={previewFile} onRequestClose={closePreview} />
     </Animated.View>
   );
-});
+}
+
+const MemoizedThreadComposer = memo(ThreadComposer);
+export { MemoizedThreadComposer as ThreadComposer };

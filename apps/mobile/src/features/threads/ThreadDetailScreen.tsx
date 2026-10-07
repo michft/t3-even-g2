@@ -300,7 +300,7 @@ function useStreamingHaptics(threadId: ThreadId, feed: ReadonlyArray<ThreadFeedE
 }
 
 /** Present the selected thread and route its composer to prompts or durable question answers. */
-export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: ThreadDetailScreenProps) {
+function ThreadDetailScreen(props: ThreadDetailScreenProps) {
   const isFocused = useIsFocused();
   const navigation = useNavigation();
   const { session: voiceInputSession } = useGlobalVoiceInput();
@@ -1327,7 +1327,10 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
       ) : null}
     </View>
   );
-});
+}
+
+const MemoizedThreadDetailScreen = memo(ThreadDetailScreen);
+export { MemoizedThreadDetailScreen as ThreadDetailScreen };
 
 /** Bind pending answers without changing the ordinary composer component's identity each render. */
 function ThreadComposerForRequest({
