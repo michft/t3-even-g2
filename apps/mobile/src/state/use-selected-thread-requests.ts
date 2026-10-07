@@ -237,7 +237,13 @@ export function useSelectedThreadRequests() {
     [activePendingApprovals, respondToApproval, selectedThreadShell],
   );
 
-  /** Submit answers with uploaded question attachments, rejecting duplicate or unready responses. */
+  /**
+   * Submit answers with uploaded question attachments, skipping duplicate or unready responses.
+   * Omitted answers use the current resolved drafts. Resolve to undefined when
+   * submission is skipped; missing upload IDs or uploads from another environment
+   * also show an alert. Otherwise return the command's success or failure result;
+   * command errors are converted to failure results by useAtomCommand.
+   */
   const onSubmitUserInput = useCallback(
     /** Submit the current answers and attachments through the existing request callback. */
     async (answers = activePendingUserInputAnswers) => {

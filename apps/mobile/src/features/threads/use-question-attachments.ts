@@ -19,7 +19,15 @@ import {
   questionAttachmentPreparationAtom,
 } from "../../state/question-attachments";
 
-/** Own question-scoped pickers and preparation reservations for either composer. */
+/**
+ * Manage the active question's attachment draft and picker, paste, and removal callbacks.
+ * `questions` must include the whole request to enforce its shared attachment limit.
+ * `canAttach` reflects provider support and custom-answer permission; callbacks
+ * also honor `disabled`. Picker errors and rejected paste promises show alerts;
+ * individual image conversion failures are skipped by the paste helper.
+ * Files prepared after leaving the question or resolving its request are passed
+ * to best-effort unused-file cleanup.
+ */
 export function useQuestionAttachments(props: {
   requestId: string;
   question: UserInputQuestion;

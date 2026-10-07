@@ -361,7 +361,13 @@ function normalizeSelectedOptionValues(
   );
 }
 
-/** Resolve typed choices first, preserving provider values and permitted attachment-only answers. */
+/**
+ * Resolve typed choices first, preserving provider values and permitted attachment-only answers.
+ * Blocked attachments make the entire answer null. If neither text nor stored
+ * selections resolve, ready attachments return an empty string when custom
+ * answers are allowed; otherwise return null. An empty provider value is also
+ * a valid answer, so callers must check for null rather than truthiness.
+ */
 function resolvePendingUserInputAnswer(
   question: ThreadUserInputQuestion,
   draft: PendingUserInputDraftAnswer | undefined,

@@ -32,7 +32,13 @@ function normalizeSelectedOptionValues(value: string[] | undefined): string[] {
   return Array.from(new Set(value.filter((entry) => typeof entry === "string")));
 }
 
-/** Resolve typed choices before stored selections, allowing ready attachments as custom answers. */
+/**
+ * Resolve typed choices before stored selections, allowing ready attachments as custom answers.
+ * Blocked attachments make the entire answer null. If neither text nor stored
+ * selections resolve, ready attachments return an empty string when custom
+ * answers are allowed; otherwise return null. An empty provider value is also
+ * a valid answer, so callers must check for null rather than truthiness.
+ */
 export function resolvePendingUserInputAnswer(
   question: UserInputQuestion,
   draft: PendingUserInputDraftAnswer | undefined,

@@ -89,7 +89,18 @@ export function formatUserInputQuestions(
     .join("\n\n");
 }
 
-/** Resolve typed choices without changing provider option IDs or allowing forbidden custom answers. */
+/**
+ * Resolve typed choices without changing provider option IDs or allowing forbidden custom answers.
+ * Trim the reply and match valid 1-based option numbers before case-insensitive
+ * labels or exact option values, using the label when an option has no value.
+ * For multi-select questions, accept comma-separated numbers or labels/values;
+ * a whole label/value match takes precedence over splitting a word list.
+ * Matched multi-select values are deduplicated in reply order and returned as
+ * an array; a single-select match returns its value, which may be empty.
+ * Return null for blank replies or the displayed "Something else" number alone.
+ * Unmatched replies, including partially matched lists, return trimmed custom
+ * text when allowed, or null otherwise.
+ */
 export function resolveUserInputTextAnswer(
   question: OrchestrationV2UserInputQuestion,
   text: string,
