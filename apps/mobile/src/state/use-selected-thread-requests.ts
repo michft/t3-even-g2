@@ -273,7 +273,9 @@ export function useSelectedThreadRequests() {
         if (attachments.length === 0) continue;
         if (
           attachments.some(
-            (attachment) =>
+            /** Reject question files without upload IDs or uploaded to a different environment. */ (
+              attachment,
+            ) =>
               !attachment.uploadedAttachmentId ||
               attachment.uploadEnvironmentId !== selectedThreadShell.environmentId,
           )
@@ -286,13 +288,17 @@ export function useSelectedThreadRequests() {
         }
         attachmentsByQuestionId.set(
           question.id,
-          attachments.map((attachment) => ({
-            type: attachment.type,
-            id: attachment.uploadedAttachmentId!,
-            name: attachment.name,
-            mimeType: attachment.mimeType,
-            sizeBytes: attachment.sizeBytes,
-          })),
+          attachments.map(
+            /** Send uploaded file metadata through the question-response transport. */ (
+              attachment,
+            ) => ({
+              type: attachment.type,
+              id: attachment.uploadedAttachmentId!,
+              name: attachment.name,
+              mimeType: attachment.mimeType,
+              sizeBytes: attachment.sizeBytes,
+            }),
+          ),
         );
       }
       userInputResponsesInFlight.current.add(responseKey);
@@ -309,8 +315,10 @@ export function useSelectedThreadRequests() {
         },
       });
       userInputResponsesInFlight.current.delete(responseKey);
-      setRespondingUserInputId((current) =>
-        current === activePendingUserInput.requestId ? null : current,
+      setRespondingUserInputId(
+        /** Clear the submitted request busy state without clearing a newer request. */ (
+          current,
+        ) => (current === activePendingUserInput.requestId ? null : current),
       );
       return result;
     },
@@ -337,8 +345,10 @@ export function useSelectedThreadRequests() {
           requestId: activePendingUserInput.requestId,
         },
       });
-      setRespondingUserInputId((current) =>
-        current === activePendingUserInput.requestId ? null : current,
+      setRespondingUserInputId(
+        /** Clear the dismissed request busy state without clearing a newer request. */ (
+          current,
+        ) => (current === activePendingUserInput.requestId ? null : current),
       );
       return result;
     },

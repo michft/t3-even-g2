@@ -35,7 +35,10 @@ function ComposerPendingUserInputPanel({
             aria-label="Dismiss question without answering"
             title="Dismiss question without answering"
             disabled={respondingRequestIds.includes(request.requestId)}
-            onClick={() => onDismiss(request.requestId)}
+            onClick={
+              /** Dismiss this asynchronous request without submitting an answer. */ () =>
+                onDismiss(request.requestId)
+            }
           />
         </ComposerBanner.Actions>
       ) : null}

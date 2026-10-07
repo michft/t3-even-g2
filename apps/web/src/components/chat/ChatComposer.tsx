@@ -6246,7 +6246,7 @@ function ChatComposer(props: ChatComposerProps) {
 
   useImperativeHandle(
     composerRef,
-    () => ({
+    /** Expose composer actions with the current attachment target and pending-question guards. */ () => ({
       focusAtEnd: () => {
         composerEditorRef.current?.focusAtEnd();
       },
@@ -6690,7 +6690,11 @@ function ChatComposer(props: ChatComposerProps) {
                               : "text-placeholder",
                             !activePendingProgress?.activeQuestion?.multiSelect && "px-3 py-2",
                           )}
-                          onPointerDown={(event) => event.preventDefault()}
+                          onPointerDown={
+                            /** Preserve composer focus while expanding the compact question reply. */ (
+                              event,
+                            ) => event.preventDefault()
+                          }
                           onClick={expandMobileComposer}
                           aria-label="Reply to question"
                         >

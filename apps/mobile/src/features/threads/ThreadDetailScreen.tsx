@@ -601,7 +601,8 @@ function ThreadDetailScreen(props: ThreadDetailScreenProps) {
     Math.max(0, estimatedOverlayHeight - nativeInsetOvercount),
   );
   useAnimatedReaction(
-    () => contentInsetEndAdjustment.value + floatingControlCoverage.value,
+    /** Combine keyboard inset adjustment and floating-control coverage for the animated reaction. */ () =>
+      contentInsetEndAdjustment.value + floatingControlCoverage.value,
     (value) => {
       combinedContentInsetEndAdjustment.value = value;
     },

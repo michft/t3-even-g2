@@ -32,8 +32,14 @@ export function PendingUserInputComposer(props: PendingUserInputComposerProps) {
       key={question.id}
       {...props}
       questionIndex={questionIndex}
-      onPrevious={() => setQuestionIndex(Math.max(0, questionIndex - 1))}
-      onNext={() => setQuestionIndex(questionIndex + 1)}
+      onPrevious={
+        /** Return to the previous question without moving before the first question. */ () =>
+          setQuestionIndex(Math.max(0, questionIndex - 1))
+      }
+      onNext={
+        /** Advance to the next question while retaining question-scoped drafts. */ () =>
+          setQuestionIndex(questionIndex + 1)
+      }
     />
   );
 }
@@ -51,10 +57,11 @@ function PendingQuestionComposer(
   const text =
     draft?.customAnswer ||
     question.options
-      .flatMap((option, index) =>
-        draft?.selectedOptionValues?.includes(option.value ?? option.label)
-          ? [String(index + 1)]
-          : [],
+      .flatMap(
+        /** Recover displayed option numbers from saved provider values. */ (option, index) =>
+          draft?.selectedOptionValues?.includes(option.value ?? option.label)
+            ? [String(index + 1)]
+            : [],
       )
       .join(", ");
   const responding = props.respondingRequestId === props.request.requestId;
@@ -68,9 +75,12 @@ function PendingQuestionComposer(
     disabled,
   });
   // Voice input reads this same question-scoped composer draft.
-  useEffect(() => {
-    setComposerDraftText(attachments.key, text);
-  }, [attachments.key, text]);
+  useEffect(
+    /** Keep the question composer snapshot aligned with restored answer text. */ () => {
+      setComposerDraftText(attachments.key, text);
+    },
+    [attachments.key, text],
+  );
   /** Keep typed answers and dictation's question-scoped draft in sync. */
   const changeText = (value: string) => {
     setComposerDraftText(attachments.key, value);
@@ -103,7 +113,10 @@ function PendingQuestionComposer(
             accessibilityRole="button"
             accessibilityLabel="Dismiss question without answering"
             disabled={responding || disconnected}
-            onPress={() => void props.onDismiss()}
+            onPress={
+              /** Dismiss the active request through its existing user-input callback. */ () =>
+                void props.onDismiss()
+            }
           >
             <Text className="font-sans text-sm text-foreground-secondary">Dismiss</Text>
           </Pressable>
@@ -141,30 +154,38 @@ function PendingQuestionComposer(
         onPickDraftMedia={attachments.onPickMedia}
         onPickDraftFiles={attachments.onPickFiles}
         onNativePasteImages={attachments.onPasteImages}
-        onNativePasteText={async (paste) =>
-          changeText(
-            replaceTextSelection({
-              value: paste.value,
-              selection: paste.selection,
-              text: paste.text,
-            }).value,
-          )
+        onNativePasteText={
+          /** Paste into the native selection and synchronize the question draft. */ async (
+            paste,
+          ) =>
+            changeText(
+              replaceTextSelection({
+                value: paste.value,
+                selection: paste.selection,
+                text: paste.text,
+              }).value,
+            )
         }
         onRemoveDraftImage={attachments.onRemove}
-        onSendMessage={async () => {
-          if (disabled) return null;
-          const latest = { ...draft, customAnswer: getComposerDraftSnapshot(attachments.key).text };
-          if (!buildPendingUserInputAnswers([question], { [question.id]: latest })) return null;
-          if (props.questionIndex < props.request.questions.length - 1) props.onNext();
-          else {
-            const answers = buildPendingUserInputAnswers(props.request.questions, {
-              ...props.drafts,
-              [question.id]: latest,
-            });
-            if (answers) await props.onSubmit(answers);
+        onSendMessage={
+          /** Validate the current answer before advancing or submitting the complete request. */ async () => {
+            if (disabled) return null;
+            const latest = {
+              ...draft,
+              customAnswer: getComposerDraftSnapshot(attachments.key).text,
+            };
+            if (!buildPendingUserInputAnswers([question], { [question.id]: latest })) return null;
+            if (props.questionIndex < props.request.questions.length - 1) props.onNext();
+            else {
+              const answers = buildPendingUserInputAnswers(props.request.questions, {
+                ...props.drafts,
+                [question.id]: latest,
+              });
+              if (answers) await props.onSubmit(answers);
+            }
+            return null;
           }
-          return null;
-        }}
+        }
       />
     </>
   );

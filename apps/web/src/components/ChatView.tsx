@@ -9900,16 +9900,20 @@ export default function ChatView(props: ChatViewProps) {
         return;
       }
       promptRef.current = value;
-      setPendingUserInputAnswersByRequestId((existing) => ({
-        ...existing,
-        [activePendingRequestKey]: {
-          ...existing[activePendingRequestKey],
-          [questionId]: setPendingUserInputCustomAnswer(
-            existing[activePendingRequestKey]?.[questionId],
-            value,
-          ),
-        },
-      }));
+      setPendingUserInputAnswersByRequestId(
+        /** Update one custom answer while retaining other question and request drafts. */ (
+          existing,
+        ) => ({
+          ...existing,
+          [activePendingRequestKey]: {
+            ...existing[activePendingRequestKey],
+            [questionId]: setPendingUserInputCustomAnswer(
+              existing[activePendingRequestKey]?.[questionId],
+              value,
+            ),
+          },
+        }),
+      );
       const snapshot = composerRef.current?.readSnapshot();
       if (
         snapshot?.value !== value ||

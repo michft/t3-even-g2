@@ -408,7 +408,7 @@ function ThreadComposer(props: ThreadComposerProps) {
     (queuedEdit?.existingAttachments.length ?? 0) > 0;
   // Question files have no inline chips, so every attachment needs strip controls.
   const stripAttachments = useMemo(
-    () =>
+    /** Keep question files in the strip because they have no inline chips; filter normal prompt media as before. */ () =>
       props.answeringQuestion
         ? props.draftAttachments
         : composerStripAttachments(props.draftAttachments),

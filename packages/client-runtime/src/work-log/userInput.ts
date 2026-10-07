@@ -51,33 +51,41 @@ export function formatUserInputQuestions(
   questions: ReadonlyArray<OrchestrationV2UserInputQuestion>,
 ): string {
   return questions
-    .map((question, index) => {
-      const lines = [
-        questions.length > 1
-          ? `Question ${index + 1} of ${questions.length}: ${question.question}`
-          : question.question,
-      ];
-      if (question.options.length > 0) {
-        lines.push(
-          "",
-          ...question.options.map(
-            (option, optionIndex) =>
-              `${optionIndex + 1}. ${option.label}${option.description && option.description !== option.label ? ` — ${option.description}` : ""}`,
-          ),
-        );
+    .map(
+      /** Render each question with numbered choices and only supported reply hints. */ (
+        question,
+        index,
+      ) => {
+        const lines = [
+          questions.length > 1
+            ? `Question ${index + 1} of ${questions.length}: ${question.question}`
+            : question.question,
+        ];
+        if (question.options.length > 0) {
+          lines.push(
+            "",
+            ...question.options.map(
+              /** Number display labels without repeating identical option descriptions. */ (
+                option,
+                optionIndex,
+              ) =>
+                `${optionIndex + 1}. ${option.label}${option.description && option.description !== option.label ? ` — ${option.description}` : ""}`,
+            ),
+          );
+          if (question.allowCustomAnswer !== false)
+            lines.push(`${question.options.length + 1}. Something else — reply in your own words.`);
+          lines.push(
+            "",
+            question.multiSelect
+              ? "Reply with one or more option numbers separated by commas."
+              : "Reply with an option number.",
+          );
+        }
         if (question.allowCustomAnswer !== false)
-          lines.push(`${question.options.length + 1}. Something else — reply in your own words.`);
-        lines.push(
-          "",
-          question.multiSelect
-            ? "Reply with one or more option numbers separated by commas."
-            : "Reply with an option number.",
-        );
-      }
-      if (question.allowCustomAnswer !== false)
-        lines.push("Reply in your own words if you prefer.");
-      return lines.join("\n");
-    })
+          lines.push("Reply in your own words if you prefer.");
+        return lines.join("\n");
+      },
+    )
     .join("\n\n");
 }
 
@@ -89,19 +97,30 @@ export function resolveUserInputTextAnswer(
   const answer = text.trim();
   if (!answer) return null;
   const numbers = /^(?:[1-9]\d*)(?:\s*,\s*[1-9]\d*)*$/.test(answer)
-    ? answer.split(",").map((number) => Number(number.trim()))
+    ? answer
+        .split(",")
+        .map(
+          /** Parse numeric list tokens after the complete reply passes syntax validation. */ (
+            number,
+          ) => Number(number.trim()),
+        )
     : null;
   if (
     numbers &&
     (question.multiSelect || numbers.length === 1) &&
-    numbers.every((number) => number <= question.options.length)
+    numbers.every(
+      /** Require every displayed option number to be within the available choices. */ (number) =>
+        number <= question.options.length,
+    )
   ) {
     const values = [
       ...new Set(
-        numbers.map((number) => {
-          const option = question.options[number - 1]!;
-          return option.value ?? option.label;
-        }),
+        numbers.map(
+          /** Translate a displayed number to its exact provider value. */ (number) => {
+            const option = question.options[number - 1]!;
+            return option.value ?? option.label;
+          },
+        ),
       ),
     ];
     return question.multiSelect ? values : values[0]!;
@@ -115,19 +134,40 @@ export function resolveUserInputTextAnswer(
   )
     return null;
   const option = question.options.find(
-    (option) => option.label.toLowerCase() === answer.toLowerCase() || option.value === answer,
+    /** Match labels without case sensitivity while preserving exact provider-value matching. */ (
+      option,
+    ) => option.label.toLowerCase() === answer.toLowerCase() || option.value === answer,
   );
   if (option)
     return question.multiSelect ? [option.value ?? option.label] : (option.value ?? option.label);
   if (question.multiSelect) {
-    const options = answer.split(",").map((part) => {
-      const choice = part.trim();
-      return question.options.find(
-        (option) => option.label.toLowerCase() === choice.toLowerCase() || option.value === choice,
-      );
-    });
-    if (options.every((option) => option !== undefined))
-      return [...new Set(options.map((option) => option!.value ?? option!.label))];
+    const options = answer.split(",").map(
+      /** Resolve each comma-separated word independently before accepting a multi-select list. */ (
+        part,
+      ) => {
+        const choice = part.trim();
+        return question.options.find(
+          /** Match a listed label case-insensitively or its provider value exactly. */ (option) =>
+            option.label.toLowerCase() === choice.toLowerCase() || option.value === choice,
+        );
+      },
+    );
+    if (
+      options.every(
+        /** Require a complete list match so unknown words cannot silently drop selections. */ (
+          option,
+        ) => option !== undefined,
+      )
+    )
+      return [
+        ...new Set(
+          options.map(
+            /** Preserve exact provider values when collecting the validated selections. */ (
+              option,
+            ) => option!.value ?? option!.label,
+          ),
+        ),
+      ];
   }
   return question.allowCustomAnswer === false ? null : answer;
 }
