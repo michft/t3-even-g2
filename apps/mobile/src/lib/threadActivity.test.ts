@@ -200,8 +200,8 @@ function assistantMessage(updatedAt = "2026-06-20T00:00:03.000Z") {
   };
 }
 
-describe("buildThreadFeed", () => {
-  it("keeps async answers in question history instead of user bubbles", () => {
+describe("buildThreadFeed", /** Cover native thread feed projection. */ () => {
+  it("keeps async answers in question history instead of user bubbles", /** Keep async replies in question history. */ () => {
     const requestId = RuntimeRequestId.make("question");
     const question: OrchestrationV2TurnItem = {
       ...base("question", "2026-06-20T00:00:01.000Z", 0),
@@ -2028,7 +2028,7 @@ describe("pending user input answers", () => {
   });
 });
 
-describe("provider question values", () => {
+describe("provider question values", /** Cover exact provider values and custom drafts. */ () => {
   const question = {
     ...singleSelectQuestion,
     allowCustomAnswer: false,
@@ -2048,7 +2048,7 @@ describe("provider question values", () => {
     expect(togglePendingUserInputOptionSelection(question, first, "Same label")).toBe(first);
   });
 
-  it("rejects arbitrary text when the provider only accepts offered options", () => {
+  it("rejects arbitrary text when the provider only accepts offered options", /** Keep invalid choice-only drafts unsubmitted. */ () => {
     expect(setPendingUserInputCustomAnswer(question, undefined, "Other")).toEqual({
       customAnswer: "Other",
     });
@@ -2389,7 +2389,7 @@ it.each(["provider_error", "usage_limit"] as const)(
   },
 );
 
-it("accepts typed option numbers whose exact provider value is empty", () => {
+it("accepts typed option numbers whose exact provider value is empty", /** Preserve empty provider values for numeric replies. */ () => {
   const question = {
     id: "empty",
     header: "Empty",

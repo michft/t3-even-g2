@@ -220,7 +220,7 @@ describe("buildPendingUserInputAnswers", () => {
   });
 });
 
-describe("pending user input question progress", () => {
+describe("pending user input question progress", /** Cover answer completeness and question navigation. */ () => {
   const questions = [
     singleSelectQuestion,
     {
@@ -313,7 +313,7 @@ describe("pending user input question progress", () => {
     });
   });
 
-  it("requires an option when custom answers are disabled", () => {
+  it("requires an option when custom answers are disabled", /** Block custom drafts for choice-only questions. */ () => {
     const drafts = { result: { customAnswer: "Use another result" } };
 
     expect(buildPendingUserInputAnswers([nativeChoiceQuestion], drafts)).toBeNull();
@@ -366,7 +366,7 @@ describe("carryDisplacedCustomAnswerIntoPrompt", () => {
   });
 });
 
-it("accepts typed option numbers whose exact provider value is empty", () => {
+it("accepts typed option numbers whose exact provider value is empty", /** Preserve empty provider values for numeric replies. */ () => {
   const question = {
     id: "empty",
     header: "Empty",

@@ -7,8 +7,8 @@ import {
   buildCodexDeveloperInstructions,
 } from "./CodexDeveloperInstructions.ts";
 
-describe("buildCodexDeveloperInstructions", () => {
-  it("asks plain chat questions in both modes without suppressing other tools", () => {
+describe("buildCodexDeveloperInstructions", /** Cover Codex collaboration and runtime guidance. */ () => {
+  it("asks plain chat questions in both modes without suppressing other tools", /** Require plain questions while preserving other tools. */ () => {
     for (const mode of ["default", "plan"] as const) {
       const instructions = buildCodexDeveloperInstructions(mode);
       NodeAssert.match(instructions, /numbered/);
@@ -20,7 +20,7 @@ describe("buildCodexDeveloperInstructions", () => {
     }
   });
 
-  it("appends runtime info after the mode instructions", () => {
+  it("appends runtime info after the mode instructions", /** Keep runtime identity after collaboration guidance. */ () => {
     const instructions = runtimeInstructions({
       model: "gpt-5.3-codex",
       reasoningEffort: "high",

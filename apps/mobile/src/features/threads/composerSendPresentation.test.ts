@@ -10,7 +10,7 @@ const idle = {
   deliveryDeferred: false,
 } as const;
 
-describe("resolveComposerSendPresentation", () => {
+describe("resolveComposerSendPresentation", /** Cover question and thread send states. */ () => {
   it("sends plainly while the thread is idle", () => {
     const presentation = resolveComposerSendPresentation(idle);
 
@@ -26,7 +26,7 @@ describe("resolveComposerSendPresentation", () => {
     );
   });
 
-  it("sends runtime answers directly even when ordinary prompt delivery is deferred", () => {
+  it("sends runtime answers directly even when ordinary prompt delivery is deferred", /** Protect direct question delivery. */ () => {
     const presentation = resolveComposerSendPresentation({
       ...idle,
       answeringQuestion: true,
@@ -54,7 +54,7 @@ describe("resolveComposerSendPresentation", () => {
     );
   });
 
-  it("follows the configured behavior once a turn is running", () => {
+  it("follows the configured behavior once a turn is running", /** Preserve configured queue and steer behavior. */ () => {
     const queueing = resolveComposerSendPresentation({
       ...idle,
       running: true,
