@@ -526,6 +526,7 @@ function ThreadComposer(props: ThreadComposerProps) {
     readDraftMessage: () => getComposerDraftSnapshot(composerDraftKey).text,
     subscribeToDraftChanges: (onChange) => appAtomRegistry.subscribe(composerDraftsAtom, onChange),
     selection: composerMenu.selection,
+    /** Save dictated text in the current prompt or question draft before notifying its owner. */
     onChangeDraftMessage: (text) => {
       setComposerDraftText(composerDraftKey, text);
       props.onChangeDraftMessage(text);

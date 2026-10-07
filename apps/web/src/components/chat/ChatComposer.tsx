@@ -6387,6 +6387,7 @@ function ChatComposer(props: ChatComposerProps) {
             : null,
         );
       },
+      /** Insert terminal context into the prompt only when no question response owns the editor. */
       addTerminalContext: (selection: TerminalContextSelection) => {
         if (!activeThread || pendingUserInputs.length > 0) return;
         const snapshot = readComposerSnapshot();

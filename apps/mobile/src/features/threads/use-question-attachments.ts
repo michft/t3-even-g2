@@ -148,9 +148,12 @@ export function useQuestionAttachments(props: {
     key,
     attachments,
     canAttach,
+    /** Pick media into the active question's attachment draft within request-wide limits. */
     onPickMedia: () => pick("media"),
+    /** Pick documents into the active question's attachment draft within request-wide limits. */
     onPickFiles: () => pick("files"),
     onPasteImages: pasteImages,
+    /** Remove a question attachment while its request remains editable. */
     onRemove: (id: string) => {
       if (!props.disabled) removeComposerDraftAttachment(key, id);
     },
