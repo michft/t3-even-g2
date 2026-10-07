@@ -534,7 +534,11 @@ describe("CodexAdapterV2 runtime policy", () => {
       assert.equal(params.collaborationMode?.mode, "plan");
       assert.include(
         params.collaborationMode?.settings.developer_instructions ?? "",
-        "request_user_input",
+        "Ask clarification questions in ordinary chat",
+      );
+      assert.notInclude(
+        params.collaborationMode?.settings.developer_instructions ?? "",
+        "Use the `request_user_input` tool",
       );
       assert.include(params.additionalContext?.t3_code_tools?.value ?? "", "preview_status");
     }),
