@@ -71,6 +71,7 @@ function PendingQuestionComposer(
   useEffect(() => {
     setComposerDraftText(attachments.key, text);
   }, [attachments.key, text]);
+  /** Keep typed answers and dictation's question-scoped draft in sync. */
   const changeText = (value: string) => {
     setComposerDraftText(attachments.key, value);
     props.onChangeCustomAnswer(props.request.requestId, question.id, value);

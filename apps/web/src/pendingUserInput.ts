@@ -22,6 +22,7 @@ export interface PendingUserInputProgress {
   canAdvance: boolean;
 }
 
+/** Deduplicate selected provider values without trimming or dropping empty option IDs. */
 function normalizeSelectedOptionValues(value: string[] | undefined): string[] {
   if (!Array.isArray(value)) {
     return [];
@@ -31,6 +32,7 @@ function normalizeSelectedOptionValues(value: string[] | undefined): string[] {
   return Array.from(new Set(value.filter((entry) => typeof entry === "string")));
 }
 
+/** Resolve typed choices before stored selections, allowing ready attachments as custom answers. */
 export function resolvePendingUserInputAnswer(
   question: UserInputQuestion,
   draft: PendingUserInputDraftAnswer | undefined,
@@ -159,6 +161,7 @@ export function findFirstUnansweredPendingUserInputQuestionIndex(
   return unansweredIndex === -1 ? Math.max(questions.length - 1, 0) : unansweredIndex;
 }
 
+/** Clamp question navigation and derive completion and advance state from the current drafts. */
 export function derivePendingUserInputProgress(
   questions: ReadonlyArray<UserInputQuestion>,
   draftAnswers: Record<string, PendingUserInputDraftAnswer>,

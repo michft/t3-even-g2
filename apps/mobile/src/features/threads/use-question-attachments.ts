@@ -62,6 +62,7 @@ export function useQuestionAttachments(props: {
       maxAttachments: Math.max(0, PROVIDER_SEND_TURN_MAX_ATTACHMENTS - otherCount),
     });
   };
+  /** Reserve pasted images for this question; release them if its request resolves meanwhile. */
   const pasteImages = async (uris: ReadonlyArray<string>) => {
     const scope = pickerScope.current;
     if (
@@ -108,6 +109,7 @@ export function useQuestionAttachments(props: {
       ? questionAttachmentDraftKey(environmentId, threadId, props.requestId, props.question.id)
       : "";
   const attachments = drafts[key]?.attachments ?? [];
+  /** Attach picked files within the request-wide limit while this question remains active. */
   const pick = async (kind: "media" | "files") => {
     if (!canAttach || props.disabled || !selectedThread) return;
     const scope = pickerScope.current;

@@ -361,6 +361,7 @@ function normalizeSelectedOptionValues(
   );
 }
 
+/** Resolve typed choices first, preserving provider values and permitted attachment-only answers. */
 function resolvePendingUserInputAnswer(
   question: ThreadUserInputQuestion,
   draft: PendingUserInputDraftAnswer | undefined,
@@ -1561,6 +1562,7 @@ function liveToolActivitySummary(activity: ThreadFeedActivity, presentTense: boo
   return activity.detail ?? activity.summary;
 }
 
+/** Store reply text, clearing prior selections once the user starts typing. */
 export function setPendingUserInputCustomAnswer(
   question: ThreadUserInputQuestion,
   draft: PendingUserInputDraftAnswer | undefined,

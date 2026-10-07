@@ -299,6 +299,7 @@ function useStreamingHaptics(threadId: ThreadId, feed: ReadonlyArray<ThreadFeedE
   }, [threadId, feed]);
 }
 
+/** Present the selected thread and route its composer to prompts or durable question answers. */
 export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: ThreadDetailScreenProps) {
   const isFocused = useIsFocused();
   const navigation = useNavigation();

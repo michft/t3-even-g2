@@ -376,6 +376,7 @@ export function ComposerSurface(props: {
   );
 }
 
+/** Edit prompts or pending answers, keeping question replies out of command dispatch. */
 export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposerProps) {
   const project = useProject(scopeProjectRef(props.environmentId, props.selectedThread.projectId));
   const { themeVariables: materialTheme } = useAppearancePreferences();

@@ -1518,6 +1518,7 @@ function releaseChatTimelineAnchor<T extends { readonly messageId: MessageId | n
 /** Runs with a workspace preparation retry in flight, across ChatView instances. */
 const retryingWorkspacePreparationRunIds = new Set<RunId>();
 
+/** Connect the routed thread's timeline and composer to prompt, approval and question actions. */
 export default function ChatView(props: ChatViewProps) {
   const {
     environmentId,
@@ -9881,6 +9882,7 @@ export default function ChatView(props: ChatViewProps) {
     ],
   );
 
+  /** Update the active question draft and cursor without overwriting the ordinary prompt. */
   const onChangeActivePendingUserInputCustomAnswer = useCallback(
     (
       questionId: string,

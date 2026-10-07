@@ -78,6 +78,7 @@ function setUserInputDraftCustomAnswer(
   });
 }
 
+/** Own selected-thread request drafts, attachment readiness and provider response callbacks. */
 export function useSelectedThreadRequests() {
   const respondToApproval = useAtomCommand(
     threadEnvironment.respondToApproval,
@@ -236,6 +237,7 @@ export function useSelectedThreadRequests() {
     [activePendingApprovals, respondToApproval, selectedThreadShell],
   );
 
+  /** Submit answers with uploaded question attachments, rejecting duplicate or unready responses. */
   const onSubmitUserInput = useCallback(
     async (answers = activePendingUserInputAnswers) => {
       if (
@@ -319,7 +321,7 @@ export function useSelectedThreadRequests() {
     ],
   );
 
-  // Closes an async question without messaging the agent.
+  /** Close an asynchronous question without sending an answer or messaging the agent. */
   const onDismissUserInput = useCallback(async () => {
     if (!selectedThreadShell || !activePendingUserInput) {
       return;

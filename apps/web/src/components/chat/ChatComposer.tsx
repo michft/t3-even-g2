@@ -1681,6 +1681,7 @@ export interface ChatComposerProps {
 // Component
 // --------------------------------------------------------------------------
 
+/** Edit prompts and pending answers with shared attachment, cursor and submission controls. */
 export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps) {
   const {
     composerDraftTarget,
@@ -3629,6 +3630,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     previewAnnotations: new Map(),
   });
 
+  /** Route editor changes to the active question or reconcile the ordinary prompt's context chips. */
   const onPromptChange = useCallback(
     (
       nextPrompt: string,
@@ -3786,6 +3788,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   // ------------------------------------------------------------------
   // Callbacks: prompt replacement / menu
   // ------------------------------------------------------------------
+  /** Replace a guarded text range, preserving cursor coordinates and active-question routing. */
   const applyPromptReplacement = useCallback(
     (
       rangeStart: number,
