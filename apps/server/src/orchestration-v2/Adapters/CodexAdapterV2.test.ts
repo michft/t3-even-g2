@@ -518,7 +518,10 @@ describe("CodexAdapterV2 runtime policy", /** Cover Codex turn-start policy tran
     "adds T3 plan-mode developer instructions when the T3 MCP server is attached",
     /** Require ordinary chat for T3 plan-mode questions. */ () =>
       Effect.gen(
-        /** Build plan-mode turn parameters with the T3 MCP server. */ function* () {
+        /**
+         * Build plan-mode turn parameters with the T3 MCP server.
+         */
+        function* () {
           const params = yield* CodexAdapterV2.buildCodexTurnStartParams({
             nativeThreadId: "native-plan-with-t3-mcp",
             codexInput: [{ type: "text", text: "plan this task" }],
