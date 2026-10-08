@@ -10,7 +10,7 @@ const idle = {
   deliveryDeferred: false,
 } as const;
 
-describe("resolveComposerSendPresentation", () => {
+describe("resolveComposerSendPresentation", /** Cover question and thread send states. */ () => {
   it("sends plainly while the thread is idle", () => {
     const presentation = resolveComposerSendPresentation(idle);
 
@@ -26,7 +26,35 @@ describe("resolveComposerSendPresentation", () => {
     );
   });
 
-  it("follows the configured behavior once a turn is running", () => {
+  it("sends runtime answers directly even when ordinary prompt delivery is deferred", /** Protect direct question delivery. */ () => {
+    const presentation = resolveComposerSendPresentation({
+      ...idle,
+      answeringQuestion: true,
+      deliveryDeferred: true,
+    });
+    expect(presentation).toEqual({
+      label: "Send",
+      icon: "arrow.up",
+      action: null,
+      alternate: null,
+      offersFollowUpChoice: false,
+    });
+    expect(
+      resolveComposerSendPresentation({
+        ...idle,
+        answeringQuestion: true,
+        running: true,
+        canSteer: true,
+        deliveryDeferred: true,
+      }).label,
+    ).toBe("Send");
+    // The neighboring ordinary prompt still uses its outbox and Queue label.
+    expect(resolveComposerSendPresentation({ ...idle, deliveryDeferred: true }).label).toBe(
+      "Queue",
+    );
+  });
+
+  it("follows the configured behavior once a turn is running", /** Preserve configured queue and steer behavior. */ () => {
     const queueing = resolveComposerSendPresentation({
       ...idle,
       running: true,

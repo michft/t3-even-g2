@@ -220,7 +220,7 @@ describe("buildPendingUserInputAnswers", () => {
   });
 });
 
-describe("pending user input question progress", () => {
+describe("pending user input question progress", /** Cover answer completeness and question navigation. */ () => {
   const questions = [
     singleSelectQuestion,
     {
@@ -313,13 +313,13 @@ describe("pending user input question progress", () => {
     });
   });
 
-  it("requires an option when custom answers are disabled", () => {
+  it("requires an option when custom answers are disabled", /** Block custom drafts for choice-only questions. */ () => {
     const drafts = { result: { customAnswer: "Use another result" } };
 
     expect(buildPendingUserInputAnswers([nativeChoiceQuestion], drafts)).toBeNull();
     expect(derivePendingUserInputProgress([nativeChoiceQuestion], drafts, 0)).toMatchObject({
-      customAnswer: "",
-      usingCustomAnswer: false,
+      customAnswer: "Use another result",
+      usingCustomAnswer: true,
       resolvedAnswer: null,
       answeredQuestionCount: 0,
       canAdvance: false,
@@ -363,5 +363,19 @@ describe("carryDisplacedCustomAnswerIntoPrompt", () => {
     expect(carryDisplacedCustomAnswerIntoPrompt("first half\n", "second half")).toBe(
       "first half\n\nsecond half",
     );
+  });
+});
+
+it("accepts typed option numbers whose exact provider value is empty", /** Preserve empty provider values for numeric replies. */ () => {
+  const question = {
+    id: "empty",
+    header: "Empty",
+    question: "Choose a result",
+    options: [{ label: "Empty result", description: "No value", value: "" }],
+    multiSelect: false,
+    allowCustomAnswer: false,
+  };
+  expect(buildPendingUserInputAnswers([question], { empty: { customAnswer: "1" } })).toEqual({
+    empty: "",
   });
 });

@@ -1518,6 +1518,7 @@ function releaseChatTimelineAnchor<T extends { readonly messageId: MessageId | n
 /** Runs with a workspace preparation retry in flight, across ChatView instances. */
 const retryingWorkspacePreparationRunIds = new Set<RunId>();
 
+/** Connect the routed thread's timeline and composer to prompt, approval and question actions. */
 export default function ChatView(props: ChatViewProps) {
   const {
     environmentId,
@@ -9881,7 +9882,9 @@ export default function ChatView(props: ChatViewProps) {
     ],
   );
 
+  /** Update the active question draft and cursor without overwriting the ordinary prompt. */
   const onChangeActivePendingUserInputCustomAnswer = useCallback(
+    /** Store editor text and cursor state for the active question draft. */
     (
       questionId: string,
       value: string,
@@ -9893,20 +9896,24 @@ export default function ChatView(props: ChatViewProps) {
         return;
       }
       const question = activePendingUserInput.questions.find((entry) => entry.id === questionId);
-      if (!question || question.allowCustomAnswer === false) {
+      if (!question) {
         return;
       }
       promptRef.current = value;
-      setPendingUserInputAnswersByRequestId((existing) => ({
-        ...existing,
-        [activePendingRequestKey]: {
-          ...existing[activePendingRequestKey],
-          [questionId]: setPendingUserInputCustomAnswer(
-            existing[activePendingRequestKey]?.[questionId],
-            value,
-          ),
-        },
-      }));
+      setPendingUserInputAnswersByRequestId(
+        /** Update one custom answer while retaining other question and request drafts. */ (
+          existing,
+        ) => ({
+          ...existing,
+          [activePendingRequestKey]: {
+            ...existing[activePendingRequestKey],
+            [questionId]: setPendingUserInputCustomAnswer(
+              existing[activePendingRequestKey]?.[questionId],
+              value,
+            ),
+          },
+        }),
+      );
       const snapshot = composerRef.current?.readSnapshot();
       if (
         snapshot?.value !== value ||

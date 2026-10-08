@@ -1,5 +1,7 @@
+import { formatUserInputQuestions } from "@t3tools/client-runtime/work-log/user-input";
 import { resolveThreadWorkingStartedAt } from "@t3tools/client-runtime/state/models";
 import {
+  MessageId,
   type AssetResource,
   type OrchestrationV2ExecutionNode,
   type OrchestrationV2PlanArtifact,
@@ -560,6 +562,7 @@ export interface TimelineEntriesProjection {
   readonly entries: TimelineEntry[];
 }
 
+/** Project committed items in order, folding question answers and inserting client-owned messages. */
 export function deriveTimelineEntriesFromVisibleTurnItems(
   input: TimelineEntriesInput,
 ): TimelineEntry[] {
@@ -604,6 +607,26 @@ export function deriveTimelineEntriesFromVisibleTurnItems(
     const createdAt = projectedItemCreatedAt(row);
     const attempt = resolveAttempt(item);
     const attemptMetadata = attempt === undefined ? {} : { attempt };
+    if (item.type === "user_input_request" && item.questions.length > 0) {
+      const messageId = MessageId.make(`question:${item.requestId}`);
+      entries.push({
+        id: messageId,
+        kind: "message",
+        createdAt,
+        message: {
+          id: messageId,
+          role: "assistant",
+          text: formatUserInputQuestions(item.questions),
+          runId: item.runId,
+          streaming: false,
+          createdAt,
+          updatedAt: DateTime.formatIso(item.updatedAt),
+        },
+        projectedItem: row,
+        ...attemptMetadata,
+      });
+      if (!item.questionAnswer) continue;
+    }
     if (item.type === "notification") {
       entries.push({
         id: item.id,

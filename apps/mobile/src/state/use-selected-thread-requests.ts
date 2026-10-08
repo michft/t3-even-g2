@@ -78,6 +78,7 @@ function setUserInputDraftCustomAnswer(
   });
 }
 
+/** Own selected-thread request drafts, attachment readiness and provider response callbacks. */
 export function useSelectedThreadRequests() {
   const respondToApproval = useAtomCommand(
     threadEnvironment.respondToApproval,
@@ -236,105 +237,129 @@ export function useSelectedThreadRequests() {
     [activePendingApprovals, respondToApproval, selectedThreadShell],
   );
 
-  const onSubmitUserInput = useCallback(async () => {
-    if (
-      !selectedThreadShell ||
-      !activePendingUserInput ||
-      activePendingUserInput.responseCapability === "not_resumable" ||
-      !activePendingUserInputAnswers
-    ) {
-      return;
-    }
+  /**
+   * Submit answers with uploaded question attachments, skipping duplicate or unready responses.
+   * Omitted answers use the current resolved drafts. Resolve to undefined when
+   * submission is skipped; missing upload IDs or uploads from another environment
+   * also show an alert. Otherwise return the command's success or failure result;
+   * command errors are converted to failure results by useAtomCommand.
+   */
+  const onSubmitUserInput = useCallback(
+    /** Submit the current answers and attachments through the existing request callback. */
+    async (answers = activePendingUserInputAnswers) => {
+      if (
+        !selectedThreadShell ||
+        !activePendingUserInput ||
+        activePendingUserInput.responseCapability === "not_resumable" ||
+        !answers
+      ) {
+        return;
+      }
 
-    const responseKey = questionAttachmentDraftKey(
-      selectedThreadShell.environmentId,
-      selectedThreadShell.id,
-      activePendingUserInput.requestId,
-      "",
-    );
-    if (userInputResponsesInFlight.current.has(responseKey)) return;
-    const attachmentsByQuestionId = new Map<
-      string,
-      import("@t3tools/contracts").UserInputAttachments[string]
-    >();
-    for (const question of activePendingUserInput.questions) {
-      const key = questionAttachmentDraftKey(
+      const responseKey = questionAttachmentDraftKey(
         selectedThreadShell.environmentId,
         selectedThreadShell.id,
         activePendingUserInput.requestId,
-        question.id,
+        "",
       );
-      if ((appAtomRegistry.get(questionAttachmentPreparationAtom)[key] ?? 0) > 0) return;
-      const attachments = appAtomRegistry.get(composerDraftsAtom)[key]?.attachments ?? [];
-      if (attachments.length === 0) continue;
-      if (
-        attachments.some(
-          (attachment) =>
-            !attachment.uploadedAttachmentId ||
-            attachment.uploadEnvironmentId !== selectedThreadShell.environmentId,
-        )
-      ) {
-        Alert.alert(
-          "Attachments are not ready",
-          "Wait for uploads to finish, or retry failed uploads.",
+      if (userInputResponsesInFlight.current.has(responseKey)) return;
+      const attachmentsByQuestionId = new Map<
+        string,
+        import("@t3tools/contracts").UserInputAttachments[string]
+      >();
+      for (const question of activePendingUserInput.questions) {
+        const key = questionAttachmentDraftKey(
+          selectedThreadShell.environmentId,
+          selectedThreadShell.id,
+          activePendingUserInput.requestId,
+          question.id,
         );
+        if ((appAtomRegistry.get(questionAttachmentPreparationAtom)[key] ?? 0) > 0) return;
+        const attachments = appAtomRegistry.get(composerDraftsAtom)[key]?.attachments ?? [];
+        if (attachments.length === 0) continue;
+        if (
+          attachments.some(
+            /** Reject question files without upload IDs or uploaded to a different environment. */ (
+              attachment,
+            ) =>
+              !attachment.uploadedAttachmentId ||
+              attachment.uploadEnvironmentId !== selectedThreadShell.environmentId,
+          )
+        ) {
+          Alert.alert(
+            "Attachments are not ready",
+            "Wait for uploads to finish, or retry failed uploads.",
+          );
+          return;
+        }
+        attachmentsByQuestionId.set(
+          question.id,
+          attachments.map(
+            /** Send uploaded file metadata through the question-response transport. */ (
+              attachment,
+            ) => ({
+              type: attachment.type,
+              id: attachment.uploadedAttachmentId!,
+              name: attachment.name,
+              mimeType: attachment.mimeType,
+              sizeBytes: attachment.sizeBytes,
+            }),
+          ),
+        );
+      }
+      userInputResponsesInFlight.current.add(responseKey);
+      setRespondingUserInputId(activePendingUserInput.requestId);
+      const result = await respondToUserInput({
+        environmentId: selectedThreadShell.environmentId,
+        input: {
+          threadId: selectedThreadShell.id,
+          requestId: activePendingUserInput.requestId,
+          answers,
+          ...(attachmentsByQuestionId.size > 0
+            ? { attachmentsByQuestionId: Object.fromEntries(attachmentsByQuestionId) }
+            : {}),
+        },
+      });
+      userInputResponsesInFlight.current.delete(responseKey);
+      setRespondingUserInputId(
+        /** Clear the submitted request busy state without clearing a newer request. */ (
+          current,
+        ) => (current === activePendingUserInput.requestId ? null : current),
+      );
+      return result;
+    },
+    [
+      activePendingUserInput,
+      activePendingUserInputAnswers,
+      respondToUserInput,
+      selectedThreadShell,
+    ],
+  );
+
+  /** Close an asynchronous question without sending an answer or messaging the agent. */
+  const onDismissUserInput = useCallback(
+    /** Dismiss the selected asynchronous request without submitting answers. */ async () => {
+      if (!selectedThreadShell || !activePendingUserInput) {
         return;
       }
-      attachmentsByQuestionId.set(
-        question.id,
-        attachments.map((attachment) => ({
-          type: attachment.type,
-          id: attachment.uploadedAttachmentId!,
-          name: attachment.name,
-          mimeType: attachment.mimeType,
-          sizeBytes: attachment.sizeBytes,
-        })),
+
+      setRespondingUserInputId(activePendingUserInput.requestId);
+      const result = await dismissUserInput({
+        environmentId: selectedThreadShell.environmentId,
+        input: {
+          threadId: selectedThreadShell.id,
+          requestId: activePendingUserInput.requestId,
+        },
+      });
+      setRespondingUserInputId(
+        /** Clear the dismissed request busy state without clearing a newer request. */ (
+          current,
+        ) => (current === activePendingUserInput.requestId ? null : current),
       );
-    }
-    userInputResponsesInFlight.current.add(responseKey);
-    setRespondingUserInputId(activePendingUserInput.requestId);
-    const result = await respondToUserInput({
-      environmentId: selectedThreadShell.environmentId,
-      input: {
-        threadId: selectedThreadShell.id,
-        requestId: activePendingUserInput.requestId,
-        answers: activePendingUserInputAnswers,
-        ...(attachmentsByQuestionId.size > 0
-          ? { attachmentsByQuestionId: Object.fromEntries(attachmentsByQuestionId) }
-          : {}),
-      },
-    });
-    userInputResponsesInFlight.current.delete(responseKey);
-    setRespondingUserInputId((current) =>
-      current === activePendingUserInput.requestId ? null : current,
-    );
-    return result;
-  }, [
-    activePendingUserInput,
-    activePendingUserInputAnswers,
-    respondToUserInput,
-    selectedThreadShell,
-  ]);
-
-  // Closes an async question without messaging the agent.
-  const onDismissUserInput = useCallback(async () => {
-    if (!selectedThreadShell || !activePendingUserInput) {
-      return;
-    }
-
-    setRespondingUserInputId(activePendingUserInput.requestId);
-    const result = await dismissUserInput({
-      environmentId: selectedThreadShell.environmentId,
-      input: {
-        threadId: selectedThreadShell.id,
-        requestId: activePendingUserInput.requestId,
-      },
-    });
-    setRespondingUserInputId((current) =>
-      current === activePendingUserInput.requestId ? null : current,
-    );
-    return result;
-  }, [activePendingUserInput, dismissUserInput, selectedThreadShell]);
+      return result;
+    },
+    [activePendingUserInput, dismissUserInput, selectedThreadShell],
+  );
 
   return {
     activePendingApproval,

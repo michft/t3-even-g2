@@ -399,7 +399,7 @@ describe("CodexAdapterV2 assistant message streaming", () => {
   );
 });
 
-describe("CodexAdapterV2 runtime policy", () => {
+describe("CodexAdapterV2 runtime policy", /** Cover Codex turn-start policy translation. */ () => {
   it.effect("derives concrete Codex turn policies from every T3 runtime mode", () =>
     Effect.gen(function* () {
       const build = (
@@ -514,30 +514,41 @@ describe("CodexAdapterV2 runtime policy", () => {
     }),
   );
 
-  it.effect("adds T3 plan-mode developer instructions when the T3 MCP server is attached", () =>
-    Effect.gen(function* () {
-      const params = yield* CodexAdapterV2.buildCodexTurnStartParams({
-        nativeThreadId: "native-plan-with-t3-mcp",
-        codexInput: [{ type: "text", text: "plan this task" }],
-        runtimePolicy: {
-          runtimeMode: "full-access",
-          interactionMode: "plan",
-          cwd: null,
-        },
-        modelSelection: {
-          instanceId: ProviderInstanceId.make("codex"),
-          model: "gpt-5.4",
-        },
-        hasT3Mcp: true,
-      });
+  it.effect(
+    "adds T3 plan-mode developer instructions when the T3 MCP server is attached",
+    /** Require ordinary chat for T3 plan-mode questions. */ () =>
+      Effect.gen(
+        /**
+         * Build plan-mode turn parameters with the T3 MCP server.
+         */
+        function* () {
+          const params = yield* CodexAdapterV2.buildCodexTurnStartParams({
+            nativeThreadId: "native-plan-with-t3-mcp",
+            codexInput: [{ type: "text", text: "plan this task" }],
+            runtimePolicy: {
+              runtimeMode: "full-access",
+              interactionMode: "plan",
+              cwd: null,
+            },
+            modelSelection: {
+              instanceId: ProviderInstanceId.make("codex"),
+              model: "gpt-5.4",
+            },
+            hasT3Mcp: true,
+          });
 
-      assert.equal(params.collaborationMode?.mode, "plan");
-      assert.include(
-        params.collaborationMode?.settings.developer_instructions ?? "",
-        "request_user_input",
-      );
-      assert.include(params.additionalContext?.t3_code_tools?.value ?? "", "preview_status");
-    }),
+          assert.equal(params.collaborationMode?.mode, "plan");
+          assert.include(
+            params.collaborationMode?.settings.developer_instructions ?? "",
+            "Ask clarification questions in ordinary chat",
+          );
+          assert.notInclude(
+            params.collaborationMode?.settings.developer_instructions ?? "",
+            "Use the `request_user_input` tool",
+          );
+          assert.include(params.additionalContext?.t3_code_tools?.value ?? "", "preview_status");
+        },
+      ),
   );
 
   it.effect("keeps Codex in plan mode without referencing unavailable T3 MCP tools", () =>

@@ -972,7 +972,7 @@ describe("V2 session presentation", () => {
   });
 });
 
-describe("native provider presentation in the v2 timeline", () => {
+describe("native provider presentation in the v2 timeline", /** Cover native provider timeline projection. */ () => {
   const timestamp = DateTime.makeUnsafe("2026-09-04T12:00:00.000Z");
   const base = {
     id: TurnItemId.make("native-item"),
@@ -998,13 +998,20 @@ describe("native provider presentation in the v2 timeline", () => {
     item,
   });
 
-  it("keeps async answers in the question row, including incrementally appended replies", () => {
+  it("keeps async answers in the question row, including incrementally appended replies", /** Keep incremental async replies in the question row. */ () => {
     const requestId = RuntimeRequestId.make("question");
     const question: OrchestrationV2TurnItem = {
       ...base,
       type: "user_input_request",
       requestId,
-      questions: [],
+      questions: [
+        {
+          id: "color",
+          header: "Color",
+          question: "Which color?",
+          options: [{ label: "Blue", description: "Blue palette" }],
+        },
+      ],
       questionAnswer: { requestId, answers: { color: "Blue" }, attachmentsByQuestionId: {} },
     };
     const reply: OrchestrationV2TurnItem = {
@@ -1023,7 +1030,11 @@ describe("native provider presentation in the v2 timeline", () => {
     const nextInput = { ...input, visibleTurnItems: [...input.visibleTurnItems, visible(reply)] };
     const next = deriveTimelineEntriesFromVisibleTurnItemsWithState(nextInput, previous);
     expect(next.entries).toEqual(deriveTimelineEntriesFromVisibleTurnItems(nextInput));
-    expect(next.entries).toHaveLength(1);
+    expect(next.entries).toHaveLength(2);
+    expect(next.entries[0]).toMatchObject({
+      kind: "message",
+      message: { role: "assistant", text: expect.stringContaining("1. Blue") },
+    });
     const replyFirst = { ...input, visibleTurnItems: [visible(reply)] };
     const replyProjection = deriveTimelineEntriesFromVisibleTurnItemsWithState(replyFirst);
     const questionAfterReply = {
@@ -1035,7 +1046,7 @@ describe("native provider presentation in the v2 timeline", () => {
         .entries,
     ).toEqual(deriveTimelineEntriesFromVisibleTurnItems(questionAfterReply));
 
-    expect(next.entries[0]).toMatchObject({
+    expect(next.entries[1]).toMatchObject({
       kind: "work",
       entry: { questionAnswer: question.questionAnswer },
     });
