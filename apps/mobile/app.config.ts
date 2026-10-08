@@ -10,9 +10,11 @@ Object.assign(process.env, repoEnv);
 
 const APP_VARIANT = resolveAppVariant(repoEnv.APP_VARIANT);
 const isIosPersonalTeamBuild = repoEnv.T3CODE_IOS_PERSONAL_TEAM === "1";
-const runtimeVersionPolicy =
-  process.env.MOBILE_VERSION_POLICY ??
-  (APP_VARIANT === "development" ? "appVersion" : "fingerprint");
+const isForkTestFlightBuild = repoEnv.T3CODE_IOS_TESTFLIGHT === "1";
+const forkAppleTeamId = repoEnv.T3CODE_IOS_TEAM_ID?.trim();
+const forkExpoOwner = repoEnv.T3CODE_EXPO_OWNER?.trim();
+const forkExpoProjectId = repoEnv.T3CODE_EXPO_PROJECT_ID?.trim();
+const runtimeVersionPolicy = resolveRuntimeVersionPolicy(process.env.MOBILE_VERSION_POLICY);
 
 const personalTeamBundleIdentifier = repoEnv.T3CODE_IOS_PERSONAL_TEAM_BUNDLE_ID?.trim();
 const IOS_BUNDLE_IDENTIFIER_PATTERN = /^[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/;
@@ -30,6 +32,36 @@ if (
   throw new Error(
     "T3CODE_IOS_PERSONAL_TEAM_BUNDLE_ID must be a reverse-DNS identifier such as com.example.t3code when T3CODE_IOS_PERSONAL_TEAM=1.",
   );
+}
+
+if (isForkTestFlightBuild) {
+  if (APP_VARIANT !== "development" || !isIosPersonalTeamBuild) {
+    throw new Error(
+      "Fork TestFlight builds require APP_VARIANT=development and T3CODE_IOS_PERSONAL_TEAM=1 to retain the existing Dev identity and reduced capabilities.",
+    );
+  }
+  if (
+    !forkAppleTeamId ||
+    !/^[A-Z0-9]{10}$/.test(forkAppleTeamId) ||
+    forkAppleTeamId === "ARK85ZXQ4Z"
+  ) {
+    throw new Error("Set T3CODE_IOS_TEAM_ID to your enrolled fork Apple Developer team ID.");
+  }
+  if (personalTeamBundleIdentifier?.toLowerCase().startsWith("com.t3tools.")) {
+    throw new Error(
+      "Fork TestFlight builds must use your installed fork bundle ID, not a T3 Tools ID.",
+    );
+  }
+  if (!forkExpoOwner || forkExpoOwner.toLowerCase() === "pingdotgg") {
+    throw new Error("Set T3CODE_EXPO_OWNER to your fork Expo account or organization.");
+  }
+  if (
+    !forkExpoProjectId ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(forkExpoProjectId) ||
+    forkExpoProjectId.toLowerCase() === "d763fcb8-d37c-41ea-a773-b54a0ab4a454"
+  ) {
+    throw new Error("Set T3CODE_EXPO_PROJECT_ID to your fork Expo project's UUID.");
+  }
 }
 
 const DEVELOPMENT_ASSETS = {
@@ -98,6 +130,7 @@ const VARIANT_CONFIG = {
   },
 } as const;
 
+/** Selects the app identity, defaulting unconfigured builds to production. */
 function resolveAppVariant(value: string | undefined): AppVariant {
   switch (value) {
     case "development":
@@ -106,6 +139,21 @@ function resolveAppVariant(value: string | undefined): AppVariant {
       return value;
     default:
       return "production";
+  }
+}
+
+/** Keeps Expo runtime-version policies typed and rejects unsupported build overrides. */
+function resolveRuntimeVersionPolicy(value: string | undefined) {
+  switch (value) {
+    case "appVersion":
+    case "fingerprint":
+    case "nativeVersion":
+    case "sdkVersion":
+      return value;
+    case undefined:
+      return APP_VARIANT === "development" ? "appVersion" : "fingerprint";
+    default:
+      throw new Error(`Unsupported MOBILE_VERSION_POLICY: ${value}`);
   }
 }
 
@@ -240,8 +288,8 @@ const config: ExpoConfig = {
   icon: variant.assets.appIcon,
   userInterfaceStyle: "automatic",
   updates: {
-    enabled: repoEnv.T3CODE_MOBILE_UPDATES_ENABLED !== "0",
-    url: "https://u.expo.dev/d763fcb8-d37c-41ea-a773-b54a0ab4a454",
+    enabled: !isForkTestFlightBuild && repoEnv.T3CODE_MOBILE_UPDATES_ENABLED !== "0",
+    url: `https://u.expo.dev/${isForkTestFlightBuild ? forkExpoProjectId : "d763fcb8-d37c-41ea-a773-b54a0ab4a454"}`,
     checkAutomatically: "ON_LOAD",
     fallbackToCacheTimeout: 0,
   },
@@ -252,6 +300,7 @@ const config: ExpoConfig = {
     // showcase capture build requires full screen (see infoPlist below).
     requireFullScreen: process.env.T3_SHOWCASE_CAPTURE_BUILD === "1",
     bundleIdentifier: iosBundleIdentifier,
+    ...(isForkTestFlightBuild ? { appleTeamId: forkAppleTeamId } : {}),
     // Pin release builds to the T3 Tools team. Personal Team builds supply
     // their local team at build time and cannot sign associated domains.
     ...(isIosPersonalTeamBuild
@@ -495,10 +544,10 @@ const config: ExpoConfig = {
       tracesToken: repoEnv.EXPO_PUBLIC_OTLP_TRACES_TOKEN ?? null,
     },
     eas: {
-      projectId: "d763fcb8-d37c-41ea-a773-b54a0ab4a454",
+      projectId: isForkTestFlightBuild ? forkExpoProjectId : "d763fcb8-d37c-41ea-a773-b54a0ab4a454",
     },
   },
-  owner: "pingdotgg",
+  owner: isForkTestFlightBuild ? forkExpoOwner : "pingdotgg",
 };
 
 export default config;

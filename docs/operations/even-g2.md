@@ -112,6 +112,88 @@ work around a rejected update. Apple's
 [App ID prefix guidance](https://developer.apple.com/library/archive/technotes/tn2311/_index.html)
 explains why a prefix change can lose access to existing Keychain data.
 
+## TestFlight updates for the fork
+
+TestFlight distributes one universal Release build to iPhone and iPad. Every
+beta build expires after 90 days; upload a replacement before expiry rather
+than using the longer developer-device signing renewal interval. Testers can
+enable Automatic Updates in TestFlight. See Apple's
+[TestFlight overview](https://developer.apple.com/help/app-store-connect/test-a-beta-version/testflight-overview/).
+
+Use the `fork-testflight` EAS profile, not `production` or `v2-preview`: those
+profiles belong to upstream T3. The fork profile keeps the `T3 Code Dev` name
+and scheme, builds a store Release without a development client, increments
+build numbers remotely, and disables Expo OTA updates. The existing
+`T3CODE_IOS_PERSONAL_TEAM=1` flag selects reduced capabilities, not free-team
+signing: the fork still requires an enrolled team and App Store distribution
+credentials. Widgets, share extension, Apple sign-in, and associated domains
+remain excluded from this initial distribution path.
+
+Before building:
+
+1. Register the **existing installed bundle ID** under the same enrolled
+   Apple team and create its App Store Connect app record. Preserve its App ID
+   prefix and Keychain group to retain access to saved environments.
+2. Create a fork-owned Expo project with slug `t3-code`. Log in with your own
+   Expo account using EAS CLI (`pnpm add --global eas-cli` if unavailable).
+3. Set these non-secret values in your shell and the fork EAS project's
+   `production` environment with plain-text visibility. Local config evaluation
+   and the cloud builder must receive the same values:
+
+```bash
+export APP_VARIANT=development
+export T3CODE_IOS_PERSONAL_TEAM=1
+export T3CODE_IOS_TESTFLIGHT=1
+export T3CODE_IOS_PERSONAL_TEAM_BUNDLE_ID=com.example.t3code.g2
+export T3CODE_IOS_TEAM_ID=YOURTEAMID
+export T3CODE_EXPO_OWNER=your-expo-account
+export T3CODE_EXPO_PROJECT_ID=11111111-2222-4333-8444-555555555555
+```
+
+Replace every example with confirmed values, including the existing installed
+bundle ID. Fork config rejects missing identities and the known upstream
+Apple team, bundle namespace, Expo owner, and project. Required Clerk/relay
+public config must also be supplied during the build if using cloud pairing;
+the phone does not load a checkout's `.env` at runtime. Supply
+`T3CODE_CLERK_PUBLISHABLE_KEY`, `T3CODE_CLERK_JWT_TEMPLATE`, and
+`T3CODE_RELAY_URL` for the intended service, plus Google callback credentials
+if using native Google sign-in. Direct connections do not require cloud config.
+The mobile [setup guide](../../apps/mobile/README.md) covers root environment
+files and their public configuration aliases. Keep these exports active for
+both build and submit so submission config also resolves to the fork.
+
+From `apps/mobile`, build and then submit explicitly:
+
+```bash
+eas build --platform ios --profile fork-testflight
+eas submit --platform ios --profile fork-testflight
+```
+
+During credential setup, select the same enrolled Apple team and create/use
+Apple Distribution signing with an App Store provisioning profile. The empty
+fork submission profile deliberately inherits no upstream `ascAppId`: select
+the fork build, team, and matching App Store Connect record interactively.
+For unattended submission, configure **your own** numeric `ascAppId` in
+`submit.fork-testflight.ios` and fork-owned Apple credentials first. Never
+reuse the upstream submission target or trigger its production workflow for
+this fork profile. See
+[Expo's iOS submission guide](https://docs.expo.dev/submit/ios/).
+
+Verify the archive's bundle ID, signing team, `application-identifier`, and
+`keychain-access-groups` against the installed app before replacing it. After
+Apple processes the upload, assign it to an internal TestFlight group, invite
+your Apple account, and accept on both devices. Install over the existing app;
+check saved environments and threads before switching both devices to beta
+updates. External testing also requires beta review information and may
+require Apple's review. Uploading alone does not verify Apple acceptance or
+physical G2/R1 behavior.
+
+Xcode Archive → Distribute App → App Store Connect is an alternative to EAS.
+Use the existing custom Dev bundle/team, Release configuration, and
+`T3CODE_MOBILE_UPDATES_ENABLED=0` when regenerating the native project. Increment
+the build number for every upload and compare signed entitlements as above.
+Do not run the production-identity `ios:release` script to update a Dev app.
+
 ## Rebuild and deploy an existing development-identity app
 
 Use this example when updating an existing `T3 Code Dev` installation with a
