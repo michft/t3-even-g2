@@ -5,6 +5,20 @@
     "promptToConfigurePushNotifications": false
   },
   "build": {
+    "fork-testflight": {
+      "corepack": true,
+      "distribution": "store",
+      "developmentClient": false,
+      "environment": "production",
+      "autoIncrement": true,
+      "env": {
+        "APP_VARIANT": "development",
+        "T3CODE_IOS_PERSONAL_TEAM": "1",
+        "T3CODE_IOS_TESTFLIGHT": "1",
+        "T3CODE_MOBILE_UPDATES_ENABLED": "0",
+        "NODE_OPTIONS": "--max-old-space-size=4096"
+      }
+    },
     "development": {
       "corepack": true,
       "env": {
@@ -60,6 +74,9 @@
     }
   },
   "submit": {
+    "fork-testflight": {
+      "ios": {}
+    },
     "v2-preview": {
       "extends": "production",
       "android": {

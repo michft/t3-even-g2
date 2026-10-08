@@ -7,6 +7,9 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ### Changed
 
+- Add an isolated fork TestFlight profile with explicit Apple/Expo identity,
+  store signing, increasing build numbers, and Expo OTA updates disabled.
+
 - Render structured clarification questions as ordinary conversation text on
   web, desktop, and mobile; accept numbered choices through the text composer.
 
