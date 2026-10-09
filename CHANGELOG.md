@@ -7,6 +7,9 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ### Changed
 
+- Validate physical iOS updates before installation, preserve signed app and
+  Keychain identity, and retain one artifact with per-device deployment receipts.
+
 - Render structured clarification questions as ordinary conversation text on
   web, desktop, and mobile; accept numbered choices through the text composer.
 
