@@ -134,13 +134,24 @@ your Xcode signing team. Keep the same shell for the remaining commands:
 
 ```bash
 G2_DEVICE_ID='YOUR-IPHONE-DEVICE-ID'
+G2_IPAD_ID='YOUR-IPAD-DEVICE-ID'
 G2_BUNDLE_ID='com.example.t3code.g2'
 G2_TEAM_ID='YOUR-APPLE-TEAM-ID'
+G2_BUILD_NUMBER='2' # Higher than the build installed on either target.
+G2_PREVIOUS_APP='/path/to/previous/signed/T3CodeDev.app'
 G2_BUILD_DIR="$(mktemp -d "${TMPDIR:-/tmp}/t3-even-g2-release.XXXXXX")"
+G2_SOURCE_REVISION="$(jj log --no-graph -r @ -T commit_id)"
+
+# Apply these again after regenerating the development Xcode project.
+plutil -replace CFBundleVersion -string "$G2_BUILD_NUMBER" \
+  apps/mobile/ios/T3CodeDev/Info.plist
+plutil -replace EXUpdatesEnabled -bool NO \
+  apps/mobile/ios/T3CodeDev/Supporting/Expo.plist
 
 APP_VARIANT=development \
 T3CODE_IOS_PERSONAL_TEAM=1 \
 T3CODE_IOS_PERSONAL_TEAM_BUNDLE_ID="$G2_BUNDLE_ID" \
+T3CODE_MOBILE_UPDATES_ENABLED=0 \
 xcodebuild \
   -workspace apps/mobile/ios/T3CodeDev.xcworkspace \
   -scheme T3CodeDev \
@@ -149,24 +160,45 @@ xcodebuild \
   -derivedDataPath "$G2_BUILD_DIR" \
   -allowProvisioningUpdates -allowProvisioningDeviceRegistration \
   DEVELOPMENT_TEAM="$G2_TEAM_ID" \
+  CURRENT_PROJECT_VERSION="$G2_BUILD_NUMBER" \
   CODE_SIGN_STYLE=Automatic CODE_SIGN_IDENTITY='Apple Development' \
   build
 ```
 
-Require exit code zero and `BUILD SUCCEEDED` before installing. Confirm the
-output contains embedded JavaScript, then install over the existing app:
+Require exit code zero and `BUILD SUCCEEDED` before installing. Build once for
+both targets, then validate and install that same signed artifact:
 
 ```bash
 G2_APP="$G2_BUILD_DIR/Build/Products/Release-iphoneos/T3CodeDev.app"
-test -f "$G2_APP/main.jsbundle" &&
-  xcrun devicectl device install app --device "$G2_DEVICE_ID" "$G2_APP"
+node scripts/ios-release-deploy.ts \
+  --app "$G2_APP" --previous-app "$G2_PREVIOUS_APP" \
+  --source-revision "$G2_SOURCE_REVISION" \
+  --device "$G2_DEVICE_ID" --device "$G2_IPAD_ID" \
+  --output "$G2_BUILD_DIR/deployment"
 ```
 
-Only after installation succeeds, launch the installed app:
+Omit the second `--device` for a phone-only deployment. Keep the previous signed
+app as the identity baseline; do not substitute an app from another team or
+installation. The helper checks signatures, embedded JavaScript, physical iOS
+architecture, phone/tablet support, signed app and Keychain identity, profile
+device coverage and expiry, signing certificate expiry, disabled OTA, and a
+higher integer build number on every target before installing anything. It requires
+the same bundle to be installed already and never uninstalls it.
 
-```bash
-xcrun devicectl device process launch --device "$G2_DEVICE_ID" "$G2_BUNDLE_ID"
-```
+The deployment directory retains a ZIP of the final signed app, its SHA-256,
+and a JSON receipt with the supplied source revision, Xcode version, signing
+expiry, and separate installation/launch verification for each device. Source
+revision is caller-supplied provenance; keep source and native build inputs
+stable while building. Verification compares the installed version and build,
+then confirms a running process from that installation. A locked device can
+install successfully but fail launch verification; its receipt records that
+failure and the command exits nonzero. Running does not prove saved environments
+are visible or physical G2/R1 behavior works.
+
+This adopts desktop release preflight, final-artifact validation, checksums,
+and launch smoke checks. Electron updater feeds, ASAR payloads, and macOS
+notarization do not apply to this iOS deployment. Disabling upstream Expo OTA
+keeps this custom fork on its embedded bundle; repeat the setting after prebuild.
 
 If device discovery or installation fails, check pairing, trust, connection,
 and local access to CoreDevice services. Signing requires the selected Xcode
