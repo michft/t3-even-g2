@@ -66,7 +66,6 @@ export function EvenG2SettingsSection() {
         <SettingsSwitchRow
           icon="eye"
           label="Natural scrolling"
-          subtitle="On: swipe up advances through content. Off: swipe down advances."
           value={status.naturalScrolling}
           disabled={status.status === "unsupported"}
           onValueChange={setEvenG2NaturalScrolling}

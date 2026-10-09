@@ -22,9 +22,9 @@ import { canSnooze, resolveSnoozePresets } from "@t3tools/client-runtime/state/t
 import type { MenuAction } from "@react-native-menu/menu";
 import { memo, useCallback, useEffect, useMemo, useState, type ComponentProps } from "react";
 import { Alert, Platform, Pressable, useWindowDimensions, View } from "react-native";
-import { scopedThreadKey } from "../../lib/scopedEntities";
-import { resolveThreadHighlight } from "../../lib/threadHighlight";
-import { useThreadHighlight } from "./use-thread-highlight";
+import { repositoryHighlightKey, resolveRepositoryHighlight } from "../../lib/repositoryHighlight";
+import { useRepositoryHighlight } from "./use-repository-highlight";
+import { ThreadRowColors } from "./ThreadRowColors";
 import type { SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
 
 import type { ThreadListProvider } from "../../state/thread-list-environments";
@@ -651,22 +651,31 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
   const providerInstance = props.providerInstance;
   const pr = useThreadPr(thread);
 
-  const { themeVariables: theme, threadOriginColorMode } = useAppearancePreferences();
+  const {
+    themeVariables: theme,
+    threadOriginColorMode,
+    threadLeftTintStrength,
+    threadRightTintStrength,
+  } = useAppearancePreferences();
   const sidebarPane = props.pane === "sidebar";
   const selected = props.selected === true;
-  const highlight = useThreadHighlight(scopedThreadKey(thread.environmentId, thread.id));
-  const highlightColor =
-    Platform.OS === "ios"
-      ? resolveThreadHighlight(highlight.override, props.environmentAccent)
-      : null;
-  const highlightStrip = highlightColor ? (
-    <View
-      accessible={false}
-      pointerEvents="none"
-      className="absolute bottom-0 left-0 top-0 w-1"
-      style={{ backgroundColor: highlightColor }}
-    />
-  ) : null;
+  const repositoryKey = repositoryHighlightKey(
+    props.project?.repositoryIdentity,
+    thread.environmentId,
+    thread.projectId,
+  );
+  const highlight = useRepositoryHighlight(repositoryKey);
+  const repositoryColor = resolveRepositoryHighlight(highlight.override, repositoryKey);
+  const rowColors =
+    Platform.OS === "ios" ? (
+      <ThreadRowColors
+        serverColor={props.environmentAccent}
+        repositoryColor={repositoryColor}
+        mode={threadOriginColorMode}
+        leftStrength={threadLeftTintStrength}
+        rightStrength={threadRightTintStrength}
+      />
+    ) : null;
   const rowAppearance = useMemo(
     () =>
       getThreadListV2RowAppearance(
@@ -674,7 +683,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
         sidebarPane,
         selected,
         props.environmentColor,
-        threadOriginColorMode,
+        Platform.OS === "ios" && threadOriginColorMode === "tint" ? "off" : threadOriginColorMode,
       ),
     [theme, sidebarPane, selected, props.environmentColor, threadOriginColorMode],
   );
@@ -1264,7 +1273,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
         }}
         style={rowAppearance.cardStyle}
       >
-        {highlightStrip}
+        {rowColors}
         {sidebarPane ? (
           fadedCardContent
         ) : (
@@ -1298,7 +1307,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
         }}
         style={rowAppearance.style}
       >
-        {highlightStrip}
+        {rowColors}
         {/* Settled history recedes: dimmed favicon + muted title. */}
         <View
           className={cn(
@@ -1402,8 +1411,8 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
               ...(Platform.OS === "ios"
                 ? [
                     {
-                      id: "highlight",
-                      title: "Highlight",
+                      id: "repository-highlight",
+                      title: "Repository color",
                       image: "paintpalette",
                       attributes: { disabled: !highlight.loaded },
                       subactions: highlight.actions,

@@ -257,6 +257,134 @@ describe("mobile connection storage", () => {
     await expect(loadPreferences()).resolves.toEqual({ themeMode: "dark" });
   });
 
+  it("persists independent tint strengths including zero without changing highlights or theme", async () => {
+    const neighbors = {
+      themeMode: "dark",
+      threadHighlights: { "mini:thread": "#ec4899" },
+      threadOriginColorMode: "tint",
+    } as const;
+    await savePreferencesPatch({
+      ...neighbors,
+      threadLeftTintStrength: 22,
+      threadRightTintStrength: 45,
+    });
+    await savePreferencesPatch({ threadLeftTintStrength: 0 });
+    await expect(loadPreferences()).resolves.toEqual({
+      ...neighbors,
+      threadLeftTintStrength: 0,
+      threadRightTintStrength: 45,
+    });
+    await savePreferencesPatch({ threadRightTintStrength: 60 });
+    const persisted = JSON.parse(mocks.getPreferencesJson() ?? "");
+    expect(persisted).toEqual({
+      ...neighbors,
+      threadLeftTintStrength: 0,
+      threadRightTintStrength: 60,
+    });
+    mocks.clear();
+    mocks.setPreferencesJson(JSON.stringify(persisted), 10);
+    await expect(loadPreferences()).resolves.toEqual(persisted);
+  });
+
+  it("clamps and rounds finite saved tint strengths", async () => {
+    await expect(
+      savePreferencesPatch({ threadLeftTintStrength: -5, threadRightTintStrength: 90 }),
+    ).resolves.toEqual({
+      threadLeftTintStrength: 0,
+      threadRightTintStrength: 60,
+    });
+    await savePreferencesPatch({ threadLeftTintStrength: 12.6, threadRightTintStrength: 20.4 });
+    await expect(loadPreferences()).resolves.toEqual({
+      threadLeftTintStrength: 13,
+      threadRightTintStrength: 20,
+    });
+  });
+
+  it("drops nonfinite tint patches without losing neighboring preferences", async () => {
+    await savePreferencesPatch({
+      themeMode: "dark",
+      threadLeftTintStrength: 22,
+      threadRightTintStrength: 22,
+    });
+    await savePreferencesPatch({
+      threadLeftTintStrength: Number.NaN,
+      threadRightTintStrength: Number.POSITIVE_INFINITY,
+    });
+    await expect(loadPreferences()).resolves.toEqual({ themeMode: "dark" });
+    await savePreferencesPatch({ threadLeftTintStrength: Number.NEGATIVE_INFINITY });
+    await expect(loadPreferences()).resolves.toEqual({ themeMode: "dark" });
+  });
+
+  it("sanitizes stored tint strengths without adding defaults to older preferences", async () => {
+    mocks.setPreferencesJson(
+      JSON.stringify({
+        threadLeftTintStrength: -3.8,
+        threadRightTintStrength: 100,
+        themeMode: "dark",
+      }),
+      10,
+    );
+    await expect(loadPreferences()).resolves.toEqual({
+      threadLeftTintStrength: 0,
+      threadRightTintStrength: 60,
+      themeMode: "dark",
+    });
+    mocks.setPreferencesJson(
+      JSON.stringify({
+        threadLeftTintStrength: "30",
+        threadRightTintStrength: null,
+        themeMode: "dark",
+      }),
+      20,
+    );
+    await expect(loadPreferences()).resolves.toEqual({ themeMode: "dark" });
+  });
+
+  it("persists and resets repository colors without altering legacy thread colors or theme", async () => {
+    const neighbors = {
+      themeMode: "dark",
+      threadHighlights: { "mini:thread": "#ec4899" },
+      threadLeftTintStrength: 0,
+      threadRightTintStrength: 45,
+    } as const;
+    await savePreferencesPatch(neighbors);
+    await savePreferencesPatch({
+      repositoryHighlights: { "mini:project": "#3b82f6", "beef:project": "none" },
+    });
+    await expect(loadPreferences()).resolves.toEqual({
+      ...neighbors,
+      repositoryHighlights: { "mini:project": "#3b82f6", "beef:project": "none" },
+    });
+    await savePreferencesPatch({ repositoryHighlights: { "beef:project": "none" } });
+    await expect(loadPreferences()).resolves.toEqual({
+      ...neighbors,
+      repositoryHighlights: { "beef:project": "none" },
+    });
+    await savePreferencesPatch({ repositoryHighlights: {} });
+    await expect(loadPreferences()).resolves.toEqual({ ...neighbors, repositoryHighlights: {} });
+  });
+
+  it("sanitizes repository colors separately from legacy thread colors", async () => {
+    mocks.setPreferencesJson(
+      JSON.stringify({
+        themeMode: "dark",
+        threadHighlights: { "mini:thread": "#ec4899" },
+        repositoryHighlights: {
+          "mini:project": "#ABCDEF",
+          "beef:project": "none",
+          invalid: "blue",
+          nonString: true,
+        },
+      }),
+      10,
+    );
+    await expect(loadPreferences()).resolves.toEqual({
+      themeMode: "dark",
+      threadHighlights: { "mini:thread": "#ec4899" },
+      repositoryHighlights: { "mini:project": "#ABCDEF", "beef:project": "none" },
+    });
+  });
+
   it("persists local thread highlights and reset while preserving unrelated preferences", async () => {
     await savePreferencesPatch({
       themeMode: "dark",

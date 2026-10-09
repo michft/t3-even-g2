@@ -63,7 +63,13 @@ export interface Preferences {
   readonly darkThemeId?: MobileThemeId;
   readonly themeMode?: MobileThemeMode;
   readonly threadOriginColorMode?: ThreadOriginColorMode;
+  /** Device-local opacity percentage of the server-color tint in thread rows. */
+  readonly threadLeftTintStrength?: number;
+  /** Device-local opacity percentage of the repository-color tint in thread rows. */
+  readonly threadRightTintStrength?: number;
   readonly threadHighlights?: ThreadHighlights;
+  /** Repository-scoped colors; separate from legacy individual-thread choices. */
+  readonly repositoryHighlights?: ThreadHighlights;
   readonly baseFontSize?: number;
   readonly terminalFontSize?: number | null;
   readonly markdownFontSize?: number;
@@ -138,7 +144,14 @@ export class MobilePreferencesStore extends Context.Service<
   }
 >()("@t3tools/mobile/persistence/MobilePreferencesStore") {}
 
-/** Retains supported persisted preference values while dropping invalid settings. */
+/** Accepts finite tint percentages, rounded and bounded for readable thread rows. */
+function sanitizeThreadTintStrength(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.min(60, Math.max(0, Math.round(value)))
+    : undefined;
+}
+
+/** Retains supported device preferences and discards malformed stored values. */
 function sanitizePreferences(parsed: Preferences): Preferences {
   const preferences: {
     pullRequestHideTestFiles?: boolean;
@@ -149,7 +162,10 @@ function sanitizePreferences(parsed: Preferences): Preferences {
     darkThemeId?: MobileThemeId;
     themeMode?: MobileThemeMode;
     threadOriginColorMode?: ThreadOriginColorMode;
+    threadLeftTintStrength?: number;
+    threadRightTintStrength?: number;
     threadHighlights?: ThreadHighlights;
+    repositoryHighlights?: ThreadHighlights;
     baseFontSize?: number;
     terminalFontSize?: number | null;
     markdownFontSize?: number;
@@ -213,8 +229,15 @@ function sanitizePreferences(parsed: Preferences): Preferences {
     preferences.themeMode = parsed.themeMode;
   }
   if (typeof parsed.baseFontSize === "number") preferences.baseFontSize = parsed.baseFontSize;
+  const leftTintStrength = sanitizeThreadTintStrength(parsed.threadLeftTintStrength);
+  const rightTintStrength = sanitizeThreadTintStrength(parsed.threadRightTintStrength);
+  if (leftTintStrength !== undefined) preferences.threadLeftTintStrength = leftTintStrength;
+  if (rightTintStrength !== undefined) preferences.threadRightTintStrength = rightTintStrength;
   if (parsed.threadHighlights !== undefined) {
     preferences.threadHighlights = sanitizeThreadHighlights(parsed.threadHighlights);
+  }
+  if (parsed.repositoryHighlights !== undefined) {
+    preferences.repositoryHighlights = sanitizeThreadHighlights(parsed.repositoryHighlights);
   }
   if (
     parsed.threadOriginColorMode === "tint" ||
@@ -475,6 +498,7 @@ const make = Effect.fn("MobilePreferencesStore.make")(function* () {
     .withPermits(1)(loadUnlocked)
     .pipe(Effect.mapError((cause) => new MobilePreferencesLoadError({ cause })));
 
+  /** Serializes patches while preserving neighboring settings and normalizing tint strengths. */
   const update = Effect.fn("MobilePreferencesStore.update")((transform) =>
     lock
       .withPermits(1)(
@@ -484,7 +508,20 @@ const make = Effect.fn("MobilePreferencesStore.make")(function* () {
             try: () => transform(current),
             catch: (cause) => new MobilePreferencesSaveError({ cause }),
           });
-          const next: Preferences = { ...current, ...patch };
+          const next: Preferences = {
+            ...current,
+            ...patch,
+            ...(patch.threadLeftTintStrength !== undefined
+              ? { threadLeftTintStrength: sanitizeThreadTintStrength(patch.threadLeftTintStrength) }
+              : {}),
+            ...(patch.threadRightTintStrength !== undefined
+              ? {
+                  threadRightTintStrength: sanitizeThreadTintStrength(
+                    patch.threadRightTintStrength,
+                  ),
+                }
+              : {}),
+          };
           const payload = yield* encode(PREFERENCES_KEY, next);
           yield* saveJson(payload);
           return next;

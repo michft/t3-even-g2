@@ -8,16 +8,19 @@ export const THREAD_HIGHLIGHT_COLORS = [
   { title: "Orange", color: "#f97316" },
   { title: "Amber", color: "#eab308" },
   { title: "Green", color: "#22c55e" },
+  { title: "Cyan", color: "#06b6d4" },
   { title: "Blue", color: "#3b82f6" },
   { title: "Purple", color: "#a855f7" },
   { title: "Pink", color: "#ec4899" },
   { title: "Grey", color: "#94a3b8" },
 ] as const;
 
+/** Accepts stored colour choices or an explicit hidden marker. */
 export function isThreadHighlightOverride(value: unknown): value is ThreadHighlightOverride {
   return value === "none" || (typeof value === "string" && /^#[\da-f]{6}$/i.test(value));
 }
 
+/** Keeps valid stored colour records without interpreting their thread or repository scope. */
 export function sanitizeThreadHighlights(value: unknown): ThreadHighlights {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   return Object.fromEntries(
@@ -27,6 +30,7 @@ export function sanitizeThreadHighlights(value: unknown): ThreadHighlights {
   );
 }
 
+/** Updates or resets one colour record while retaining neighboring choices. */
 export function updateThreadHighlight(
   current: ThreadHighlights | undefined,
   key: string,
@@ -38,13 +42,7 @@ export function updateThreadHighlight(
   return next;
 }
 
-export function resolveThreadHighlight(
-  override: ThreadHighlightOverride | undefined,
-  serverAccent: string | null | undefined,
-): string | null {
-  return override === "none" ? null : (override ?? serverAccent ?? null);
-}
-
+/** Builds the full colour palette with the current override selected. */
 export function threadHighlightMenuActions(
   override: ThreadHighlightOverride | undefined,
 ): MenuAction[] {

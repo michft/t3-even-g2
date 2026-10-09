@@ -14,6 +14,9 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ### Changed
 
+- Restore mobile repository colour tabs and independent server/repository tints;
+  remove the explanatory subtitle below Natural scrolling.
+
 - Integrate T3 Nightly 20261013 into current fork main, preserving G2/R1,
   numbered clarification replies, fork signing and host-owned appearance;
   retain imported reference submodule metadata for CI checkout cleanup.
