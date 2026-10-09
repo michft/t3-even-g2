@@ -64,6 +64,12 @@ launch do not verify physical G2/R1 behavior; run the hardware checks below.
   local generated-project changes before running a clean Expo prebuild.
 - After native dependency or patch changes, rerun CocoaPods as described in the
   mobile README; old Pods may still reference a previous pnpm package path.
+- When a Nightly changes config plugins, back up generated-project edits and
+  regenerate from `apps/mobile` with `node_modules/.bin/expo prebuild --platform
+ios --no-install`, then run `pod install` from `apps/mobile/ios`. Keep
+  `APP_VARIANT=development`, the existing Personal Team bundle override, and
+  `T3CODE_MOBILE_UPDATES_ENABLED=0` throughout. Inspect the regenerated signing
+  identity before building; regeneration can replace local native settings.
 - If Xcode cannot find Node, check `apps/mobile/ios/.xcode.env.local` for a stale
   executable path after a Node upgrade.
 - If `vp` is absent from `PATH`, use `node_modules/.bin/vp` from the repository
@@ -136,11 +142,18 @@ your Xcode signing team. Keep the same shell for the remaining commands:
 G2_DEVICE_ID='YOUR-IPHONE-DEVICE-ID'
 G2_BUNDLE_ID='com.example.t3code.g2'
 G2_TEAM_ID='YOUR-APPLE-TEAM-ID'
+G2_BUILD_NUMBER='3' # Must exceed the build installed on each target.
 G2_BUILD_DIR="$(mktemp -d "${TMPDIR:-/tmp}/t3-even-g2-release.XXXXXX")"
+
+plutil -replace CFBundleVersion -string "$G2_BUILD_NUMBER" \
+  apps/mobile/ios/T3CodeDev/Info.plist
+plutil -replace EXUpdatesEnabled -bool NO \
+  apps/mobile/ios/T3CodeDev/Supporting/Expo.plist
 
 APP_VARIANT=development \
 T3CODE_IOS_PERSONAL_TEAM=1 \
 T3CODE_IOS_PERSONAL_TEAM_BUNDLE_ID="$G2_BUNDLE_ID" \
+T3CODE_MOBILE_UPDATES_ENABLED=0 \
 xcodebuild \
   -workspace apps/mobile/ios/T3CodeDev.xcworkspace \
   -scheme T3CodeDev \
@@ -149,6 +162,7 @@ xcodebuild \
   -derivedDataPath "$G2_BUILD_DIR" \
   -allowProvisioningUpdates -allowProvisioningDeviceRegistration \
   DEVELOPMENT_TEAM="$G2_TEAM_ID" \
+  CURRENT_PROJECT_VERSION="$G2_BUILD_NUMBER" \
   CODE_SIGN_STYLE=Automatic CODE_SIGN_IDENTITY='Apple Development' \
   build
 ```
