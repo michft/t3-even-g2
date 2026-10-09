@@ -54,6 +54,41 @@ const nativeChoiceQuestion = {
 } as const;
 
 describe("resolvePendingUserInputAnswer", () => {
+  it("preserves exact editor text, including a deliberately cleared answer", /** Keep editor bytes and deliberately cleared answers without interpreting choices. */ () => {
+    const question = { ...singleSelectQuestion, initialAnswer: "  Proposed message\n" };
+    expect(resolvePendingUserInputAnswer(question, { customAnswer: question.initialAnswer })).toBe(
+      question.initialAnswer,
+    );
+    expect(resolvePendingUserInputAnswer(question, { customAnswer: "  Edited message\n\n" })).toBe(
+      "  Edited message\n\n",
+    );
+    expect(resolvePendingUserInputAnswer(question, { customAnswer: "" })).toBe("");
+    expect(resolvePendingUserInputAnswer(question, { customAnswer: " \n" })).toBe(" \n");
+    expect(resolvePendingUserInputAnswer(question, { customAnswer: "1" })).toBe("1");
+    expect(resolvePendingUserInputAnswer(question, { customAnswer: "Orchestration-first" })).toBe(
+      "Orchestration-first",
+    );
+    expect(
+      resolvePendingUserInputAnswer(question, { customAnswer: "", attachmentsBlocked: true }),
+    ).toBeNull();
+    expect(
+      setPendingUserInputCustomAnswer(
+        { selectedOptionValues: ["Orchestration-first"] },
+        "",
+        question,
+      ),
+    ).toEqual({ customAnswer: "" });
+    const questions = [question, { ...singleSelectQuestion, id: "follow-up" }];
+    const drafts = { scope: { customAnswer: "" } };
+    expect(findFirstUnansweredPendingUserInputQuestionIndex(questions, drafts)).toBe(1);
+    expect(derivePendingUserInputProgress([question], drafts, 0)).toMatchObject({
+      customAnswer: "",
+      resolvedAnswer: "",
+      canAdvance: true,
+      isComplete: true,
+    });
+  });
+
   it("prefers a custom answer over selected options", () => {
     expect(
       resolvePendingUserInputAnswer(singleSelectQuestion, {
@@ -90,6 +125,19 @@ describe("resolvePendingUserInputAnswer", () => {
     ).toEqual({
       customAnswer: "doesn't matter",
     });
+  });
+
+  it("resolves numbered and word replies without changing provider values", /** Parse ordinary numbered or word replies into exact provider values. */ () => {
+    expect(resolvePendingUserInputAnswer(nativeChoiceQuestion, { customAnswer: "1" })).toBe(
+      " first\t",
+    );
+    expect(resolvePendingUserInputAnswer(multiSelectQuestion, { customAnswer: "2, 1, 2" })).toEqual(
+      ["Web", "Server"],
+    );
+    expect(
+      resolvePendingUserInputAnswer(multiSelectQuestion, { customAnswer: "web, server" }),
+    ).toEqual(["Web", "Server"]);
+    expect(resolvePendingUserInputAnswer(singleSelectQuestion, { customAnswer: "2" })).toBeNull();
   });
 
   it("does not replace a required choice with a custom answer", () => {

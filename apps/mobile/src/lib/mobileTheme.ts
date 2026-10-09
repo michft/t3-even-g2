@@ -152,7 +152,8 @@ export function resolveMobileEnvironmentThemeColor(
   );
 }
 
-function nativeColors(colors: ThemeColors): ThemeColors {
+/** Convert theme palette values to native color strings. */
+export function nativeColors(colors: ThemeColors): ThemeColors {
   return Object.fromEntries(
     Object.entries(colors).map(([role, color]) => [role, themeColorToNativeColor(color)]),
   ) as ThemeColors;
