@@ -1,5 +1,5 @@
 import * as Effect from "effect/Effect";
-import { AsyncResult, Atom } from "effect/unstable/reactivity";
+import { AsyncResult, Atom } from "effect/reactivity";
 
 import * as MobilePreferences from "../persistence/mobile-preferences";
 import * as Runtime from "../lib/runtime";
@@ -136,8 +136,8 @@ export function createMobilePreferencesState(
   return { preferencesAtom, updatePreferencesAtom } as const;
 }
 
-const mobilePreferencesRuntime = Atom.runtime(Runtime.runtimeContextLayer);
-const mobilePreferencesState = createMobilePreferencesState(mobilePreferencesRuntime);
+const mobilePreferencesRuntime = Atom.runtime(Runtime.layer);
+export const mobilePreferencesState = createMobilePreferencesState(mobilePreferencesRuntime);
 
 export const mobilePreferencesAtom = mobilePreferencesState.preferencesAtom;
 export const updateMobilePreferencesAtom = mobilePreferencesState.updatePreferencesAtom;

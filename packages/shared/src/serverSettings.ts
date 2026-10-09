@@ -1,12 +1,12 @@
 import {
-  isProviderDriverKind,
   isProviderAvailable,
+  isUnconfiguredDefaultInstanceEnabled,
   resolveProviderInstanceEnabled,
   isProviderTextGenerationCapable,
   type ModelSelection,
+  type ProjectId,
   type ProjectScopedServerSettingKey,
   type ProjectSettingsOverrides,
-  type ProviderDriverKind,
   type ServerProvider,
   ServerSettings,
   type ServerSettingsPatch,
@@ -26,13 +26,37 @@ import {
 const ServerSettingsJson = fromLenientJson(ServerSettings);
 const decodeServerSettingsJson = Schema.decodeUnknownOption(ServerSettingsJson);
 
-type LegacyProviderSettings = ServerSettings["providers"][keyof ServerSettings["providers"]];
+/** @deprecated Read `resolveProjectSettings(...).settings.enableAgentBrowserAccess`. */
+export function resolveProjectAgentBrowserAccess(
+  settings: Pick<
+    ServerSettings,
+    "enableAgentBrowserAccess" | "projectAgentBrowserAccessOverrides" | "projectSettingsOverrides"
+  >,
+  projectId: ProjectId,
+): boolean {
+  return (
+    settings.projectSettingsOverrides[projectId]?.enableAgentBrowserAccess ??
+    settings.projectAgentBrowserAccessOverrides[projectId] ??
+    settings.enableAgentBrowserAccess
+  );
+}
 
-const getLegacyProviderSettings = (
-  settings: ServerSettings,
-  provider: ProviderDriverKind,
-): LegacyProviderSettings | undefined =>
-  (settings.providers as Record<string, LegacyProviderSettings | undefined>)[provider];
+/** @deprecated Read `resolveProjectSettings(...).settings.defaultAutoPull`. */
+export function resolveProjectAutoPull(
+  settings: Pick<
+    ServerSettings,
+    "defaultAutoPull" | "projectAutoPullOverrides" | "projectSettingsOverrides"
+  >,
+  projectId: ProjectId,
+  legacyAutoPull: boolean | undefined,
+): boolean {
+  // Existing opt-ins stay enabled until explicitly overridden or reset.
+  return (
+    settings.projectSettingsOverrides[projectId]?.defaultAutoPull ??
+    settings.projectAutoPullOverrides[projectId] ??
+    (legacyAutoPull === true || settings.defaultAutoPull)
+  );
+}
 
 export function isModelSelectionProviderEnabled(
   settings: ServerSettings,
@@ -43,10 +67,7 @@ export function isModelSelectionProviderEnabled(
     return resolveProviderInstanceEnabled(instanceConfig);
   }
 
-  return (
-    isProviderDriverKind(selection.instanceId) &&
-    getLegacyProviderSettings(settings, selection.instanceId)?.enabled === true
-  );
+  return isUnconfiguredDefaultInstanceEnabled(selection.instanceId);
 }
 
 export function resolveSourceControlWriterModelSelection(
@@ -232,6 +253,7 @@ function translateLegacyProjectOverridePatch(
   } as ServerSettingsPatch;
 }
 
+/** Merge a settings patch while preserving the host-owned Appearance projection. */
 export function applyServerSettingsPatch(
   current: ServerSettings,
   rawPatch: ServerSettingsPatch,
@@ -332,6 +354,24 @@ export function applyServerSettingsPatch(
       : {}),
     ...(patch.providerInstances !== undefined
       ? { providerInstances: patch.providerInstances }
+      : {}),
+    ...(patch.worktreesDirectory !== undefined &&
+    patch.worktreesDirectory !== current.worktreesDirectory
+      ? {
+          previousWorktreesDirectories: [
+            ...current.previousWorktreesDirectories.filter(
+              (directory) => directory !== patch.worktreesDirectory,
+            ),
+            ...(current.worktreesDirectory !== "" &&
+            !current.previousWorktreesDirectories.includes(current.worktreesDirectory)
+              ? [current.worktreesDirectory]
+              : []),
+          ],
+        }
+      : {}),
+    // Host replacement: deepMerge would keep a cleared account pin.
+    ...(patch.github?.hosts !== undefined
+      ? { github: { ...next.github, hosts: patch.github.hosts } }
       : {}),
     ...(projectSettingsOverridesPatch !== undefined
       ? {

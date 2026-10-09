@@ -5,7 +5,16 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ## Unreleased
 
+### Fixed
+
+- Recover mobile secure-storage reads after iOS protected-data denials and
+  unlock, preserving the saved connection catalog and healthy background reads.
+
 ### Changed
+
+- Integrate T3 Nightly 20261009, retaining G2/R1 controls, numbered clarification
+  replies, custom Dev identity, and environment appearance across the updated
+  Effect and native client dependencies.
 
 - Render structured clarification questions as ordinary conversation text on
   web, desktop, and mobile; accept numbered choices through the text composer.
