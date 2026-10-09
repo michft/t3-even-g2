@@ -118,6 +118,20 @@ work around a rejected update. Apple's
 [App ID prefix guidance](https://developer.apple.com/library/archive/technotes/tn2311/_index.html)
 explains why a prefix change can lose access to existing Keychain data.
 
+### Protected connection storage after device unlock
+
+`User interaction is not allowed` while loading the local connection catalog
+can mean iOS protected Keychain data was unavailable when the app started.
+Keep the device awake and unlocked, then open `T3 Code Dev`. The mobile client
+waits for foreground after this specific protected-data denial, then briefly
+retries the read. Healthy background reads remain available; other storage
+errors remain visible.
+
+If the error persists, fully close the app and reopen it while unlocked. Check
+the signed identity and Keychain groups against the previous app, and retain
+the native error for diagnosis. A failed read does not mean the saved catalog
+is empty. Do not uninstall, clear storage, or re-pair to work around it.
+
 ## Rebuild and deploy an existing development-identity app
 
 Use this example when updating an existing `T3 Code Dev` installation with a
