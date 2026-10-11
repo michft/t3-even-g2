@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { hasCloudPublicConfig } from "../cloud/publicConfig";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
-import { NativeHeaderToolbar } from "../../native/StackHeader";
+import { NativeHeaderToolbar, NativeStackScreenOptions } from "../../native/StackHeader";
 import { useSavedRemoteConnections } from "../../state/use-remote-environment-registry";
 import { EvenG2SettingsSection } from "../even-g2/EvenG2SettingsSection";
 import { SettingsRow } from "./components/SettingsRow";
@@ -30,14 +30,19 @@ export function SettingsRouteScreen() {
 
   return (
     <>
+      {Platform.OS === "ios" ? (
+        <NativeStackScreenOptions options={{ headerBackVisible: !layout.usesSplitView }} />
+      ) : null}
       {Platform.OS === "ios" && layout.usesSplitView ? (
-        <NativeHeaderToolbar placement="left">
-          <NativeHeaderToolbar.Button
-            accessibilityLabel="Go back"
-            icon="chevron.left"
-            onPress={() => navigation.goBack()}
-          />
-        </NativeHeaderToolbar>
+        <>
+          <NativeHeaderToolbar placement="left">
+            <NativeHeaderToolbar.Button
+              accessibilityLabel="Go back"
+              icon="chevron.left"
+              onPress={() => navigation.goBack()}
+            />
+          </NativeHeaderToolbar>
+        </>
       ) : null}
       <SettingsEnvironmentFilterHeader closeSettings />
       {Platform.OS === "android" ? (
@@ -154,7 +159,10 @@ function SettingsIndexSections() {
       <SettingsSection title="Interface">
         <SettingsRow icon="paintbrush" label="Appearance" target="SettingsAppearance" />
         {Platform.OS === "ios" ? (
-          <SettingsRow icon="keyboard" label="Keyboard" target="SettingsKeyboard" />
+          <>
+            <SettingsRow icon="keyboard" label="Keyboard" target="SettingsKeyboard" />
+            <SettingsRow icon="mic" label="Microphone" target="SettingsMicrophone" />
+          </>
         ) : null}
       </SettingsSection>
 

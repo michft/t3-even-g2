@@ -54,20 +54,25 @@ function PendingQuestionComposer(
 ) {
   const question = props.request.questions[props.questionIndex]!;
   const draft = props.drafts[question.id];
+  const selectedOptionsText = question.options
+    .flatMap(
+      /** Recover displayed option numbers from saved provider values. */ (option, index) =>
+        draft?.selectedOptionValues?.includes(option.value ?? option.label)
+          ? [String(index + 1)]
+          : [],
+    )
+    .join(", ");
   const text =
-    draft?.customAnswer ||
-    question.options
-      .flatMap(
-        /** Recover displayed option numbers from saved provider values. */ (option, index) =>
-          draft?.selectedOptionValues?.includes(option.value ?? option.label)
-            ? [String(index + 1)]
-            : [],
-      )
-      .join(", ");
+    question.initialAnswer !== undefined
+      ? (draft?.customAnswer ?? question.initialAnswer)
+      : draft?.customAnswer || selectedOptionsText;
   const responding = props.respondingRequestId === props.request.requestId;
   const disconnected = props.composer.connectionState !== "connected";
   const disabled =
-    responding || props.request.responseCapability === "not_resumable" || disconnected;
+    !props.composer.canOperateThread ||
+    responding ||
+    props.request.responseCapability === "not_resumable" ||
+    disconnected;
   const attachments = useQuestionAttachments({
     requestId: props.request.requestId,
     question,
@@ -112,10 +117,12 @@ function PendingQuestionComposer(
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Dismiss question without answering"
-            disabled={responding || disconnected}
+            disabled={!props.composer.canOperateThread || responding || disconnected}
             onPress={
-              /** Dismiss the active request through its existing user-input callback. */ () =>
-                void props.onDismiss()
+              /** Dismiss the active request through its existing user-input callback. */ () => {
+                if (!props.composer.canOperateThread || responding || disconnected) return;
+                void props.onDismiss();
+              }
             }
           >
             <Text className="font-sans text-sm text-foreground-secondary">Dismiss</Text>
@@ -130,11 +137,13 @@ function PendingQuestionComposer(
         draftMessage={text}
         draftAttachments={attachments.attachments}
         placeholder={
-          question.multiSelect
-            ? "Reply with numbers, separated by commas…"
-            : question.allowCustomAnswer === false
-              ? "Reply with an option number…"
-              : "Reply with a number or your own words…"
+          question.initialAnswer !== undefined
+            ? "Edit the proposed answer…"
+            : question.multiSelect
+              ? "Reply with numbers, separated by commas…"
+              : question.allowCustomAnswer === false
+                ? "Reply with an option number…"
+                : "Reply with a number or your own words…"
         }
         activeThreadBusy={false}
         queuedEdit={null}

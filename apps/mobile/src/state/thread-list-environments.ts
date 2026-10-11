@@ -5,7 +5,7 @@ import {
   type ServerConfig,
   type ServerProvider,
 } from "@t3tools/contracts";
-import { Atom } from "effect/unstable/reactivity";
+import { Atom } from "effect/reactivity";
 import { resolveMobileEnvironmentThemeColor } from "../lib/mobileTheme";
 import type { ThemeAppearance } from "@t3tools/shared/themePalettes";
 
