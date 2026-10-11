@@ -1,12 +1,11 @@
 import {
-  isProviderDriverKind,
   isProviderAvailable,
+  isUnconfiguredDefaultInstanceEnabled,
   resolveProviderInstanceEnabled,
   isProviderTextGenerationCapable,
   type ModelSelection,
   type ProjectScopedServerSettingKey,
   type ProjectSettingsOverrides,
-  type ProviderDriverKind,
   type ServerProvider,
   ServerSettings,
   type ServerSettingsPatch,
@@ -26,14 +25,6 @@ import {
 const ServerSettingsJson = fromLenientJson(ServerSettings);
 const decodeServerSettingsJson = Schema.decodeUnknownOption(ServerSettingsJson);
 
-type LegacyProviderSettings = ServerSettings["providers"][keyof ServerSettings["providers"]];
-
-const getLegacyProviderSettings = (
-  settings: ServerSettings,
-  provider: ProviderDriverKind,
-): LegacyProviderSettings | undefined =>
-  (settings.providers as Record<string, LegacyProviderSettings | undefined>)[provider];
-
 export function isModelSelectionProviderEnabled(
   settings: ServerSettings,
   selection: ModelSelection,
@@ -43,10 +34,7 @@ export function isModelSelectionProviderEnabled(
     return resolveProviderInstanceEnabled(instanceConfig);
   }
 
-  return (
-    isProviderDriverKind(selection.instanceId) &&
-    getLegacyProviderSettings(settings, selection.instanceId)?.enabled === true
-  );
+  return isUnconfiguredDefaultInstanceEnabled(selection.instanceId);
 }
 
 export function resolveSourceControlWriterModelSelection(
@@ -232,6 +220,7 @@ function translateLegacyProjectOverridePatch(
   } as ServerSettingsPatch;
 }
 
+/** Applies settings patches while preserving per-entry overrides and reset semantics. */
 export function applyServerSettingsPatch(
   current: ServerSettings,
   rawPatch: ServerSettingsPatch,
@@ -246,6 +235,7 @@ export function applyServerSettingsPatch(
     worktreeCleanup: worktreeCleanupPatch,
     // Merged per entry below; its `null` removals must not reach deepMerge.
     usageLimitSources: usageLimitSourcesPatch,
+    sourceControlHosts: sourceControlHostsPatch,
     usagePriceOverrides: usagePriceOverridesPatch,
     usageModelAliases: usageModelAliasesPatch,
     // Entry replacement: deepMerge would keep keys the client meant to clear.
@@ -305,6 +295,7 @@ export function applyServerSettingsPatch(
               ? {
                   mode: "custom" as const,
                   rules: {
+                    worktreeKeepWhen: next.storageCleanup.worktreeKeepWhen,
                     worktreeAfterDays: next.storageCleanup.worktreeAfterDays,
                     worktreeOnMerge: next.storageCleanup.worktreeOnMerge,
                     worktreeOnDelete: next.storageCleanup.worktreeOnDelete,
@@ -332,6 +323,34 @@ export function applyServerSettingsPatch(
       : {}),
     ...(patch.providerInstances !== undefined
       ? { providerInstances: patch.providerInstances }
+      : {}),
+    ...(patch.worktreesDirectory !== undefined &&
+    patch.worktreesDirectory !== current.worktreesDirectory
+      ? {
+          previousWorktreesDirectories: [
+            ...current.previousWorktreesDirectories.filter(
+              (directory) => directory !== patch.worktreesDirectory,
+            ),
+            ...(current.worktreesDirectory !== "" &&
+            !current.previousWorktreesDirectories.includes(current.worktreesDirectory)
+              ? [current.worktreesDirectory]
+              : []),
+          ],
+        }
+      : {}),
+    // Per host, a patched field replaces the saved one: deepMerge would keep a cleared account pin.
+    ...(sourceControlHostsPatch !== undefined
+      ? {
+          sourceControlHosts: {
+            ...current.sourceControlHosts,
+            ...Object.fromEntries(
+              Object.entries(sourceControlHostsPatch).map(([kind, fields]) => [
+                kind,
+                { ...current.sourceControlHosts[kind], ...fields },
+              ]),
+            ),
+          },
+        }
       : {}),
     ...(projectSettingsOverridesPatch !== undefined
       ? {

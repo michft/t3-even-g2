@@ -1,6 +1,6 @@
 import { createServerEnvironmentAtoms } from "@t3tools/client-runtime/state/server";
 import { createEnvironmentServerConfigsAtom } from "@t3tools/client-runtime/state/shell";
-import { Atom } from "effect/unstable/reactivity";
+import { Atom } from "effect/reactivity";
 import type { ThemeAppearance } from "@t3tools/shared/themePalettes";
 
 import { environmentCatalog } from "../connection/catalog";
