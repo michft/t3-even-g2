@@ -7,6 +7,8 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ### Fixed
 
+- Keep fork workflows on available GitHub-hosted runners after Nightly imports.
+
 - Recover mobile secure-storage reads after iOS protected-data denials and
   unlock, preserving the saved connection catalog and healthy background reads.
 
