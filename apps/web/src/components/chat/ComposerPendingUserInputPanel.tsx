@@ -5,6 +5,7 @@ import { ComposerBanner } from "./ComposerBanner";
 
 interface PendingUserInputPanelProps {
   pendingUserInputs: PendingUserInput[];
+  disabled?: boolean;
   respondingRequestIds: RuntimeRequestId[];
   questionIndex: number;
   onDismiss: (requestId: RuntimeRequestId) => void;
@@ -13,6 +14,7 @@ interface PendingUserInputPanelProps {
 /** Questions live in the transcript; the composer only reports answer progress. */
 function ComposerPendingUserInputPanel({
   pendingUserInputs,
+  disabled = false,
   respondingRequestIds,
   questionIndex,
   onDismiss,
@@ -34,7 +36,7 @@ function ComposerPendingUserInputPanel({
           <ComposerBanner.Dismiss
             aria-label="Dismiss question without answering"
             title="Dismiss question without answering"
-            disabled={respondingRequestIds.includes(request.requestId)}
+            disabled={disabled || respondingRequestIds.includes(request.requestId)}
             onClick={
               /** Dismiss this asynchronous request without submitting an answer. */ () =>
                 onDismiss(request.requestId)

@@ -102,6 +102,7 @@ import {
   type ComposerSendPresentation,
 } from "./composerSendPresentation";
 import { ComposerCommandPopover } from "./ComposerCommandPopover";
+import { ComposerPopoverAnchor } from "./ComposerPopoverAnchor";
 import { ComposerQueuedEditAttachments } from "./ComposerQueuedEdit";
 import { useComposerCommandMenu } from "./use-composer-command-menu";
 import {
@@ -144,6 +145,7 @@ export interface ThreadComposerProps {
   readonly answeringQuestion?: boolean;
   /** Question providers may reject attachments even when the environment can upload files. */
   readonly supportsAnswerAttachments?: boolean;
+  readonly canOperateThread: boolean;
   readonly draftMessage: string;
   readonly draftAttachments: ReadonlyArray<DraftComposerAttachment>;
   readonly placeholder: string;
@@ -415,7 +417,8 @@ function ThreadComposer(props: ThreadComposerProps) {
     [props.answeringQuestion, props.draftAttachments],
   );
   // Stopping the agent is not what the send button means in edit mode.
-  const showStopAction = !hasContent && props.canStopThread && queuedEdit === null;
+  const showStopAction =
+    !props.answeringQuestion && !hasContent && props.canStopThread && queuedEdit === null;
 
   const uploadStates = useAtomValue(composerAttachmentUploadsAtom);
   const attachmentsUploading =
@@ -556,7 +559,8 @@ function ThreadComposer(props: ThreadComposerProps) {
     (pendingPastedTextAttachmentCount > 0 ? "Attaching pasted text" : null) ??
     attachmentBlockReason;
   const canSend =
-    hasContent &&
+    (props.canOperateThread || props.connectionState !== "connected") &&
+    (hasContent || props.answeringQuestion === true) &&
     !contextImports[composerDraftKey] &&
     !voiceInput.blocksSubmission &&
     sendBlockedReason === null &&
@@ -789,7 +793,7 @@ function ThreadComposer(props: ThreadComposerProps) {
         {!voiceInput.isBusy &&
         composerMenu.trigger &&
         (composerMenu.items.length > 0 || composerMenu.trigger.kind === "pull-request") ? (
-          <View className="absolute inset-x-0 bottom-full z-10 mb-2">
+          <ComposerPopoverAnchor>
             <ComposerCommandPopover
               items={composerMenu.items}
               triggerKind={composerMenu.trigger.kind}
@@ -797,7 +801,7 @@ function ThreadComposer(props: ThreadComposerProps) {
               error={composerMenu.error}
               onSelect={composerMenu.onSelect}
             />
-          </View>
+          </ComposerPopoverAnchor>
         ) : null}
 
         {selectedProviderStatus?.compatibilityAdvisory?.message &&
@@ -1074,6 +1078,7 @@ function ThreadComposer(props: ThreadComposerProps) {
                     accessibilityLabel="Stop agent"
                     icon="stop.fill"
                     variant="danger"
+                    disabled={!props.canOperateThread}
                     onPress={props.onStopThread}
                   />
                 ) : (
@@ -1170,6 +1175,7 @@ function ThreadComposer(props: ThreadComposerProps) {
                       accessibilityLabel="Stop agent"
                       icon="stop.fill"
                       variant="danger"
+                      disabled={!props.canOperateThread}
                       onPress={props.onStopThread}
                     />
                   ) : voicePresentation.showsSend ? (
@@ -1185,6 +1191,12 @@ function ThreadComposer(props: ThreadComposerProps) {
             </ComposerDictationToolbar>
           </Animated.View>
         </ComposerSurface>
+
+        {props.connectionState === "connected" && !props.canOperateThread ? (
+          <Text className="pt-2 text-xs text-foreground-muted">
+            This connection cannot control this task. You can still edit your draft.
+          </Text>
+        ) : null}
       </Animated.View>
 
       <VideoPreviewModal source={previewVideo} onRequestClose={closePreview} />
