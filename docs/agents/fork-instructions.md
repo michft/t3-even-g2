@@ -82,7 +82,7 @@ including documentation relevance decisions, passing CI, and review by a
 different agent execution. Keep current review evidence in the PR, not local
 plans. Human acceptance and publishing authorization remain required.
 
-- Preserve the existing automatic Nightly merge skip in `.coderabbit.yaml`:
+- Preserve the existing automatic Nightly merge skip in `.coderabbit.config.ts`:
   titles containing `merge T3 Nightly` are excluded. A green skipped status
   does not mean a completed review with zero findings. Record that distinction
   in the PR description; request a one-off review only when explicitly asked.
