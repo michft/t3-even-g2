@@ -34,6 +34,8 @@ import {
   type RefObject,
 } from "react";
 import { Alert, Keyboard, Platform, Pressable, View, type ViewStyle } from "react-native";
+import { composerImageGallery } from "../../lib/composerImageGallery";
+import { filePreviewGallery } from "../../lib/filePreviewGallery";
 import { FilePreviewModal, type FilePreviewSource } from "../../components/FilePreviewModal";
 import {
   composerAttachmentUploadBlockReason,
@@ -143,6 +145,8 @@ export const COMPOSER_EXPANDED_CHROME = 156;
 export interface ThreadComposerProps {
   /** A pending runtime question uses normal editing without interpreting answers as commands. */
   readonly answeringQuestion?: boolean;
+  /** Editor questions may intentionally submit an empty replacement for their initial text. */
+  readonly allowEmptyAnswer?: boolean;
   /** Question providers may reject attachments even when the environment can upload files. */
   readonly supportsAnswerAttachments?: boolean;
   readonly canOperateThread: boolean;
@@ -405,6 +409,7 @@ function ThreadComposer(props: ThreadComposerProps) {
   const [previewVideo, setPreviewVideo] = useState<VideoPreviewSource | null>(null);
   const queuedEdit = props.queuedEdit ?? null;
   const hasContent =
+    (props.answeringQuestion === true && props.allowEmptyAnswer === true) ||
     props.draftMessage.trim().length > 0 ||
     props.draftAttachments.length > 0 ||
     (queuedEdit?.existingAttachments.length ?? 0) > 0;
@@ -447,7 +452,11 @@ function ThreadComposer(props: ThreadComposerProps) {
   const modelUnavailable =
     !props.answeringQuestion &&
     props.connectionState === "connected" &&
-    isModelSelectionUnavailable(props.serverConfig, currentModelSelection);
+    isModelSelectionUnavailable(
+      props.serverConfig,
+      currentModelSelection,
+      props.selectedThread.projectId,
+    );
   const selectedProviderStatus = useMemo(() => {
     if (!props.serverConfig) return null;
     return (
@@ -575,9 +584,15 @@ function ThreadComposer(props: ThreadComposerProps) {
     (source: FilePreviewSource) => {
       wasExpandedBeforePreviewRef.current = isFocused;
       setPreviewVideo(null);
-      setPreviewFile((current) => current ?? source);
+      setPreviewFile(
+        (current) =>
+          current ?? {
+            ...source,
+            gallery: filePreviewGallery(source, composerImageGallery(props.draftAttachments)),
+          },
+      );
     },
-    [isFocused],
+    [isFocused, props.draftAttachments],
   );
 
   const closePreview = useCallback(() => {
@@ -669,8 +684,19 @@ function ThreadComposer(props: ThreadComposerProps) {
     ? undefined
     : currentModelSelection.instanceId;
   const modelOptions = useMemo(
-    () => buildModelOptions(props.serverConfig, currentModelSelection, lockedProviderInstanceId),
-    [props.serverConfig, currentModelSelection, lockedProviderInstanceId],
+    () =>
+      buildModelOptions(
+        props.serverConfig,
+        currentModelSelection,
+        lockedProviderInstanceId,
+        props.selectedThread.projectId,
+      ),
+    [
+      props.serverConfig,
+      currentModelSelection,
+      lockedProviderInstanceId,
+      props.selectedThread.projectId,
+    ],
   );
   const threadProviderGroups = useMemo(() => groupByProvider(modelOptions), [modelOptions]);
   const currentModelOption =
@@ -693,7 +719,9 @@ function ThreadComposer(props: ThreadComposerProps) {
       ownerId: settingsOwnerId,
       threadKey: settingsOwnerId,
       environmentId: props.environmentId,
+      projectId: props.selectedThread.projectId,
       providerInstanceId: currentModelSelection.instanceId,
+      ...(lockedProviderInstanceId ? { lockedProviderInstanceId } : {}),
       providerGroups: threadProviderGroups,
       selectedModel: currentModelSelection,
       reportedModelSelection: props.reportedModelSelection,
@@ -719,7 +747,9 @@ function ThreadComposer(props: ThreadComposerProps) {
       props.onUpdateRuntimeMode,
       providerOptionDescriptors,
       settingsOwnerId,
+      lockedProviderInstanceId,
       threadProviderGroups,
+      props.selectedThread.projectId,
     ],
   );
   const openSettings = useCallback(() => {

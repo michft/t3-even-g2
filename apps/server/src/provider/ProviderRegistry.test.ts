@@ -341,7 +341,7 @@ function makeCodexProbeSnapshot(
   };
 }
 
-/** Creates mutable settings and a change stream for provider registry tests. */
+/** Provide mutable settings and events while rejecting unexpected Appearance writes. */
 function makeMutableServerSettingsService(
   initial: ContractServerSettings = DEFAULT_SERVER_SETTINGS,
 ) {
@@ -2879,7 +2879,10 @@ it.layer(
           Layer.updateService(ChildProcessSpawner.ChildProcessSpawner, (spawner) =>
             ChildProcessSpawner.make((command) => {
               if (command._tag !== "StandardCommand") return spawner.spawn(command);
-              spawnedCommands.push(command.command);
+              // Installation discovery may also invoke Homebrew on macOS; record only these Codex probes.
+              if (command.command === firstMissing || command.command === secondMissing) {
+                spawnedCommands.push(command.command);
+              }
               const beforeSpawn =
                 command.command === secondMissing
                   ? Deferred.succeed(secondProbeStarted, undefined).pipe(

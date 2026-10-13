@@ -4,6 +4,7 @@ import { environmentColorForeground } from "@t3tools/shared/environmentColor";
 import { resolveMobileEnvironmentThemeColor, themeColorWithAlpha } from "../../lib/mobileTheme";
 import { UsageLimitRecoveryCard } from "./UsageLimitRecoveryCard";
 import { useIsFocused, useNavigation } from "@react-navigation/native";
+import { HeaderHeightContext } from "@react-navigation/elements";
 import type { WorktreeSetupCardProps } from "./worktree-setup-card";
 import type { ComposerTextPaste } from "../../native/T3ComposerEditor.types";
 import { type EnvironmentConnectionPhase } from "@t3tools/client-runtime/connection";
@@ -15,7 +16,6 @@ import type {
 import { useKeyboardChatComposerInset, useKeyboardScrollToEnd } from "@legendapp/list/keyboard";
 import { resolveProviderSkillsForCwd } from "@t3tools/client-runtime/providerSkills";
 import type { LegendListRef } from "@legendapp/list/react-native";
-import { HeaderHeightContext } from "@react-navigation/elements";
 import { NativeLayoutObserver } from "../../native/NativeLayoutObserver";
 import { deriveBottomControlInsets, type NativeLayoutMetrics } from "../../lib/reserved-regions";
 import type {
@@ -589,6 +589,7 @@ function ThreadDetailScreen(props: ThreadDetailScreenProps) {
       props.selectedThread.latestUserMessageAt !== null);
   const composerChrome = composerExpanded ? COMPOSER_EXPANDED_CHROME : COMPOSER_COLLAPSED_CHROME;
   const composerOverlapHeight = composerChrome + composerBottomInset;
+  // Pending answers use the ordinary composer; only failed creation hides its slot.
   const composerSlotHidden = props.creationState?.kind === "failed";
   // The open /usage-limits panel for this thread, model and turn. Only the open
   // moment is stored: the rows read live provider data, so a redeemed reset

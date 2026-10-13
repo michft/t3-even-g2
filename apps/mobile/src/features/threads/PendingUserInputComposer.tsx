@@ -132,6 +132,9 @@ function PendingQuestionComposer(
       <ThreadComposer
         {...composer}
         answeringQuestion
+        allowEmptyAnswer={
+          question.initialAnswer !== undefined && question.allowCustomAnswer !== false
+        }
         supportsAnswerAttachments={attachments.canAttach}
         draftKey={attachments.key}
         draftMessage={text}

@@ -520,7 +520,7 @@ export const ThreadListV2PendingRow = memo(function ThreadListV2PendingRow(props
   );
 });
 
-/** Renders a mobile thread row with origin styling, activity, and swipe actions. */
+/** Render a themed thread row, exposing mutation controls only when its environment permits them. */
 export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
   readonly thread: EnvironmentThreadShell;
   readonly environmentAccent?: string | null;
@@ -1244,7 +1244,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
     cardContent
   );
 
-  /** Builds a card or slim row and closes its swipe actions before selection. */
+  /** Build the themed row and close its menu before selecting the thread. */
   const rowContent = (close: () => void) =>
     variant === "card" ? (
       <RowPressable

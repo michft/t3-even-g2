@@ -64,6 +64,12 @@ launch do not verify physical G2/R1 behavior; run the hardware checks below.
   local generated-project changes before running a clean Expo prebuild.
 - After native dependency or patch changes, rerun CocoaPods as described in the
   mobile README; old Pods may still reference a previous pnpm package path.
+- When a Nightly changes config plugins, back up generated-project edits and
+  regenerate from `apps/mobile` with `node_modules/.bin/expo prebuild --platform
+ios --no-install`, then run `pod install` from `apps/mobile/ios`. Keep
+  `APP_VARIANT=development`, the existing Personal Team bundle override, and
+  `T3CODE_MOBILE_UPDATES_ENABLED=0` throughout. Inspect the regenerated signing
+  identity before building; regeneration can replace local native settings.
 - If Xcode cannot find Node, check `apps/mobile/ios/.xcode.env.local` for a stale
   executable path after a Node upgrade.
 - If `vp` is absent from `PATH`, use `node_modules/.bin/vp` from the repository
@@ -111,6 +117,20 @@ and data migration before replacing the installed app; do not uninstall it to
 work around a rejected update. Apple's
 [App ID prefix guidance](https://developer.apple.com/library/archive/technotes/tn2311/_index.html)
 explains why a prefix change can lose access to existing Keychain data.
+
+### Protected connection storage after device unlock
+
+`User interaction is not allowed` while loading the local connection catalog
+can mean iOS protected Keychain data was unavailable when the app started.
+Keep the device awake and unlocked, then open `T3 Code Dev`. The mobile client
+waits for foreground after this specific protected-data denial, then briefly
+retries the read. Healthy background reads remain available; other storage
+errors remain visible.
+
+If the error persists, fully close the app and reopen it while unlocked. Check
+the signed identity and Keychain groups against the previous app, and retain
+the native error for diagnosis. A failed read does not mean the saved catalog
+is empty. Do not uninstall, clear storage, or re-pair to work around it.
 
 ## TestFlight updates for the fork
 
@@ -225,6 +245,11 @@ G2_BUILD_DIR="$(mktemp -d "${TMPDIR:-/tmp}/t3-even-g2-release.XXXXXX")"
 G2_SOURCE_REVISION="$(jj log --no-graph -r @ -T commit_id)"
 
 # Apply these again after regenerating the development Xcode project.
+plutil -replace CFBundleVersion -string "$G2_BUILD_NUMBER" \
+  apps/mobile/ios/T3CodeDev/Info.plist
+plutil -replace EXUpdatesEnabled -bool NO \
+  apps/mobile/ios/T3CodeDev/Supporting/Expo.plist
+
 plutil -replace CFBundleVersion -string "$G2_BUILD_NUMBER" \
   apps/mobile/ios/T3CodeDev/Info.plist
 plutil -replace EXUpdatesEnabled -bool NO \
