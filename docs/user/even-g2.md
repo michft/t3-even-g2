@@ -114,7 +114,7 @@ or Back again to keep your previous position.
 
 T3 attempts to restore an awake display after a display exit. A timed-out
 display stays blank until you tap to wake it. If recovery fails, tap R1 or use
-**Settings → Even G2 → Resume T3 display** when available. To leave T3
+**Settings → Interface → Resume T3 display** when available. To leave T3
 deliberately, disconnect **G2 + R1** in Settings before returning to the Even
 app.
 

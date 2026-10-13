@@ -58,6 +58,10 @@ export function EvenG2SettingsRows() {
         disabled={status.status === "unsupported"}
         onPress={toggleConnection}
       />
+      <Text className="px-2 text-sm text-foreground-muted">
+        {status.detail ||
+          "Quit the Even app first. Tap R1 to open a thread, dictate, or send. Tap the right G2 arm to open a selected thread or jump to its latest reply; right-arm taps do nothing during dictation. Tap the left G2 arm to go back or cancel dictation. Swipes scroll only; they never cancel dictation."}
+      </Text>
       {status.status === "paused" && (
         <SettingsRow icon="eye" label="Resume T3 display" onPress={resumeEvenG2Display} />
       )}
@@ -68,10 +72,6 @@ export function EvenG2SettingsRows() {
         disabled={status.status === "unsupported"}
         onValueChange={setEvenG2NaturalScrolling}
       />
-      <Text className="px-2 text-sm text-foreground-muted">
-        {status.detail ||
-          "Quit the Even app first. Tap R1 to open a thread, dictate, or send. Tap the right G2 arm to open a selected thread or jump to its latest reply; right-arm taps do nothing during dictation. Tap the left G2 arm to go back or cancel dictation. Swipes scroll only; they never cancel dictation."}
-      </Text>
     </>
   );
 }

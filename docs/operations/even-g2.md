@@ -369,14 +369,14 @@ sends and another with several replies.
 1. Open a thread through the picker, then through the phone. Both should select
    its latest reply.
 2. Read older pages; phone scrolling should remain independent. Reverse swipe
-   direction without triggering Back. Repeat with Natural scrolling off.
+   direction without triggering Back. Repeat with Natural G2 scrolling off.
 3. Dictate through R1 taps. Swipes during Preparing or Listening must
    not cancel. Left-arm tap must cancel; long-press must not act as Back. Send a
    transcript longer than a lens page and confirm its beginning and end arrive
    once, in the originating thread.
 4. Delay a reply. Confirm Sending becomes Thinking when work starts. Swipe up
    returns to replies; left-arm tap opens the picker. Changing thread must not
-   stop the submitted work. Repeat with Natural scrolling off; physical swipe up
+   stop the submitted work. Repeat with Natural G2 scrolling off; physical swipe up
    still leaves the waiting screen.
 5. Trigger a display exit or Bluetooth interruption during speech. Confirm words
    remain unsent in the phone draft. Explicit cancellation should preserve only
@@ -394,7 +394,7 @@ each arm and R1.
 
 Use a new thread reserved for send tests and a thread with several multi-page
 replies for history. Record the T3 build, iOS version, glasses/R1 firmware, and
-Natural scrolling setting. Run one check at a time. Changes to this native
+Natural G2 scrolling setting. Run one check at a time. Changes to this native
 driver require an updated native app.
 
 1. Open a thread on the phone. Confirm glasses open its latest reply at page
@@ -432,12 +432,12 @@ driver require an updated native app.
     confirm its latest reply too.
 15. Send while a reply is delayed. Confirm Sending changes to Thinking when work
     starts; swipe up returns to replies, then Back opens the picker. Repeat with
-    Natural scrolling off. Reading and dictation swipes must never cancel or go
+    Natural G2 scrolling off. Reading and dictation swipes must never cancel or go
     Back.
 16. Select a thread, lock the phone, then dictate/send twice. Verify each
     message reaches that thread once.
 17. Power-cycle the glasses. Confirm recovery and two consecutive dictations. If
-    needed, separately test **Settings → Even G2 → Resume T3 display**.
+    needed, separately test **Settings → Interface → Resume T3 display**.
 
 For each failure, record
 `step | input device | starting screen/reply/page | exact gesture order |
