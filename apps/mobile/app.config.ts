@@ -316,7 +316,13 @@ const config: ExpoConfig = {
       "keychain-access-groups": [`$(AppIdentifierPrefix)${iosBundleIdentifier}`],
     },
     infoPlist: {
-      UIBackgroundModes: ["bluetooth-central"],
+      // Keep G2 discovery active and support the browser's system picture in picture.
+      UIBackgroundModes: ["bluetooth-central", "audio"],
+      UISupportedInterfaceOrientations: [
+        "UIInterfaceOrientationPortrait",
+        "UIInterfaceOrientationLandscapeLeft",
+        "UIInterfaceOrientationLandscapeRight",
+      ],
       NSAppTransportSecurity: {
         NSAllowsArbitraryLoads: true,
       },

@@ -9,6 +9,10 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 - Add an isolated fork TestFlight profile with explicit Apple/Expo identity,
   store signing, increasing build numbers, and Expo OTA updates disabled.
+- Integrate T3 Nightly 20261011, preserving G2/R1 controls, numbered
+  clarification replies, fork app signing, and environment appearance.
+- Keep native layout metrics buildable with Xcode 27.0 by checking the UIKit
+  SDK version before compiling iOS 27.1 hinge APIs.
 
 - Render structured clarification questions as ordinary conversation text on
   web, desktop, and mobile; accept numbered choices through the text composer.

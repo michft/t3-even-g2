@@ -12,6 +12,7 @@ import type {
 } from "@t3tools/contracts";
 import type { ComposerEnterBehavior } from "../lib/composerEnterBehavior";
 import type { FollowUpBehavior } from "../lib/followUpBehavior";
+import { isMicrophoneKind, type MicrophoneEntry } from "../lib/microphonePriority";
 import { MOBILE_THEME_IDS, type MobileThemeId, type MobileThemeMode } from "../lib/mobileTheme";
 import { sanitizeThreadHighlights, type ThreadHighlights } from "../lib/threadHighlight";
 import * as MobileDatabase from "./mobile-database";
@@ -43,6 +44,8 @@ export interface Preferences {
    * message sent during a running turn queues behind it or steers it.
    */
   readonly followUpBehavior?: FollowUpBehavior;
+  /** Microphone kinds and remembered devices, most preferred first. iOS only. */
+  readonly microphones?: ReadonlyArray<MicrophoneEntry>;
   /** @deprecated Kept temporarily so older OTA bundles retain the selected mode. */
   readonly projectGroupingEnabled?: boolean;
   readonly projectGroupingMode?: SidebarProjectGroupingMode;
@@ -98,6 +101,7 @@ export class MobilePreferencesStore extends Context.Service<
   }
 >()("@t3tools/mobile/persistence/MobilePreferencesStore") {}
 
+/** Retains supported persisted preference values while dropping invalid settings. */
 function sanitizePreferences(parsed: Preferences): Preferences {
   const preferences: {
     liveActivitiesEnabled?: boolean;
@@ -116,6 +120,7 @@ function sanitizePreferences(parsed: Preferences): Preferences {
     collapsedProjectGroups?: readonly string[];
     composerEnterBehavior?: ComposerEnterBehavior;
     followUpBehavior?: FollowUpBehavior;
+    microphones?: ReadonlyArray<MicrophoneEntry>;
     projectGroupingEnabled?: boolean;
     projectGroupingMode?: SidebarProjectGroupingMode;
     planModeEnabled?: boolean;
@@ -190,6 +195,15 @@ function sanitizePreferences(parsed: Preferences): Preferences {
   }
   if (parsed.followUpBehavior === "queue" || parsed.followUpBehavior === "steer") {
     preferences.followUpBehavior = parsed.followUpBehavior;
+  }
+  if (Array.isArray(parsed.microphones)) {
+    preferences.microphones = parsed.microphones.flatMap((entry): MicrophoneEntry[] => {
+      if (typeof entry !== "object" || entry === null || !isMicrophoneKind(entry.kind)) return [];
+      if (!("uid" in entry)) return [{ kind: entry.kind }];
+      return typeof entry.uid === "string" && typeof entry.name === "string"
+        ? [{ kind: entry.kind, uid: entry.uid, name: entry.name }]
+        : [];
+    });
   }
   if (typeof parsed.projectGroupingEnabled === "boolean") {
     preferences.projectGroupingEnabled = parsed.projectGroupingEnabled;
