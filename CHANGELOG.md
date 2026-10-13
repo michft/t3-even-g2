@@ -7,6 +7,8 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ### Changed
 
+- Validate physical iOS updates before installation, preserve signed app and
+  Keychain identity, and retain one artifact with per-device deployment receipts.
 - Add an isolated fork TestFlight profile with explicit Apple/Expo identity,
   store signing, increasing build numbers, and Expo OTA updates disabled.
 - Integrate T3 Nightly 20261011, preserving G2/R1 controls, numbered
