@@ -1,4 +1,7 @@
+import { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import { describe, expect, it } from "vite-plus/test";
+import { formatInlineContextReference } from "./lib/composerContextReferences";
+import { threadContextRecord, threadContextReference } from "./lib/composerContextRecords";
 
 import {
   buildPendingUserInputAnswers,
@@ -6,10 +9,38 @@ import {
   countAnsweredPendingUserInputQuestions,
   derivePendingUserInputProgress,
   findFirstUnansweredPendingUserInputQuestionIndex,
+  projectPendingUserInputAnswer,
   resolvePendingUserInputAnswer,
   setPendingUserInputCustomAnswer,
   togglePendingUserInputOptionSelection,
 } from "./pendingUserInput";
+
+describe("projectPendingUserInputAnswer", () => {
+  const record = threadContextRecord(
+    {
+      environmentId: EnvironmentId.make("env-answer"),
+      threadId: ThreadId.make("reference-thread"),
+    },
+    "Reference work",
+  );
+
+  it("sends thread chips as readable links with the actual thread ID", () => {
+    const answer = `Compare ${formatInlineContextReference(threadContextReference(record))}`;
+    expect(projectPendingUserInputAnswer(answer, [record])).toBe(
+      "Compare [Reference work](t3-thread://v1/reference-thread)",
+    );
+  });
+
+  it("leaves plain answers unchanged when the draft has unreferenced thread records", () => {
+    expect(projectPendingUserInputAnswer("Plain answer", [record])).toBe("Plain answer");
+  });
+
+  it("preserves option values and exact answer text", () => {
+    const options = [" first\t", "second"];
+    expect(projectPendingUserInputAnswer(options, [record])).toBe(options);
+    expect(projectPendingUserInputAnswer("  Edited answer\n", [record])).toBe("  Edited answer\n");
+  });
+});
 
 const singleSelectQuestion = {
   id: "scope",
@@ -54,7 +85,7 @@ const nativeChoiceQuestion = {
 } as const;
 
 describe("resolvePendingUserInputAnswer", () => {
-  it("preserves exact editor text, including a deliberately cleared answer", () => {
+  it("preserves exact editor text, including a deliberately cleared answer", /** Keep editor bytes and deliberately cleared answers without interpreting choices. */ () => {
     const question = { ...singleSelectQuestion, initialAnswer: "  Proposed message\n" };
     expect(resolvePendingUserInputAnswer(question, { customAnswer: question.initialAnswer })).toBe(
       question.initialAnswer,
@@ -64,6 +95,13 @@ describe("resolvePendingUserInputAnswer", () => {
     );
     expect(resolvePendingUserInputAnswer(question, { customAnswer: "" })).toBe("");
     expect(resolvePendingUserInputAnswer(question, { customAnswer: " \n" })).toBe(" \n");
+    expect(resolvePendingUserInputAnswer(question, { customAnswer: "1" })).toBe("1");
+    expect(resolvePendingUserInputAnswer(question, { customAnswer: "Orchestration-first" })).toBe(
+      "Orchestration-first",
+    );
+    expect(
+      resolvePendingUserInputAnswer(question, { customAnswer: "", attachmentsBlocked: true }),
+    ).toBeNull();
     expect(
       setPendingUserInputCustomAnswer(
         { selectedOptionValues: ["Orchestration-first"] },
@@ -118,6 +156,19 @@ describe("resolvePendingUserInputAnswer", () => {
     ).toEqual({
       customAnswer: "doesn't matter",
     });
+  });
+
+  it("resolves numbered and word replies without changing provider values", /** Parse ordinary numbered or word replies into exact provider values. */ () => {
+    expect(resolvePendingUserInputAnswer(nativeChoiceQuestion, { customAnswer: "1" })).toBe(
+      " first\t",
+    );
+    expect(resolvePendingUserInputAnswer(multiSelectQuestion, { customAnswer: "2, 1, 2" })).toEqual(
+      ["Web", "Server"],
+    );
+    expect(
+      resolvePendingUserInputAnswer(multiSelectQuestion, { customAnswer: "web, server" }),
+    ).toEqual(["Web", "Server"]);
+    expect(resolvePendingUserInputAnswer(singleSelectQuestion, { customAnswer: "2" })).toBeNull();
   });
 
   it("does not replace a required choice with a custom answer", () => {

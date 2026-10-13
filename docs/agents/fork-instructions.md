@@ -82,7 +82,7 @@ including documentation relevance decisions, passing CI, and review by a
 different agent execution. Keep current review evidence in the PR, not local
 plans. Human acceptance and publishing authorization remain required.
 
-- Preserve the existing automatic Nightly merge skip in `.coderabbit.yaml`:
+- Preserve the existing automatic Nightly merge skip in `.coderabbit.config.ts`:
   titles containing `merge T3 Nightly` are excluded. A green skipped status
   does not mean a completed review with zero findings. Record that distinction
   in the PR description; request a one-off review only when explicitly asked.
@@ -109,6 +109,10 @@ plans. Human acceptance and publishing authorization remain required.
 
 ## Validation and deployment
 
+- This fork account has GitHub-hosted runners only. Audit Nightly workflow
+  imports for Blacksmith labels in both `runs-on` and reusable-workflow runner
+  inputs, and replace them with GitHub-hosted labels while preserving OS and
+  architecture. Do not leave required jobs queued for unavailable runners.
 - Verification is a required build stage. Authorization to build includes
   starting any Metro, Vite, T3, or other verification server needed to check
   the result, plus browser and computer-use verification of affected behavior.
