@@ -9,7 +9,7 @@ import { hasCloudPublicConfig } from "../cloud/publicConfig";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
 import { NativeHeaderToolbar, NativeStackScreenOptions } from "../../native/StackHeader";
 import { useSavedRemoteConnections } from "../../state/use-remote-environment-registry";
-import { EvenG2SettingsSection } from "../even-g2/EvenG2SettingsSection";
+import { EvenG2SettingsRows } from "../even-g2/EvenG2SettingsRows";
 import { SettingsRow } from "./components/SettingsRow";
 import { SettingsSection } from "./components/SettingsSection";
 import { SettingsScreen } from "./components/SettingsScreen";
@@ -56,6 +56,7 @@ export function SettingsRouteScreen() {
   );
 }
 
+/** Shows account connections followed by the shared settings sections. */
 function ConfiguredSettingsRouteScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -95,14 +96,13 @@ function ConfiguredSettingsRouteScreen() {
           <SettingsRow icon="bell.badge" label="Notifications" target="SettingsNotifications" />
         </SettingsSection>
 
-        <EvenG2SettingsSection />
-
         <SettingsIndexSections />
       </ScrollView>
     </View>
   );
 }
 
+/** Shows local connections followed by the shared settings sections. */
 function LocalSettingsRouteScreen() {
   const insets = useSafeAreaInsets();
   const { savedConnectionsById } = useSavedRemoteConnections();
@@ -129,14 +129,13 @@ function LocalSettingsRouteScreen() {
           />
         </SettingsSection>
 
-        <EvenG2SettingsSection />
-
         <SettingsIndexSections />
       </ScrollView>
     </View>
   );
 }
 
+/** Groups app settings, with G2 controls below the existing iOS interface options. */
 function SettingsIndexSections() {
   const { selectedTargets, projectGroups, selectedProjectKey } = useSettingsEnvironmentFilter();
   const noServerTargets = selectedTargets.length === 0;
@@ -162,6 +161,7 @@ function SettingsIndexSections() {
           <>
             <SettingsRow icon="keyboard" label="Keyboard" target="SettingsKeyboard" />
             <SettingsRow icon="mic" label="Microphone" target="SettingsMicrophone" />
+            <EvenG2SettingsRows />
           </>
         ) : null}
       </SettingsSection>

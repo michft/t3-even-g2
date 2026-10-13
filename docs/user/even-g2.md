@@ -61,7 +61,7 @@ Sending or a phone-waiting screen returns to replies.
 While the picker is opening a thread, further selections wait until it finishes.
 Back leaves the opening state for the active thread when available.
 
-In **Settings → Even G2 → Natural scrolling**, on means swipe up advances
+In **Settings → Interface → Natural G2 scrolling**, on means swipe up advances
 through content; off means swipe down advances. The sending screen's **swipe up
 to replies** action uses physical up under either setting. Swipes never cancel
 dictation, and up-then-down is not a Back gesture. A double-tap while the
