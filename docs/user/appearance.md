@@ -51,14 +51,25 @@ Tint preserves your theme with a light color wash; Solid uses the origin
 color with readable text. Thread list rows and conversations show their host's
 color; headers, the composer, and the surrounding sidebar retain your theme.
 
-On iPhone and iPad, thread rows also show a left-edge highlight using the server
-theme's accent for the current light/dark appearance. This highlight stays visible
-on selected rows and works independently of the **Thread origin color** setting.
-Long-press a thread and choose **Highlight**, or open its thread settings and use
-**Options → Thread highlight**. Choose a color to override the accent, **None** to
-hide the highlight, or **Use server** to restore the default. Without an available
-server palette, only a custom highlight appears. Overrides are saved on this
-device; iPhone and iPad choices do not sync or change the server.
+On iPhone and iPad, thread rows show the server theme's accent on the left
+and a repository color on the right. In **Tint** mode, each color fades across
+its side of the row. Under **Settings → Appearance**, adjust **Left tint** and
+**Right tint** independently; zero removes that wash while keeping its tab.
+Selection and activity indicators remain separate from repository colors.
+
+Long-press a thread and choose **Repository color**, or open its thread settings
+and use **Options → Repository color**. The choice applies to every thread and
+branch in that repository. **Automatic** gives it a stable palette color;
+choose another color or **None** to hide its right tab and tint. Colors span
+red, orange, yellow, green, cyan, blue, purple, pink, and grey.
+
+A known repository shares its color across clones and connected servers on this
+device; a fork uses its own repository identity, independently of its upstream.
+When a server cannot identify the repository, its project has a separate local
+color. The left tab always identifies the server. Choices and tint strengths
+are saved on this device; iPhone and iPad overrides do not sync or change the
+server. Previously saved individual-thread highlights are retained for older
+clients, but do not override the repository color.
 
 ## Composer context
 

@@ -55,6 +55,7 @@ import { useUniwindTheme } from "../../lib/useUniwindTheme";
 import { themeColorWithAlpha } from "../../lib/mobileTheme";
 import { armAgentAwarenessLiveActivityForLocalWork } from "../agent-awareness/remoteRegistration";
 import { scopedThreadKey } from "../../lib/scopedEntities";
+import { repositoryHighlightKey } from "../../lib/repositoryHighlight";
 import {
   getComposerDraftSnapshot,
   composerDraftsAtom,
@@ -714,10 +715,15 @@ function ThreadComposer(props: ThreadComposerProps) {
     [currentModelOption?.capabilities, currentModelSelection.options],
   );
   const settingsOwnerId = composerOwnerKey;
+  const settingsRepositoryKey = repositoryHighlightKey(
+    project?.repositoryIdentity,
+    props.environmentId,
+    props.selectedThread.projectId,
+  );
   const settingsRouteSession = useMemo<ExistingThreadSettingsRouteSession>(
     () => ({
       ownerId: settingsOwnerId,
-      threadKey: settingsOwnerId,
+      repositoryKey: settingsRepositoryKey,
       environmentId: props.environmentId,
       projectId: props.selectedThread.projectId,
       providerInstanceId: currentModelSelection.instanceId,
@@ -748,6 +754,8 @@ function ThreadComposer(props: ThreadComposerProps) {
       providerOptionDescriptors,
       settingsOwnerId,
       lockedProviderInstanceId,
+      props.environmentId,
+      settingsRepositoryKey,
       threadProviderGroups,
       props.selectedThread.projectId,
     ],

@@ -61,7 +61,7 @@ Sending or a phone-waiting screen returns to replies.
 While the picker is opening a thread, further selections wait until it finishes.
 Back leaves the opening state for the active thread when available.
 
-In **Settings → Even G2 → Natural scrolling**, on means swipe up advances
+In **Settings → Interface → Natural G2 scrolling**, on means swipe up advances
 through content; off means swipe down advances. The sending screen's **swipe up
 to replies** action uses physical up under either setting. Swipes never cancel
 dictation, and up-then-down is not a Back gesture. A double-tap while the
@@ -114,7 +114,7 @@ or Back again to keep your previous position.
 
 T3 attempts to restore an awake display after a display exit. A timed-out
 display stays blank until you tap to wake it. If recovery fails, tap R1 or use
-**Settings → Even G2 → Resume T3 display** when available. To leave T3
+**Settings → Interface → Resume T3 display** when available. To leave T3
 deliberately, disconnect **G2 + R1** in Settings before returning to the Even
 app.
 

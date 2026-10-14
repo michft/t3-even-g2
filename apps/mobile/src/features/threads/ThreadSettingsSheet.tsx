@@ -49,7 +49,7 @@ import Animated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanim
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { SymbolView } from "../../components/AppSymbol";
-import { ThreadHighlightSetting } from "./ThreadHighlightSetting";
+import { RepositoryColorSetting } from "./RepositoryColorSetting";
 import { AppText as Text } from "../../components/AppText";
 import { AndroidScreenHeader } from "../../components/AndroidScreenHeader";
 import { AndroidAnchoredMenu } from "../../components/AndroidAnchoredMenu";
@@ -253,7 +253,7 @@ type ThreadSettingsSubmenuPage =
   | { readonly kind: "runtime" };
 
 type ThreadSettingsSessionProps = {
-  readonly threadKey?: string;
+  readonly repositoryKey?: string;
   readonly environmentId: EnvironmentId | null;
   readonly projectId: ProjectId | null;
   readonly providerInstanceId?: ProviderInstanceId;
@@ -310,7 +310,7 @@ export function useExistingThreadSettingsRoutePresentation() {
 }
 
 type ThreadSettingsSessionValue = {
-  readonly threadKey?: string;
+  readonly repositoryKey?: string;
   readonly environmentId: EnvironmentId | null;
   readonly providerInstanceId?: ProviderInstanceId;
   readonly providerGroups: ReadonlyArray<ProviderGroup>;
@@ -619,7 +619,7 @@ function ThreadSettingsSessionProvider(
 
   const value = useMemo<ThreadSettingsSessionValue>(
     () => ({
-      threadKey: props.threadKey,
+      repositoryKey: props.repositoryKey,
       environmentId: props.environmentId,
       providerInstanceId: props.providerInstanceId,
       providerGroups,
@@ -664,7 +664,7 @@ function ThreadSettingsSessionProvider(
       isApplied,
       isDisplayed,
       props.environmentId,
-      props.threadKey,
+      props.repositoryKey,
       props.selectedModel,
       props.reportedModelSelection,
       props.providerInstanceId,
@@ -896,7 +896,7 @@ function useThreadSettingsCatalogItems(
   );
 }
 
-/** Opens thread settings submenus using the selected environment's configuration. */
+/** Presents model/runtime options and the shared repository colour control. */
 function ThreadSettingsOptionsItem(props: {
   readonly animationsReady: boolean;
   readonly onOpenSubmenu: (submenu: ThreadSettingsSubmenuPage) => void;
@@ -990,8 +990,8 @@ function ThreadSettingsOptionsItem(props: {
           />
         ) : null}
       </View>
-      {Platform.OS === "ios" && session.threadKey ? (
-        <ThreadHighlightSetting threadKey={session.threadKey} />
+      {Platform.OS === "ios" && session.repositoryKey ? (
+        <RepositoryColorSetting repositoryKey={session.repositoryKey} />
       ) : null}
     </View>
   );

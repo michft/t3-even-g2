@@ -1,5 +1,5 @@
 import { memo, useId } from "react";
-import { Pressable, View } from "react-native";
+import { Platform, Pressable, View } from "react-native";
 import Svg, { Circle, Defs, RadialGradient, Stop } from "react-native-svg";
 import { ScopedTheme, ScopedVariables } from "uniwind";
 
@@ -18,6 +18,7 @@ import {
 import { getMobileUniwindThemeName } from "../../../../lib/mobileThemeRuntime";
 import { cn } from "../../../../lib/cn";
 import { useAppearancePreferences } from "../AppearancePreferencesProvider";
+import { FontSizeSliderRow } from "../components/FontSizeSliderRow";
 
 const APPEARANCE_MODES: ReadonlyArray<{
   readonly id: MobileThemeMode;
@@ -284,6 +285,7 @@ function SectionLabel({ children }: { readonly children: string }) {
   return <Text className="px-2 text-sm font-t3-medium text-foreground-muted">{children}</Text>;
 }
 
+/** Shows theme choices and independent iOS thread-row tint controls when Tint is active. */
 export function ThemeAppearanceSection() {
   const {
     isReady,
@@ -294,6 +296,10 @@ export function ThemeAppearanceSection() {
     themeMode,
     threadOriginColorMode,
     setThreadOriginColorMode,
+    threadLeftTintStrength,
+    threadRightTintStrength,
+    setThreadLeftTintStrength,
+    setThreadRightTintStrength,
     systemColorsAvailable,
   } = useAppearancePreferences();
 
@@ -321,6 +327,35 @@ export function ThemeAppearanceSection() {
             </Pressable>
           ))}
         </View>
+        {Platform.OS === "ios" && threadOriginColorMode === "tint" ? (
+          <View className="rounded-xl bg-card">
+            <Text className="px-4 pt-4 text-sm text-foreground-muted">
+              Left tint follows the server color. Right tint follows the repository color.
+            </Text>
+            <FontSizeSliderRow
+              disabled={!isReady}
+              icon="paintbrush"
+              label="Left tint"
+              max={60}
+              min={0}
+              onChange={setThreadLeftTintStrength}
+              step={1}
+              value={threadLeftTintStrength}
+              valueLabel={`${threadLeftTintStrength}%`}
+            />
+            <FontSizeSliderRow
+              disabled={!isReady}
+              icon="paintbrush"
+              label="Right tint"
+              max={60}
+              min={0}
+              onChange={setThreadRightTintStrength}
+              step={1}
+              value={threadRightTintStrength}
+              valueLabel={`${threadRightTintStrength}%`}
+            />
+          </View>
+        ) : null}
       </View>
       <View className="gap-2">
         <SectionLabel>Color scheme</SectionLabel>

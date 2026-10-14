@@ -53,6 +53,10 @@ interface AppearancePreferencesContextValue {
   readonly themeMode: MobileThemeMode;
   readonly threadOriginColorMode: ThreadOriginColorMode;
   readonly setThreadOriginColorMode: (mode: ThreadOriginColorMode) => void;
+  readonly threadLeftTintStrength: number;
+  readonly threadRightTintStrength: number;
+  readonly setThreadLeftTintStrength: (value: number) => void;
+  readonly setThreadRightTintStrength: (value: number) => void;
   readonly themeAppearance: MobileThemeAppearance;
   readonly systemColorsAvailable: boolean;
   readonly systemColorsActive: boolean;
@@ -78,6 +82,7 @@ interface AppearancePreferencesContextValue {
 
 const AppearancePreferencesContext = createContext<AppearancePreferencesContextValue | null>(null);
 
+/** Shares device-local appearance settings and stable setters across mobile surfaces. */
 export function AppearancePreferencesProvider(props: { readonly children: ReactNode }) {
   const preferencesResult = useAtomValue(mobilePreferencesAtom);
   const savePreferences = useAtomSet(updateMobilePreferencesAtom);
@@ -91,6 +96,8 @@ export function AppearancePreferencesProvider(props: { readonly children: ReactN
   );
   const themeMode = normalizeMobileThemeMode(storedPreferences?.themeMode);
   const threadOriginColorMode = storedPreferences?.threadOriginColorMode ?? "tint";
+  const threadLeftTintStrength = storedPreferences?.threadLeftTintStrength ?? 22;
+  const threadRightTintStrength = storedPreferences?.threadRightTintStrength ?? 22;
   const themeAppearance = themeMode === "system" ? systemColorScheme : themeMode;
   const resolvedThemeIds = resolveMobileThemeIds(storedPreferences ?? {});
   const themeIds = useMemo<MobileThemeIds>(
@@ -281,6 +288,17 @@ export function AppearancePreferencesProvider(props: { readonly children: ReactN
     [updatePreferences],
   );
 
+  /** Save the device-wide server-edge opacity without changing repository colours. */
+  const setThreadLeftTintStrength = useCallback(
+    (value: number) => updatePreferences({ threadLeftTintStrength: value }),
+    [updatePreferences],
+  );
+  /** Save the device-wide repository-edge opacity independently of the server tint. */
+  const setThreadRightTintStrength = useCallback(
+    (value: number) => updatePreferences({ threadRightTintStrength: value }),
+    [updatePreferences],
+  );
+
   const value = useMemo(
     (): AppearancePreferencesContextValue => ({
       appearance,
@@ -289,6 +307,10 @@ export function AppearancePreferencesProvider(props: { readonly children: ReactN
       themeMode,
       threadOriginColorMode,
       setThreadOriginColorMode,
+      threadLeftTintStrength,
+      threadRightTintStrength,
+      setThreadLeftTintStrength,
+      setThreadRightTintStrength,
       themeAppearance,
       systemColorsAvailable: isSystemColorsAvailable,
       systemColorsActive,
@@ -311,6 +333,10 @@ export function AppearancePreferencesProvider(props: { readonly children: ReactN
       themeMode,
       threadOriginColorMode,
       setThreadOriginColorMode,
+      threadLeftTintStrength,
+      threadRightTintStrength,
+      setThreadLeftTintStrength,
+      setThreadRightTintStrength,
       themeAppearance,
       systemColorsActive,
       themeVariables,

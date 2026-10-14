@@ -33,7 +33,7 @@ thread workflow below instead.
 2. Describe one problem: steps, expected result, actual result, approximate
    time, and frequency. For an existing issue, include its fork issue URL.
 3. Include the installed app's build commit if known, iOS and G2/R1 firmware,
-   input source (R1, left arm, or right arm), Natural scrolling setting, and
+   input source (R1, left arm, or right arm), Natural G2 scrolling setting, and
    whether the phone was locked or backgrounded. Say when a value is unknown;
    the current checkout commit may differ from the installed build.
 4. Ask the agent to investigate and prepare a report. For example:

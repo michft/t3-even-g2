@@ -1,9 +1,8 @@
 import { useEffect } from "react";
-import { Platform, View } from "react-native";
+import { Platform } from "react-native";
 
 import { AppText as Text } from "../../components/AppText";
 import { SettingsRow } from "../settings/components/SettingsRow";
-import { SettingsSection } from "../settings/components/SettingsSection";
 import { SettingsSwitchRow } from "../settings/components/SettingsSwitchRow";
 import {
   connectEvenG2,
@@ -26,8 +25,8 @@ const statusLabels = {
   unsupported: "Unavailable",
 } as const;
 
-/** Shows Even G2 connection, display recovery, and scrolling controls on iOS. */
-export function EvenG2SettingsSection() {
+/** Shows Even G2 controls at the end of the iOS Interface settings section. */
+export function EvenG2SettingsRows() {
   const status = useEvenG2Status();
 
   useEffect(() => {
@@ -51,31 +50,28 @@ export function EvenG2SettingsSection() {
   };
 
   return (
-    <View className="gap-3">
-      <SettingsSection title="Even G2">
-        <SettingsRow
-          icon="eye"
-          label="G2 + R1"
-          value={statusLabels[status.status]}
-          disabled={status.status === "unsupported"}
-          onPress={toggleConnection}
-        />
-        {status.status === "paused" && (
-          <SettingsRow icon="eye" label="Resume T3 display" onPress={resumeEvenG2Display} />
-        )}
-        <SettingsSwitchRow
-          icon="eye"
-          label="Natural scrolling"
-          subtitle="On: swipe up advances through content. Off: swipe down advances."
-          value={status.naturalScrolling}
-          disabled={status.status === "unsupported"}
-          onValueChange={setEvenG2NaturalScrolling}
-        />
-      </SettingsSection>
+    <>
+      <SettingsRow
+        icon="eye"
+        label="G2 + R1"
+        value={statusLabels[status.status]}
+        disabled={status.status === "unsupported"}
+        onPress={toggleConnection}
+      />
       <Text className="px-2 text-sm text-foreground-muted">
         {status.detail ||
           "Quit the Even app first. Tap R1 to open a thread, dictate, or send. Tap the right G2 arm to open a selected thread or jump to its latest reply; right-arm taps do nothing during dictation. Tap the left G2 arm to go back or cancel dictation. Swipes scroll only; they never cancel dictation."}
       </Text>
-    </View>
+      {status.status === "paused" && (
+        <SettingsRow icon="eye" label="Resume T3 display" onPress={resumeEvenG2Display} />
+      )}
+      <SettingsSwitchRow
+        icon="eye"
+        label="Natural G2 scrolling"
+        value={status.naturalScrolling}
+        disabled={status.status === "unsupported"}
+        onValueChange={setEvenG2NaturalScrolling}
+      />
+    </>
   );
 }

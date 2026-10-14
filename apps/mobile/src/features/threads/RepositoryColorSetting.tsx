@@ -4,13 +4,14 @@ import { SymbolView } from "../../components/AppSymbol";
 import { ControlPillMenu } from "../../components/ControlPill";
 import { RowPressable } from "../../components/RowPressable";
 import { THREAD_HIGHLIGHT_COLORS } from "../../lib/threadHighlight";
-import { useThreadHighlight } from "./use-thread-highlight";
+import { useRepositoryHighlight } from "./use-repository-highlight";
 
-export function ThreadHighlightSetting(props: { readonly threadKey: string }) {
-  const highlight = useThreadHighlight(props.threadKey);
+/** Choose the colour for every thread in this repository on this device. */
+export function RepositoryColorSetting(props: { readonly repositoryKey: string }) {
+  const highlight = useRepositoryHighlight(props.repositoryKey);
   const label =
     highlight.override === undefined
-      ? "Use server"
+      ? "Automatic"
       : highlight.override === "none"
         ? "None"
         : (THREAD_HIGHLIGHT_COLORS.find(({ color }) => color === highlight.override?.toLowerCase())
@@ -24,11 +25,11 @@ export function ThreadHighlightSetting(props: { readonly threadKey: string }) {
         <RowPressable
           disabled={!highlight.loaded}
           accessibilityRole="button"
-          accessibilityLabel={`Thread highlight, ${label}`}
-          accessibilityHint="Choose a highlight for this thread on this device"
+          accessibilityLabel={`Repository color, ${label}`}
+          accessibilityHint="Choose a color for all threads in this repository on this device"
           className="flex-row items-center gap-3 px-4 py-3"
         >
-          <Text className="flex-1 text-base text-foreground">Thread highlight</Text>
+          <Text className="flex-1 text-base text-foreground">Repository color</Text>
           <Text className="text-base text-foreground-muted">{label}</Text>
           <SymbolView name="chevron.down" size={12} tintColorClassName="accent-foreground-muted" />
         </RowPressable>
