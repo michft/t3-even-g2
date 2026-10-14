@@ -520,6 +520,7 @@ function ThreadComposer(props: ThreadComposerProps) {
       ? (project?.id ?? null)
       : null,
     pullRequestRepository: project?.repositoryIdentity?.displayName ?? null,
+    threadPullRequests: props.selectedThread.pullRequests,
     selectedProviderStatus,
     hasThread: true,
     hasCompactableConversation: props.hasCompactableConversation,
