@@ -8,11 +8,6 @@ function repositoryDefaultBranch(context) {
   return branch;
 }
 
-/**
- * Ensures `sha` is contained in the repository's default branch.
- *
- * @throws {Error} If the default branch is unavailable or does not contain `sha`.
- */
 async function assertCommitOnDefaultBranch({ github, context, sha }) {
   const defaultBranch = repositoryDefaultBranch(context);
   const { data: comparison } = await github.rest.repos.compareCommitsWithBasehead({
@@ -27,12 +22,6 @@ async function assertCommitOnDefaultBranch({ github, context, sha }) {
   }
 }
 
-/**
- * Allows previews from any ref. Stable and nightly commits must be contained
- * in the default branch, and manual runs must also be dispatched from it.
- *
- * @throws {Error} If the channel is unsupported or its release source is invalid.
- */
 async function assertReleaseSource({ github, context, releaseChannel }) {
   if (releaseChannel === "preview") return;
   if (releaseChannel !== "stable" && releaseChannel !== "nightly") {
