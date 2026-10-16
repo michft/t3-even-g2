@@ -1614,6 +1614,8 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     bootstrapTask = nil
     scanTimeoutTask?.cancel()
     scanTimeoutTask = nil
+    // Untracked callers, such as dictation shutdown, cannot be cancelled here.
+    for key in Array(ackWaiters.keys) { resumeAckWaiter(key, received: false) }
     pendingAckKeys.removeAll()
     receivedAckKeys.removeAll()
   }
