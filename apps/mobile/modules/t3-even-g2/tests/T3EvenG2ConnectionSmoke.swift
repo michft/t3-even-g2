@@ -91,6 +91,7 @@ final class Fixture {
   var preludeCount = 0
   var createCount = 0
   var rejectPageCreation = false
+  var lateAcks = false
   var authenticationCounts: [String: Int] = [:]
   var baseHeartbeatCounts: [String: Int] = [:]
   var baseHeartbeatStates: Set<String> = []
@@ -241,13 +242,23 @@ final class Fixture {
         var end = offset + 1
         while end < bytes.count - 2 && bytes[end] & 0x80 != 0 { end += 1 }
         let payload = [UInt8(0x10)] + Array(bytes[(offset + 1)...end])
-        let notify = peripheral.services![0].characteristics![1]
-        notify.value = Data(
+        let ack = Data(
           [0xAA, 0x12, 0, UInt8(payload.count + 2), 1, 1, bytes[6], 0x20] + payload + [0, 0])
-        self.connection.peripheral(peripheral, didUpdateValueFor: notify, error: nil)
-        if pageHeartbeat {
-          self.pageHeartbeatAcks += 1
-          self.pageHeartbeatWaiter?()
+        let deliver = { [weak self] in
+          guard let self else { return }
+          let notify = peripheral.services![0].characteristics![1]
+          notify.value = ack
+          self.connection.peripheral(peripheral, didUpdateValueFor: notify, error: nil)
+          if pageHeartbeat {
+            self.pageHeartbeatAcks += 1
+            self.pageHeartbeatWaiter?()
+          }
+        }
+        guard self.lateAcks else { return deliver() }
+        // Arrive well after the 14 ms post-write pause, once the driver is already waiting.
+        Task { @MainActor in
+          try? await Task.sleep(for: .milliseconds(100))
+          deliver()
         }
       }
       discover(peripheral)
@@ -429,6 +440,11 @@ struct Smoke {
     if CommandLine.arguments.contains("--heartbeats") {
       await verifyHeartbeats()
       print("G2 heartbeat restart, stale-task cleanup, and consecutive ACK checks passed")
+      return
+    }
+    if CommandLine.arguments.contains("--acks") {
+      await verifyAcknowledgements()
+      print("G2 late ACK, early ACK, and ACK timeout checks passed")
       return
     }
     if CommandLine.arguments.contains("--history") {
@@ -1194,7 +1210,13 @@ struct Smoke {
       fixture.connection.setNaturalScrolling(true)
       fixture.gesture(9, container: container)
       await fixture.waitForDisplay("> Thread 4")
+      // JS resends unchanged choices on shell updates; the Latest entry must not force a redraw.
+      let framesBeforeResend = fixture.displayPayloads.count
+      fixture.connection.setThreadChoices(choices.map {
+        ["key": $0.key, "title": $0.title, "subtitle": $0.subtitle]
+      })
       try? await Task.sleep(for: .milliseconds(450))
+      precondition(fixture.displayPayloads.count == framesBeforeResend)
       fixture.gesture(1, container: container)
       await fixture.waitForDisplay("> Thread 5")
       try? await Task.sleep(for: .milliseconds(450))
@@ -1475,6 +1497,30 @@ struct Smoke {
   private static func historyPayload(_ replies: [[String: String]], key: String = "mini:history") -> [String: Any] {
     ["threadKey": key, "replies": replies, "startIndex": 0, "totalReplies": replies.count,
      "hasOlder": false, "hasNewer": false, "latestReplyId": replies.last?["id"] ?? "", "loading": false]
+  }
+
+  /// Accepts ACKs that arrive before or after waiting begins, and fails a silent wait at its timeout.
+  @MainActor
+  private static func verifyAcknowledgements() async {
+    let late = Fixture(pageHeartbeatInterval: .milliseconds(60), pageHeartbeatTimeout: .milliseconds(400))
+    late.pageOccupied = false
+    late.lateAcks = true
+    late.subscribe(late.left)
+    late.subscribe(late.right)
+    // Prelude, CREATE, and first display all wait on ACKs delivered after the wait starts.
+    await late.wait { $0["status"] as? String == "ready" }
+    precondition(late.preludeCount == 2 && late.createCount == 1)
+    await late.waitForPageHeartbeat { late.pageHeartbeatAcks >= 1 }
+    // The default fixture ACKs during the write, before the driver starts waiting.
+    late.lateAcks = false
+    let earlyAcks = late.pageHeartbeatAcks
+    await late.waitForPageHeartbeat { late.pageHeartbeatAcks > earlyAcks }
+    // A silent heartbeat must time out; the next heartbeat only runs after the wait returns false.
+    late.pageHeartbeatResponses = [false, true]
+    let attempts = late.pageHeartbeatAttempts
+    await late.waitForPageHeartbeat { late.pageHeartbeatAttempts >= attempts + 2 }
+    precondition(late.connection.snapshot["status"] as? String == "ready")
+    late.connection.disconnect()
   }
 
   /// Verifies task replacement and missed-ACK recovery separately from navigation timing checks.

@@ -341,7 +341,6 @@ function makeCodexProbeSnapshot(
   };
 }
 
-/** Provide mutable settings and events while rejecting unexpected Appearance writes. */
 function makeMutableServerSettingsService(
   initial: ContractServerSettings = DEFAULT_SERVER_SETTINGS,
 ) {

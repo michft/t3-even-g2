@@ -301,7 +301,6 @@ export function resolveDevRedirectUrl(devUrl: URL, requestUrl: URL): string {
   return redirectUrl.toString();
 }
 
-/** Authenticate a raw HTTP route and return the scoped session for subject checks. */
 const authenticateRawRouteWithScope = (
   scope: typeof AuthOrchestrationReadScope | typeof AuthOrchestrationOperateScope,
 ) =>

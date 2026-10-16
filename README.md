@@ -11,6 +11,10 @@ capture continues; the first tap wakes it without performing an action. The fork
 also adds configurable scroll direction, Bluetooth reconnection and display
 recovery, and exportable native diagnostics.
 
+Threads are tinted by the server they come from, with a device-local Tint,
+Solid, or Off choice. On iPhone and iPad, thread rows also show a per-repository
+color. See [thread origin colors](docs/user/appearance.md#thread-origin-colors).
+
 Everything else should track upstream that is **T3 Code**
 
 To help investigate fork issues, see the

@@ -11,7 +11,7 @@
  *
  * Entries are matched as prefixes so platform-specific siblings are covered.
  */
-const DESKTOP_RUNTIME_EXTERNAL_PREFIXES = [
+export const DESKTOP_RUNTIME_EXTERNAL_PREFIXES = [
   // Native addons and the wrappers that dlopen them by real path.
   "@napi-rs/keyring",
   "@crowecawcaw/xa11y",

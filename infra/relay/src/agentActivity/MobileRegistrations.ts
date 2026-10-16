@@ -40,8 +40,7 @@ export class MobileRegistrations extends Context.Service<
   }
 >()("t3code-relay/agentActivity/MobileRegistrations") {}
 
-/** Bind mobile registration and snapshots; replay failures are logged without failing successful registration. */
-const make = Effect.gen(function* () {
+export const make = Effect.gen(function* () {
   const rows = yield* AgentActivityRows.AgentActivityRows;
   const devices = yield* Devices.Devices;
   const liveActivities = yield* LiveActivities.LiveActivities;

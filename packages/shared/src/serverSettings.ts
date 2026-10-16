@@ -34,6 +34,38 @@ import {
 const ServerSettingsJson = fromLenientJson(ServerSettings);
 const decodeServerSettingsJson = Schema.decodeUnknownOption(ServerSettingsJson);
 
+/** @deprecated Read `resolveProjectSettings(...).settings.enableAgentBrowserAccess`. */
+export function resolveProjectAgentBrowserAccess(
+  settings: Pick<
+    ServerSettings,
+    "enableAgentBrowserAccess" | "projectAgentBrowserAccessOverrides" | "projectSettingsOverrides"
+  >,
+  projectId: ProjectId,
+): boolean {
+  return (
+    settings.projectSettingsOverrides[projectId]?.enableAgentBrowserAccess ??
+    settings.projectAgentBrowserAccessOverrides[projectId] ??
+    settings.enableAgentBrowserAccess
+  );
+}
+
+/** @deprecated Read `resolveProjectSettings(...).settings.defaultAutoPull`. */
+export function resolveProjectAutoPull(
+  settings: Pick<
+    ServerSettings,
+    "defaultAutoPull" | "projectAutoPullOverrides" | "projectSettingsOverrides"
+  >,
+  projectId: ProjectId,
+  legacyAutoPull: boolean | undefined,
+): boolean {
+  // Existing opt-ins stay enabled until explicitly overridden or reset.
+  return (
+    settings.projectSettingsOverrides[projectId]?.defaultAutoPull ??
+    settings.projectAutoPullOverrides[projectId] ??
+    (legacyAutoPull === true || settings.defaultAutoPull)
+  );
+}
+
 export function isModelSelectionProviderEnabled(
   settings: ServerSettings,
   selection: ModelSelection,
@@ -364,7 +396,6 @@ function translateLegacyProjectOverridePatch(
   } as ServerSettingsPatch;
 }
 
-/** Applies settings patches while preserving per-entry resets and the host-owned Appearance. */
 export function applyServerSettingsPatch(
   current: ServerSettings,
   rawPatch: ServerSettingsPatch,

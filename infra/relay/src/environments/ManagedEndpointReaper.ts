@@ -13,12 +13,12 @@ import {
 import * as ManagedEndpointAllocations from "./ManagedEndpointAllocations.ts";
 import * as ManagedEndpointProvider from "./ManagedEndpointProvider.ts";
 
-const MANAGED_ENDPOINT_GRACE_PERIOD_MINUTES = 5;
+export const MANAGED_ENDPOINT_GRACE_PERIOD_MINUTES = 5;
 // A tunnel that never connected is usually a link still being set up: a slow
 // cloudflared download or a user who walked away mid-pairing. Give it an hour.
-const MANAGED_ENDPOINT_INACTIVE_GRACE_PERIOD_MINUTES = 60;
-const MANAGED_ENDPOINT_SWEEP_PAGE_SIZE = 100;
-const MANAGED_ENDPOINT_SWEEP_ATTEMPT_LIMIT = 100;
+export const MANAGED_ENDPOINT_INACTIVE_GRACE_PERIOD_MINUTES = 60;
+export const MANAGED_ENDPOINT_SWEEP_PAGE_SIZE = 100;
+export const MANAGED_ENDPOINT_SWEEP_ATTEMPT_LIMIT = 100;
 export const MANAGED_ENDPOINT_SWEEP_LIST_REQUEST_LIMIT = 10;
 // Age buckets for legacy candidates, in days since the tunnel went down (or
 // was created, for one that never connected).
@@ -178,8 +178,7 @@ const emptyResult = (
   truncated: false,
 });
 
-/** Bind bounded inactive-tunnel sweeps that honor cleanup mode and require a recoverable allocation owner. */
-const make = Effect.gen(function* () {
+export const make = Effect.gen(function* () {
   const config = yield* RelayConfiguration.RelayConfiguration;
   const tunnels = yield* ManagedEndpointProvider.ManagedEndpointTunnelClient;
   const allocations = yield* ManagedEndpointAllocations.ManagedEndpointAllocations;

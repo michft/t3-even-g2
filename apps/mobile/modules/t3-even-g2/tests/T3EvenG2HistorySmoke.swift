@@ -124,6 +124,24 @@ private struct T3EvenG2HistorySmoke {
       }
     }
 
+    var store = T3EvenG2HistoryStore()
+    for index in 0..<8 { store.store(history, for: "thread:\(index)") }
+    store.store(history, for: "thread:0")
+    store.store(history, for: "thread:8")
+    try check(store["thread:0"] != nil, "storing again must refresh a thread's recency")
+    try check(store["thread:1"] == nil, "the least recently stored thread must be evicted beyond eight")
+    try check(store["thread:8"] != nil, "the newest thread window must be retained")
+
+    var anchored = T3EvenG2History()
+    anchored.updateSnapshot(snapshot([first, second, third], latestID: "c"))
+    _ = anchored.move(-1)
+    try check(anchored.completeRequestedMove(from: "b", direction: "older") == nil && anchored.currentID == "a",
+              "a fulfilled older request must move from the unchanged anchor")
+    try check(anchored.completeRequestedMove(from: "x", direction: "newer") == nil && anchored.currentID == "a",
+              "a replaced anchor must keep the newly selected reply")
+    try check(anchored.completeRequestedMove(from: "a", direction: "latest") == nil && anchored.currentID == "c",
+              "a fulfilled latest request must select the latest reply")
+
     print("T3EvenG2History smoke checks passed")
   }
 }

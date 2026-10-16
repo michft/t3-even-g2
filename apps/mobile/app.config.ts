@@ -130,7 +130,6 @@ const VARIANT_CONFIG = {
   },
 } as const;
 
-/** Selects the app identity, defaulting unconfigured builds to production. */
 function resolveAppVariant(value: string | undefined): AppVariant {
   switch (value) {
     case "development":

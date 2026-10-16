@@ -47,6 +47,12 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     }
   }
 
+  /// Lens notice shown over thread content; only `.sending` means a reply is awaited.
+  private enum DictationNotice: Equatable {
+    case sending
+    case message(String)
+  }
+
   private let left = Arm(side: "L")
   private let right = Arm(side: "R")
   private var central: CBCentralManager?
@@ -92,19 +98,19 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   private var openAtLatest = false
   private var threadPicker = T3EvenG2ThreadPicker()
   private var availableThreadChoices: [T3EvenG2ThreadPicker.Choice] = []
-  private var historyByThread: [String: T3EvenG2History] = [:]
-  private var historyRecency: [String] = []
+  private var histories = T3EvenG2HistoryStore()
   private var historyNotice: String?
   private var historyRequestTask: Task<Void, Never>?
   private var pendingHistoryRequest: (id: String, direction: String)?
   private var listening = false
   private var stoppingDictation = false
   private var latestTranscript = ""
-  private var dictationNotice: String?
+  private var dictationNotice: DictationNotice?
   private var threadActivityText = ""
   private var lastGestureAt = Date.distantPast
   private var pendingAckKeys: Set<String> = []
   private var receivedAckKeys: Set<String> = []
+  private var ackWaiters: [String: (id: UUID, continuation: CheckedContinuation<Bool, Never>)] = [:]
 
   /// Returns the current connection, dictation, and scrolling state for the client.
   var snapshot: [String: Any] {
@@ -252,9 +258,9 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     if enabled {
       if activeThreadKey != key || !inputEnabled {
         openAtLatest = true
-        if var history = historyByThread[key] {
+        if var history = histories[key] {
           history.jumpToLatest()
-          storeHistory(history, for: key)
+          histories.store(history, for: key)
         }
       }
       if activeThreadKey != key {
@@ -292,7 +298,8 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       guard let key = item["key"], !key.isEmpty else { return nil }
       return .init(key: key, title: item["title"] ?? "Untitled", subtitle: item["subtitle"] ?? "")
     }
-    guard next != threadPicker.choices else { return }
+    // Compare client input only; the picker also holds the injected Latest output action.
+    guard next != availableThreadChoices else { return }
     availableThreadChoices = next
     refreshThreadChoices()
     if threadPicker.isPresented, status == .ready { scheduleDisplay(restingDisplayText) }
@@ -309,7 +316,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       guard let id = value["id"], !id.isEmpty, let text = value["text"] else { return nil }
       return .init(id: id, text: text, prompt: value["prompt"] ?? "")
     }
-    var history = historyByThread[key] ?? T3EvenG2History()
+    var history = histories[key] ?? T3EvenG2History()
     let previousID = history.currentID
     let previousLatest = history.latestReplyID
     let followLatest = history.currentID != nil && history.currentID == previousLatest
@@ -336,41 +343,20 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       && !(payload["loading"] as? Bool ?? false)
     if fulfilled, let request = pendingHistoryRequest {
       cancelHistoryRequest()
-      let remaining = moveLoadedHistory(&history, from: previousID, direction: request.direction)
+      let remaining = history.completeRequestedMove(from: previousID, direction: request.direction)
       if remaining != nil { historyNotice = "History unavailable · swipe to retry" }
     }
-    storeHistory(history, for: key)
+    histories.store(history, for: key)
     refreshThreadChoices()
     if requestLatest, requestID == nil { requestHistory("latest") }
     if pendingHistoryRequest == nil { publishHistoryPosition() }
     if !listening, speechSession == nil, status == .ready { scheduleDisplay(restingDisplayText) }
   }
 
-  /// Completes a requested move without skipping a newly selected replacement or first reply.
-  private func moveLoadedHistory(
-    _ history: inout T3EvenG2History, from previousID: String?, direction: String
-  ) -> Int? {
-    if direction == "latest" { return history.jumpToLatest() }
-    if previousID != nil, history.currentID == previousID {
-      return history.move(direction == "older" ? -1 : 1)
-    }
-    return history.currentID == nil ? -1 : nil
-  }
-
-  /// Retains at most eight recently used thread windows in this app session.
-  private func storeHistory(_ history: T3EvenG2History, for key: String) {
-    historyByThread[key] = history
-    historyRecency.removeAll { $0 == key }
-    historyRecency.append(key)
-    while historyRecency.count > 8 {
-      historyByThread.removeValue(forKey: historyRecency.removeFirst())
-    }
-  }
-
   /// Adds a distinct Latest output action without inventing a thread identifier.
   private func refreshThreadChoices() {
     var choices = availableThreadChoices
-    if let key = activeThreadKey, historyByThread[key]?.currentID != nil {
+    if let key = activeThreadKey, histories[key]?.currentID != nil {
       let title = choices.first(where: { $0.key == key })?.title ?? "Current thread"
       choices.insert(.init(key: key, title: "Latest output", subtitle: title, isLatestOutput: true), at: 0)
     }
@@ -380,7 +366,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   /// Reports the reading anchor so JavaScript can retain its window across updates and remounts.
   private func publishHistoryPosition() {
     guard let key = activeThreadKey else { return }
-    let id = historyByThread[key]?.currentID ?? ""
+    let id = histories[key]?.currentID ?? ""
     trace("history.position")
     onHistoryPosition?(["threadKey": key, "messageId": id])
   }
@@ -388,7 +374,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   /// Requests an adjacent window and bounds waiting without blocking Back or dictation.
   private func requestHistory(_ direction: String) {
     guard pendingHistoryRequest == nil, let key = activeThreadKey else { return }
-    let anchor = historyByThread[key]?.currentID ?? ""
+    let anchor = histories[key]?.currentID ?? ""
     let id = UUID().uuidString
     pendingHistoryRequest = (id, direction)
     historyNotice = "Loading \(direction == "latest" ? "latest" : direction) replies…"
@@ -415,13 +401,13 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
 
   /// Jumps to the newest cached reply, requesting a newer window when necessary.
   private func showLatestOutput() {
-    guard let key = activeThreadKey, var history = historyByThread[key] else { return }
+    guard let key = activeThreadKey, var history = histories[key] else { return }
     cancelHistoryRequest()
     threadPicker.isPresented = false
     dictationNotice = nil
     openAtLatest = false
     let request = history.jumpToLatest()
-    storeHistory(history, for: key)
+    histories.store(history, for: key)
     if request != nil { requestHistory("latest") } else { publishHistoryPosition() }
     scheduleDisplay(restingDisplayText)
   }
@@ -740,7 +726,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     }
     if let acknowledgement = T3EvenG2Protocol.acknowledgement(from: data) {
       let key = ackKey(service: acknowledgement.service, magic: acknowledgement.magic)
-      if pendingAckKeys.contains(key) {
+      if pendingAckKeys.contains(key), !resumeAckWaiter(key, received: true) {
         receivedAckKeys.insert(key)
       }
     }
@@ -1071,8 +1057,8 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     displayTask?.cancel()
     guard !displayIsSleeping else { return }
     let position: [String: Any] = [
-      "displayReply": activeThreadKey.flatMap { historyByThread[$0]?.currentID } ?? "",
-      "displayPage": activeThreadKey.flatMap { historyByThread[$0]?.pageIndex }.map { $0 + 1 } ?? 0,
+      "displayReply": activeThreadKey.flatMap { histories[$0]?.currentID } ?? "",
+      "displayPage": activeThreadKey.flatMap { histories[$0]?.pageIndex }.map { $0 + 1 } ?? 0,
       "displayPicker": threadPicker.isPresented,
     ]
     trace("display.scheduled", position)
@@ -1094,8 +1080,8 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       let activity = threadActivityText.isEmpty ? "Sending to T3 Code…" : threadActivityText
       return "\(activity)\n\nSwipe up: replies\nL arm tap: threads"
     }
-    if let dictationNotice { return dictationNotice }
-    if let key = activeThreadKey, let history = historyByThread[key] {
+    if case .message(let text) = dictationNotice { return text }
+    if let key = activeThreadKey, let history = histories[key] {
       guard let historyNotice else { return history.text }
       var lines = history.text.components(separatedBy: "\n")
       if !lines.isEmpty { lines.removeLast() }
@@ -1106,11 +1092,11 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   }
 
   /// Separates post-send progress from errors and active speech capture.
-  private var isWaitingForReply: Bool { dictationNotice == "Sending to T3 Code…" }
+  private var isWaitingForReply: Bool { dictationNotice == .sending }
 
   /// Stores a notice and schedules it for display.
   private func showDictationNotice(_ text: String) {
-    dictationNotice = text
+    dictationNotice = .message(text)
     scheduleDisplay(restingDisplayText)
   }
 
@@ -1207,21 +1193,42 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
   }
 
   /// Waits until the keyed ACK arrives or timeout or cancellation ends the wait.
+  /// An ACK recorded before the wait begins counts immediately.
+  @MainActor
   private func waitForAck(key: String, timeout: Duration) async -> Bool {
-    let deadline = ContinuousClock.now + timeout
-    while ContinuousClock.now < deadline {
-      if receivedAckKeys.remove(key) != nil {
-        pendingAckKeys.remove(key)
-        return true
-      }
-      do {
-        try await Task.sleep(for: .milliseconds(10))
-      } catch {
-        break
-      }
+    if receivedAckKeys.remove(key) != nil {
+      pendingAckKeys.remove(key)
+      return true
     }
-    clearAck(key)
-    return false
+    let id = UUID()
+    let timeoutTask = Task { @MainActor [weak self] in
+      try? await Task.sleep(for: timeout)
+      guard !Task.isCancelled else { return }
+      self?.resumeAckWaiter(key, id: id, received: false)
+    }
+    defer { timeoutTask.cancel() }
+    let received = await withTaskCancellationHandler {
+      await withCheckedContinuation { continuation in
+        // A superseded wait for a reused key fails instead of leaking its continuation.
+        resumeAckWaiter(key, received: false)
+        ackWaiters[key] = (id, continuation)
+        if Task.isCancelled { resumeAckWaiter(key, id: id, received: false) }
+      }
+    } onCancel: {
+      Task { @MainActor [weak self] in self?.resumeAckWaiter(key, id: id, received: false) }
+    }
+    // A newer wait for the same key still owns its pending entry.
+    if ackWaiters[key] == nil { clearAck(key) }
+    return received
+  }
+
+  /// Resumes the waiter for a key, optionally only a specific wait; returns whether one resumed.
+  @discardableResult
+  private func resumeAckWaiter(_ key: String, id: UUID? = nil, received: Bool) -> Bool {
+    guard let waiter = ackWaiters[key], id == nil || waiter.id == id else { return false }
+    ackWaiters.removeValue(forKey: key)
+    waiter.continuation.resume(returning: received)
+    return true
   }
 
   /// Removes pending and received ACK entries when a key exists.
@@ -1399,7 +1406,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       }
       if inputEnabled, activeThreadKey == choice.key {
         threadPicker.isPresented = false
-        if historyByThread[choice.key] != nil {
+        if histories[choice.key] != nil {
           showLatestOutput()
           return
         }
@@ -1450,11 +1457,11 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       let offset = T3EvenG2Protocol.lensPageOffset(for: gestureKind, naturalScrolling: naturalScrolling)
     else { return }
     openAtLatest = false
-    if let key = activeThreadKey, var history = historyByThread[key] {
+    if let key = activeThreadKey, var history = histories[key] {
       guard pendingHistoryRequest == nil else { return }
       historyNotice = nil
       let request = history.move(offset)
-      storeHistory(history, for: key)
+      histories.store(history, for: key)
       publishHistoryPosition()
       if let request { requestHistory(request < 0 ? "older" : "newer") }
       scheduleDisplay(restingDisplayText)
@@ -1471,7 +1478,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
     defer { clearStoppingDictation(for: session) }
     var finalCancelled = cancelled
     // Install before finishing: a reply can arrive while the final transcript crosses the bridge.
-    if !cancelled { dictationNotice = "Sending to T3 Code…" }
+    if !cancelled { dictationNotice = .sending }
     displayTask?.cancel()
     let audioMagic = nextMagic()
     await sendEvenHub(
@@ -1574,7 +1581,7 @@ final class T3EvenG2Connection: NSObject, CBCentralManagerDelegate, CBPeripheral
       "sinceInputMs": min(60_000, Int(max(0, Date().timeIntervalSince(lastGestureAt) * 1_000))),
     ]
     if let activeThreadKey { state["thread"] = activeThreadKey }
-    if let history = activeThreadKey.flatMap({ historyByThread[$0] }) {
+    if let history = activeThreadKey.flatMap({ histories[$0] }) {
       state["reply"] = history.currentID
       state["page"] = history.pageIndex + 1
     }

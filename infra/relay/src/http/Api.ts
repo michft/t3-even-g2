@@ -66,6 +66,7 @@ import * as DpopProofs from "../auth/DpopProofs.ts";
 import * as RelayTokens from "../auth/RelayTokens.ts";
 import * as EnvironmentCredentials from "../environments/EnvironmentCredentials.ts";
 import * as EnvironmentLinks from "../environments/EnvironmentLinks.ts";
+import * as HookForwarder from "../hooks/HookForwarder.ts";
 import * as HeldHooks from "../hooks/HeldHooks.ts";
 import * as HookInbox from "../hooks/HookInbox.ts";
 import * as LiveActivities from "../agentActivity/LiveActivities.ts";
@@ -214,7 +215,6 @@ const relayRequestDeadline = <E, R>(
 /** Trace context headers in every format the tracer reads (W3C and B3). */
 const SENDER_TRACE_HEADER = /^(traceparent|tracestate|b3|x-b3-.*)$/i;
 
-/** Wraps HTTP handling with tracing, response context, and a deadline. */
 export const traceRelayHttpRequest = <E, R>(
   httpEffect: Effect.Effect<
     HttpServerResponse.HttpServerResponse,

@@ -618,7 +618,6 @@ function ThreadOutboxDrainWorker() {
   return null;
 }
 
-/** Own native workspace navigation and the iOS fork G2 thread-picker bridge. */
 function RootStackLayout(props: {
   readonly children: React.ReactNode;
   readonly state: NavigationState;

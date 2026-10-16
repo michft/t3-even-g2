@@ -205,6 +205,32 @@ export function createEvenG2HistoryBridge(dependencies: EvenG2HistoryBridgeDepen
     rememberHistory(event.threadKey, { ...cached, anchorId: event.messageId, anchorOffset });
   };
 
+  /** Marks an older-page request pending and starts its load; returns false when rejected. */
+  const requestOlderPage = (
+    request: EvenG2HistoryRequest,
+    current: EvenG2HistoryInput,
+    baselineMessageIds: ReadonlyArray<string>,
+    alreadyLoading: boolean,
+  ): boolean => {
+    pendingOlder = {
+      request,
+      messageIds: baselineMessageIds,
+      loadingObserved: current.loadingOlder,
+    };
+    if (alreadyLoading) return true;
+    let accepted: boolean | void;
+    try {
+      accepted = current.loadEarlier?.();
+    } catch {
+      accepted = false;
+    }
+    if (accepted === false || current.loadEarlier === null) {
+      pendingOlder = undefined;
+      return false;
+    }
+    return true;
+  };
+
   /** Answers native navigation requests or starts the existing older-page load. */
   const onRequest = (request: EvenG2HistoryRequest) => {
     const current = input;
@@ -215,27 +241,12 @@ export function createEvenG2HistoryBridge(dependencies: EvenG2HistoryBridgeDepen
     if (current.messages === undefined && !history) return;
     if (current.messages === undefined && history) {
       if (request.direction === "older" && hasOlder && !pendingOlder) {
-        pendingOlder = { request, messageIds: [], loadingObserved: current.loadingOlder };
-        let accepted: boolean | void;
-        try {
-          accepted = current.loadEarlier?.();
-        } catch {
-          accepted = false;
-        }
-        if (accepted === false || current.loadEarlier === null) {
-          pendingOlder = undefined;
-          dependencies.setReplyHistory({
-            ...history.snapshot,
-            loading: false,
-            requestId: request.requestId,
-          });
-        } else {
-          dependencies.setReplyHistory({
-            ...history.snapshot,
-            loading: true,
-            requestId: request.requestId,
-          });
-        }
+        const accepted = requestOlderPage(request, current, [], false);
+        dependencies.setReplyHistory({
+          ...history.snapshot,
+          loading: accepted,
+          requestId: request.requestId,
+        });
       } else {
         dependencies.setReplyHistory({
           ...history.snapshot,
@@ -248,36 +259,17 @@ export function createEvenG2HistoryBridge(dependencies: EvenG2HistoryBridgeDepen
     const requestAnchorIndex = replies.findIndex((reply) => reply.id === request.anchorId);
     if (request.direction === "older" && requestAnchorIndex <= 0 && hasOlder) {
       if (pendingOlder) return;
-      pendingOlder = {
+      const accepted = requestOlderPage(
         request,
-        messageIds: current.messages ? messageIds(current.messages) : [],
-        loadingObserved: current.loadingOlder,
-      };
-      if (!current.loadingOlder) {
-        let accepted: boolean | void;
-        try {
-          accepted = current.loadEarlier?.();
-        } catch {
-          accepted = false;
-        }
-        if (accepted === false || current.loadEarlier === null) {
-          pendingOlder = undefined;
-          publish(
-            request.threadKey,
-            replies,
-            history?.snapshot.startIndex ?? maximumStart(replies.length),
-            false,
-            request.requestId,
-            true,
-          );
-          return;
-        }
-      }
+        current,
+        current.messages ? messageIds(current.messages) : [],
+        current.loadingOlder,
+      );
       publish(
         request.threadKey,
         replies,
         history?.snapshot.startIndex ?? maximumStart(replies.length),
-        true,
+        accepted,
         request.requestId,
         true,
       );

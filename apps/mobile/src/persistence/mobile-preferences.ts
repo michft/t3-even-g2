@@ -151,7 +151,6 @@ function sanitizeThreadTintStrength(value: unknown): number | undefined {
     : undefined;
 }
 
-/** Retains supported device preferences and discards malformed stored values. */
 function sanitizePreferences(parsed: Preferences): Preferences {
   const preferences: {
     pullRequestHideTestFiles?: boolean;
@@ -326,8 +325,7 @@ function sanitizePreferences(parsed: Preferences): Preferences {
   return preferences;
 }
 
-/** Builds serialized preference persistence with SQLite, a secure fallback, and legacy migration. */
-const make = Effect.fn("MobilePreferencesStore.make")(function* () {
+export const make = Effect.fn("MobilePreferencesStore.make")(function* () {
   const database = yield* MobileDatabase.MobileDatabase;
   const secureStorage = yield* MobileSecureStorage.MobileSecureStorage;
   const lock = yield* Semaphore.make(1);
@@ -498,7 +496,6 @@ const make = Effect.fn("MobilePreferencesStore.make")(function* () {
     .withPermits(1)(loadUnlocked)
     .pipe(Effect.mapError((cause) => new MobilePreferencesLoadError({ cause })));
 
-  /** Serializes patches while preserving neighboring settings and normalizing tint strengths. */
   const update = Effect.fn("MobilePreferencesStore.update")((transform) =>
     lock
       .withPermits(1)(

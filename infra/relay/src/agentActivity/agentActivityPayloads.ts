@@ -70,8 +70,7 @@ function sanitizeDeepLink(value: string): string {
   return truncateText(trimmed, MAX_DEEP_LINK_LENGTH);
 }
 
-/** Bound display text and normalize the deep link before an activity row enters a delivery payload. */
-function sanitizeAgentActivityAggregateRow(
+export function sanitizeAgentActivityAggregateRow(
   row: RelayAgentActivityAggregateRow,
 ): RelayAgentActivityAggregateRow {
   return {

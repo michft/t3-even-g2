@@ -4,7 +4,11 @@ import { nextTerminalId, resolveTerminalSessionLabel } from "@t3tools/shared/ter
 import * as Arr from "effect/Array";
 import * as Order from "effect/Order";
 
-export { resolveTerminalSessionLabel } from "@t3tools/shared/terminalLabels";
+export {
+  getTerminalLabel,
+  nextTerminalId,
+  resolveTerminalSessionLabel,
+} from "@t3tools/shared/terminalLabels";
 
 export interface TerminalMenuSession {
   readonly terminalId: string;

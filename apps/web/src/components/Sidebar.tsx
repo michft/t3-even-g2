@@ -1113,7 +1113,6 @@ const dropVerbBadge: Record<SidebarDropVerb, ReactNode> = {
   ),
 };
 
-/** Renders a thread row with origin styling, status, and its available actions. */
 const SidebarThreadRow = memo(function SidebarThreadRow(props: {
   thread: SidebarThreadSummary;
   originColor: string | null;
@@ -2448,7 +2447,6 @@ const SidebarSearchResultRow = memo(function SidebarSearchResultRow(props: {
   );
 });
 
-/** Coordinates project groups, thread shelves, search, and sidebar navigation. */
 export default function Sidebar() {
   const projects = useProjects();
   const threads = useThreadShells();
@@ -5277,7 +5275,6 @@ export default function Sidebar() {
                     )}
                   >
                     {(() => {
-                      /** Builds a thread row with its section actions and environment origin styling. */
                       const renderThreadRowInner = (
                         thread: EnvironmentThreadShell,
                         section: SidebarSection,

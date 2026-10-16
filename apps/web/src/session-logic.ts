@@ -591,7 +591,6 @@ export interface TimelineEntriesProjection {
   readonly entries: TimelineEntry[];
 }
 
-/** Project committed items in order, folding question answers and inserting client-owned messages. */
 export function deriveTimelineEntriesFromVisibleTurnItems(
   input: TimelineEntriesInput,
 ): TimelineEntry[] {

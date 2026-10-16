@@ -56,7 +56,6 @@ export function SettingsRouteScreen() {
   );
 }
 
-/** Shows account connections followed by the shared settings sections. */
 function ConfiguredSettingsRouteScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -102,7 +101,6 @@ function ConfiguredSettingsRouteScreen() {
   );
 }
 
-/** Shows local connections followed by the shared settings sections. */
 function LocalSettingsRouteScreen() {
   const insets = useSafeAreaInsets();
   const { savedConnectionsById } = useSavedRemoteConnections();
@@ -135,7 +133,6 @@ function LocalSettingsRouteScreen() {
   );
 }
 
-/** Groups app settings, with G2 controls below the existing iOS interface options. */
 function SettingsIndexSections() {
   const { selectedTargets, projectGroups, selectedProjectKey } = useSettingsEnvironmentFilter();
   const noServerTargets = selectedTargets.length === 0;

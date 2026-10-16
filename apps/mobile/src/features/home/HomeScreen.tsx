@@ -271,7 +271,6 @@ function renderHomeScrollView(props: ScrollViewProps) {
 
 /* ─── Main screen ────────────────────────────────────────────────────── */
 
-/** Displays projects and threads within the current native workspace column. */
 export function HomeScreen(props: HomeScreenProps) {
   const usesNativeWorkspaceColumns = useNativeWorkspaceColumnsSupported();
   const workspace = useWorkspaceTabs();

@@ -3742,7 +3742,6 @@ function ChatComposer(props: ChatComposerProps) {
     previewAnnotations: new Map(),
   });
 
-  /** Route editor changes to the active question before touching the thread prompt. */
   const onPromptChange = (
     nextPrompt: string,
     nextCursor: number,
@@ -3869,7 +3868,6 @@ function ChatComposer(props: ChatComposerProps) {
   // ------------------------------------------------------------------
   // Callbacks: prompt replacement / menu
   // ------------------------------------------------------------------
-  /** Replace a verified editor range while preserving question-answer routing. */
   const applyPromptReplacement = (
     rangeStart: number,
     rangeEnd: number,
@@ -6446,7 +6444,6 @@ function ChatComposer(props: ChatComposerProps) {
             : null,
         );
       },
-      /** Insert terminal context into the prompt only when no question response owns the editor. */
       addTerminalContext: (selection: TerminalContextSelection) => {
         if (!activeThread || pendingUserInputs.length > 0) return;
         const snapshot = readComposerSnapshotStable();
