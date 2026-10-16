@@ -1323,6 +1323,19 @@ export function insertComposerDraftText(
   });
 }
 
+export function appendComposerDraftText(draftKey: string, value: string): void {
+  updateComposerDrafts((current) => {
+    const existing = normalizeDraft(current[draftKey]);
+    return {
+      ...current,
+      [draftKey]: {
+        ...existing,
+        text: `${existing.text}${value}`,
+      },
+    };
+  });
+}
+
 /**
  * Appends attachments to a draft, capped at the send limit against the draft's
  * live state (callers may have counted before an await; the picker can race

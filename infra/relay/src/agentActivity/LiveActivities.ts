@@ -129,10 +129,7 @@ const encodeRelayAgentActivityAggregateStateJson = Schema.encodeEffect(
   Schema.fromJsonString(RelayAgentActivityAggregateStateSchema),
 );
 
-/**
- * Bind Live Activity registrations and delivery tracking, keeping token validity and aggregate baselines in storage.
- */
-const make = Effect.gen(function* () {
+export const make = Effect.gen(function* () {
   const db = yield* RelayDb.RelayDb;
 
   return LiveActivities.of({

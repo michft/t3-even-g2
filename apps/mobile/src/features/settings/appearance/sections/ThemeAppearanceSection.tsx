@@ -285,7 +285,6 @@ function SectionLabel({ children }: { readonly children: string }) {
   return <Text className="px-2 text-sm font-t3-medium text-foreground-muted">{children}</Text>;
 }
 
-/** Shows theme choices and independent iOS thread-row tint controls when Tint is active. */
 export function ThemeAppearanceSection() {
   const {
     isReady,

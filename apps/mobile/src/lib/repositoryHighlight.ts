@@ -8,7 +8,7 @@ import { scopedProjectKey } from "./scopedEntities";
 import type { MenuAction } from "@react-native-menu/menu";
 import {
   THREAD_HIGHLIGHT_COLORS,
-  threadHighlightMenuActions,
+  highlightMenuActions,
   type ThreadHighlightOverride,
 } from "./threadHighlight";
 
@@ -36,13 +36,12 @@ export function resolveRepositoryHighlight(
   return THREAD_HIGHLIGHT_COLORS[hash % THREAD_HIGHLIGHT_COLORS.length]!.color;
 }
 
-/** Reuse the full hue palette while keeping repository actions distinct from legacy thread actions. */
+/** Repository colour menu, with events kept distinct from legacy per-thread events. */
 export function repositoryHighlightMenuActions(
   override: ThreadHighlightOverride | undefined,
 ): MenuAction[] {
-  return threadHighlightMenuActions(override).map((action) => ({
-    ...action,
-    id: action.id?.replace("highlight:", "repository-highlight:"),
-    title: action.id === "highlight:server" ? "Automatic" : action.title,
-  }));
+  return highlightMenuActions(override, {
+    prefix: "repository-highlight:",
+    defaultTitle: "Automatic",
+  });
 }

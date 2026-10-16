@@ -81,7 +81,6 @@ function setUserInputDraftCustomAnswer(
   });
 }
 
-/** Own selected-thread request drafts, attachment readiness and provider response callbacks. */
 export function useSelectedThreadRequests() {
   const respondToApproval = useAtomCommand(
     threadEnvironment.respondToApproval,

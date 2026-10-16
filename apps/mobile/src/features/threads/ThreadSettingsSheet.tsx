@@ -896,7 +896,6 @@ function useThreadSettingsCatalogItems(
   );
 }
 
-/** Presents model/runtime options and the shared repository colour control. */
 function ThreadSettingsOptionsItem(props: {
   readonly animationsReady: boolean;
   readonly onOpenSubmenu: (submenu: ThreadSettingsSubmenuPage) => void;

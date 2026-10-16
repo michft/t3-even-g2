@@ -83,7 +83,7 @@ export function buildShowcaseAgentActivity(
 }
 
 /** The alert the relay sends when the hero row starts waiting on the user. */
-function showcaseAgentAlert(activity: AgentActivityProps) {
+export function showcaseAgentAlert(activity: AgentActivityProps) {
   const row = activity.activities[0];
   if (!row) return null;
   return {

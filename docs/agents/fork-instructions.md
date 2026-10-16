@@ -45,6 +45,11 @@ use the same workflow. `.plans/` is reserved for planning, not documentation.
   request explicit maintainer approval first. Downstream merge authorization
   does not authorize upstream work.
 - Keep G2 code, fork documentation, and unrelated upstream work separate.
+- Keep upstream-owned files identical to the published Nightly unless a fork
+  feature or fork CI needs the change. Do not refactor, rename, un-export,
+  delete, or add docstrings to upstream code; every such edit becomes a
+  conflict on the next Nightly. Propose upstream cleanups upstream instead.
+  Check with `git diff <nightly-commit> -- <path>`.
 - Public contributions start as fork issues. Only repository collaborators
   create PRs, implementing accepted issues. Follow the tracked contributor
   guide and issue workflow; a ready label alone does not authorize publishing.

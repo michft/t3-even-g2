@@ -7,8 +7,9 @@ import * as NodeUtil from "node:util";
 
 const execFile = NodeUtil.promisify(NodeChildProcess.execFile);
 
-const SHOWCASE_PROJECT_ID = "t3code";
-const SHOWCASE_THREAD_ID = "remote-command-center";
+export const SHOWCASE_PROJECT_ID = "t3code";
+export const SHOWCASE_THREAD_ID = "remote-command-center";
+export const SHOWCASE_TERMINAL_ID = "term-1";
 
 export const SHOWCASE_SCENES = [
   "threads",
@@ -57,7 +58,7 @@ const SHOWCASE_TERMINAL_PROMPT =
 // zsh-style prompt, brand line, addresses, the thread's 612-test summary,
 // and a READY badge, so the scene exercises bold, dim, underline, the six
 // accent colors, and a background cell.
-const SHOWCASE_TERMINAL_BUFFER = [
+export const SHOWCASE_TERMINAL_BUFFER = [
   `${SHOWCASE_TERMINAL_PROMPT}vpr dev`,
   "",
   "  \u001b[1;32mVITE\u001b[0m \u001b[32mv7.1.1\u001b[0m  \u001b[2mready in\u001b[0m \u001b[1m1.24s\u001b[0m",

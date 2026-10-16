@@ -24,6 +24,7 @@ import {
   getProviderModels,
   resolveSelectableProvider,
 } from "./providerModels";
+import { ModelEsque } from "./components/chat/providerIconUtils";
 import {
   type ProviderInstanceEntry,
   deriveProviderInstanceEntries,
@@ -321,8 +322,8 @@ export function getCustomModelOptionsByInstance(
   providers: ReadonlyArray<ServerProvider>,
   selectedInstanceId?: ProviderInstanceId | null,
   selectedModel?: string | null,
-): ReadonlyMap<ProviderInstanceId, ReadonlyArray<AppModelOption>> {
-  const out = new Map<ProviderInstanceId, ReadonlyArray<AppModelOption>>();
+): ReadonlyMap<ProviderInstanceId, ReadonlyArray<ModelEsque>> {
+  const out = new Map<ProviderInstanceId, ReadonlyArray<ModelEsque>>();
   for (const entry of deriveProviderInstanceEntries(providers)) {
     out.set(
       entry.instanceId,

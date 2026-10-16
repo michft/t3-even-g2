@@ -260,7 +260,6 @@ export function ThreadRouteScreen(props: ThreadRouteScreenProps) {
   );
 }
 
-/** Connects the selected thread to its composer, workspace panes, and environment state. */
 function ThreadRouteContent(
   props: ThreadRouteScreenProps & {
     readonly selectedThreadDetailState: ReturnType<typeof useSelectedThreadDetailState>;
@@ -978,7 +977,6 @@ function ThreadRouteContent(
           connectionState: routeConnectionState,
         });
   const serverConfig = routeEnvironmentRuntime?.serverConfig ?? null;
-  /** Renders thread detail and Git progress within the active workspace pane. */
   const renderThreadRouteBody = () => (
     <>
       <GitActionProgressOverlay

@@ -42,19 +42,21 @@ export function updateThreadHighlight(
   return next;
 }
 
-/** Builds the full colour palette with the current override selected. */
-export function threadHighlightMenuActions(
+/** Builds the full colour palette under one menu-event prefix with the current override selected. */
+export function highlightMenuActions(
   override: ThreadHighlightOverride | undefined,
+  options: { readonly prefix: string; readonly defaultTitle: string },
 ): MenuAction[] {
+  const { prefix, defaultTitle } = options;
   return [
-    { id: "highlight:server", title: "Use server", state: override === undefined ? "on" : "off" },
+    { id: `${prefix}server`, title: defaultTitle, state: override === undefined ? "on" : "off" },
     ...THREAD_HIGHLIGHT_COLORS.map(({ title, color }) => ({
-      id: `highlight:${color}`,
+      id: `${prefix}${color}`,
       title,
       image: "circle.fill",
       imageColor: color,
       state: override?.toLowerCase() === color ? ("on" as const) : ("off" as const),
     })),
-    { id: "highlight:none", title: "None", state: override === "none" ? "on" : "off" },
+    { id: `${prefix}none`, title: "None", state: override === "none" ? "on" : "off" },
   ];
 }

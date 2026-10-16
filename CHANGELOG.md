@@ -7,12 +7,19 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ### Fixed
 
+- Stop redrawing the G2 thread picker when unchanged choices arrive, and wait
+  for glasses acknowledgements without polling.
+
 - Keep fork workflows on available GitHub-hosted runners after Nightly imports.
 
 - Recover mobile secure-storage reads after iOS protected-data denials and
   unlock, preserving the saved connection catalog and healthy background reads.
 
 ### Changed
+
+- Restore upstream-owned files to the published Nightly, removing fork-only
+  refactors, export narrowing and docstrings that caused merge conflicts.
+  Mention server and repository thread colours in the README.
 
 - Integrate T3 Nightly 20261015 on current fork main, preserving repository
   colours, G2 settings, numbered clarification replies and fork signing.

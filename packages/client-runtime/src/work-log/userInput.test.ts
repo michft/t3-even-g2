@@ -50,8 +50,8 @@ const question = {
   ],
 };
 
-describe("plain text question answers", /** Cover ordinary-text question parsing and rendering. */ () => {
-  it("maps a typed number to the exact provider value", /** Map displayed numbers to exact provider values. */ () => {
+describe("plain text question answers", () => {
+  it("maps a typed number to the exact provider value", () => {
     expect(resolveUserInputTextAnswer(question, " 1 ")).toBe(" first\t");
     expect(resolveUserInputTextAnswer(question, "2")).toBe("second");
     expect(
@@ -61,7 +61,7 @@ describe("plain text question answers", /** Cover ordinary-text question parsing
       ),
     ).toBe("Only label");
   });
-  it("preserves free text and requires words for Something else", /** Preserve custom words while rejecting the free-text hint number. */ () => {
+  it("preserves free text and requires words for Something else", () => {
     expect(resolveUserInputTextAnswer(question, "Use the existing runtime")).toBe(
       "Use the existing runtime",
     );
@@ -69,26 +69,26 @@ describe("plain text question answers", /** Cover ordinary-text question parsing
     expect(resolveUserInputTextAnswer(question, "99")).toBe("99");
     expect(resolveUserInputTextAnswer({ ...question, options: [] }, "3")).toBe("3");
   });
-  it("enforces offered options when custom answers are forbidden", /** Require valid offered choices when custom answers are disabled. */ () => {
+  it("enforces offered options when custom answers are forbidden", () => {
     const constrained = { ...question, allowCustomAnswer: false };
     expect(resolveUserInputTextAnswer(constrained, "1")).toBe(" first\t");
     expect(resolveUserInputTextAnswer(constrained, "another runtime")).toBeNull();
     expect(resolveUserInputTextAnswer(constrained, "99")).toBeNull();
     expect(resolveUserInputTextAnswer(constrained, "1,2")).toBeNull();
   });
-  it("maps comma-separated multi-select answers, deduplicating in reply order", /** Keep multi-select reply order and deduplicate provider values. */ () => {
+  it("maps comma-separated multi-select answers, deduplicating in reply order", () => {
     const multi = { ...question, multiSelect: true, allowCustomAnswer: false };
     expect(resolveUserInputTextAnswer(multi, "2, 1,2")).toEqual(["second", " first\t"]);
     expect(resolveUserInputTextAnswer(multi, "2")).toEqual(["second"]);
     expect(resolveUserInputTextAnswer(multi, "2,99")).toBeNull();
   });
-  it("matches labels without changing provider value casing or whitespace", /** Fold label casing while preserving exact provider values. */ () => {
+  it("matches labels without changing provider value casing or whitespace", () => {
     const constrained = { ...question, allowCustomAnswer: false };
     expect(resolveUserInputTextAnswer(constrained, "same LABEL")).toBe(" first\t");
     expect(resolveUserInputTextAnswer(constrained, "SECOND")).toBeNull();
     expect(resolveUserInputTextAnswer(constrained, "second")).toBe("second");
   });
-  it("resolves multi-select labels and values in reply order without partial selection", /** Resolve complete word lists and prioritize whole comma labels. */ () => {
+  it("resolves multi-select labels and values in reply order without partial selection", () => {
     const multi = {
       ...question,
       multiSelect: true,
@@ -109,7 +109,7 @@ describe("plain text question answers", /** Cover ordinary-text question parsing
       "Blue, unknown",
     );
   });
-  it("renders numbered inert choices and only offers free text when supported", /** Show inert numbered choices and supported reply hints. */ () => {
+  it("renders numbered inert choices and only offers free text when supported", () => {
     expect(formatUserInputQuestions([question])).toContain("1. Same label — First runtime");
     expect(formatUserInputQuestions([question])).toContain(
       "3. Something else — reply in your own words.",
@@ -126,7 +126,7 @@ describe("plain text question answers", /** Cover ordinary-text question parsing
   });
 });
 
-it("preserves empty provider option IDs", /** Preserve an empty provider option ID. */ () => {
+it("preserves empty provider option IDs", () => {
   expect(
     resolveUserInputTextAnswer(
       { ...question, options: [{ label: "Empty result", description: "", value: "" }] },

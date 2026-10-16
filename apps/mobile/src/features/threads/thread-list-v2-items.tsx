@@ -226,7 +226,7 @@ function ThreadListV2Section(props: {
 }
 
 /** Section label + rule: the only structure in an otherwise flat list. */
-const ThreadListV2SectionDivider = memo(function ThreadListV2SectionDivider(props: {
+export const ThreadListV2SectionDivider = memo(function ThreadListV2SectionDivider(props: {
   readonly label: string;
   readonly pane?: "screen" | "sidebar";
 }) {
@@ -520,7 +520,6 @@ export const ThreadListV2PendingRow = memo(function ThreadListV2PendingRow(props
   );
 });
 
-/** Render a themed thread row, exposing mutation controls only when its environment permits them. */
 export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
   readonly thread: EnvironmentThreadShell;
   readonly environmentAccent?: string | null;
@@ -1253,7 +1252,6 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
     cardContent
   );
 
-  /** Build the themed row and close its menu before selecting the thread. */
   const rowContent = (close: () => void) =>
     variant === "card" ? (
       <RowPressable

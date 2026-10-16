@@ -47,14 +47,6 @@ function normalizeSelectedOptionValues(value: string[] | undefined): string[] {
   return Array.from(new Set(value.filter((entry) => typeof entry === "string")));
 }
 
-/**
- * Resolve typed choices before stored selections, allowing ready attachments as custom answers.
- * Editor prompts with initialAnswer preserve literal text, including a cleared answer.
- * Blocked attachments make the entire answer null. If neither text nor stored
- * selections resolve, ready attachments return an empty string when custom
- * answers are allowed; otherwise return null. An empty provider value is also
- * a valid answer, so callers must check for null rather than truthiness.
- */
 export function resolvePendingUserInputAnswer(
   question: UserInputQuestion,
   draft: PendingUserInputDraftAnswer | undefined,
@@ -87,7 +79,6 @@ export function resolvePendingUserInputAnswer(
   );
 }
 
-/** Update reply text, clearing selections when an editor answer is deliberately emptied. */
 export function setPendingUserInputCustomAnswer(
   draft: PendingUserInputDraftAnswer | undefined,
   customAnswer: string,
@@ -126,7 +117,6 @@ export function carryDisplacedCustomAnswerIntoPrompt(
   return `${prompt.trimEnd()}${DISPLACED_ANSWER_SEPARATOR}${displaced}`;
 }
 
-/** Toggle an exact provider option value without retaining a displaced custom answer. */
 export function togglePendingUserInputOptionSelection(
   question: UserInputQuestion,
   draft: PendingUserInputDraftAnswer | undefined,
@@ -152,7 +142,6 @@ export function togglePendingUserInputOptionSelection(
   };
 }
 
-/** Build the provider answer map only after every question has a ready answer. */
 export function buildPendingUserInputAnswers(
   questions: ReadonlyArray<UserInputQuestion>,
   draftAnswers: Record<string, PendingUserInputDraftAnswer>,
@@ -170,7 +159,6 @@ export function buildPendingUserInputAnswers(
   return answers;
 }
 
-/** Count ready answers, including intentionally empty editor replies. */
 export function countAnsweredPendingUserInputQuestions(
   questions: ReadonlyArray<UserInputQuestion>,
   draftAnswers: Record<string, PendingUserInputDraftAnswer>,
@@ -182,7 +170,6 @@ export function countAnsweredPendingUserInputQuestions(
   }, 0);
 }
 
-/** Choose the first unanswered question or the final question when complete. */
 export function findFirstUnansweredPendingUserInputQuestionIndex(
   questions: ReadonlyArray<UserInputQuestion>,
   draftAnswers: Record<string, PendingUserInputDraftAnswer>,
@@ -194,7 +181,6 @@ export function findFirstUnansweredPendingUserInputQuestionIndex(
   return unansweredIndex === -1 ? Math.max(questions.length - 1, 0) : unansweredIndex;
 }
 
-/** Clamp question navigation and derive completion and advance state from the current drafts. */
 export function derivePendingUserInputProgress(
   questions: ReadonlyArray<UserInputQuestion>,
   draftAnswers: Record<string, PendingUserInputDraftAnswer>,

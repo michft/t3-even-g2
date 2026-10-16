@@ -54,11 +54,6 @@ function assertMetric(value, label) {
   }
 }
 
-/**
- * Returns a strictly validated result for a V1 or V2 transfer scenario.
- *
- * @throws {Error} If the result contains unsupported, missing, or invalid fields.
- */
 function validateResult(value) {
   assertExactKeys(value, ["schemaVersion", "scenario", "providers"], "result");
   if (value.schemaVersion !== 1) {
@@ -141,10 +136,6 @@ const METRICS = [
   { key: "measuredTurnWebSocketMessages", label: "Live turn messages", kind: "messages" },
 ];
 
-/**
- * Renders a transfer report without baseline deltas or ceiling-change warnings
- * when the current and baseline scenarios differ.
- */
 function renderComment(input) {
   const current = input.current;
   const baseline = input.baseline;

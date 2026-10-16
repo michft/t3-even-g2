@@ -27,7 +27,6 @@ export function getThreadListV2NewBranchMenuTitle(_branch: string) {
   return "New thread on branch";
 }
 
-/** Preserve server tint variables and the upstream sidebar geometry for each row. */
 export function getThreadListV2RowAppearance(
   theme: MobileThemeVariables,
   sidebarPane: boolean,

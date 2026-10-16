@@ -117,8 +117,7 @@ export class MobileStorage extends Context.Service<
   }
 >()("@t3tools/mobile/persistence/MobileStorage") {}
 
-/** Builds secure persistence for saved connections, device registration, and recent thread shortcuts. */
-const make = Effect.fn("MobileStorage.make")(function* () {
+export const make = Effect.fn("MobileStorage.make")(function* () {
   const secureStorage = yield* MobileSecureStorage.MobileSecureStorage;
 
   const parseJson = <A>(key: string, raw: string): A | null => {

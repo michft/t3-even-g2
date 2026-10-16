@@ -38,6 +38,8 @@ Docstring coverage must remain **above 90%**; the target is **100%**. An 80%
 threshold does not meet this requirement. Record the measured coverage, tool,
 and measurement scope in PR validation evidence. If no eligible code exists
 in that scope, record the metric as not applicable with a reason.
+Measure fork-owned code only. Unchanged upstream declarations are out of
+scope; do not add docstrings to them to raise the number.
 
 ## PR description
 

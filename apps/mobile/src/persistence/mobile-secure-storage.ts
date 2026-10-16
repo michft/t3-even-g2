@@ -60,9 +60,7 @@ function isLockedKeychain(error: MobileSecureStorageError): boolean {
   );
 }
 
-/** Adapts Expo SecureStore to typed Effect operations for mobile key-value persistence. */
-const make = MobileSecureStorage.of({
-  /** Avoid caching a locked startup failure while the device becomes available after unlock. */
+export const make = MobileSecureStorage.of({
   getItem: Effect.fn("MobileSecureStorage.getItem")((key) =>
     Effect.tryPromise({
       try: () => SecureStore.getItemAsync(key),

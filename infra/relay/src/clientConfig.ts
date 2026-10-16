@@ -39,8 +39,7 @@ export class RelayUrlUnavailableError extends Schema.TaggedError<RelayUrlUnavail
   }
 }
 
-/** Map deployed client configuration to environment assignments, unwrapping tokens only for writing the env file. */
-const relayClientConfigEnv = (config: RelayClientConfig & { readonly url: string }) =>
+export const relayClientConfigEnv = (config: RelayClientConfig & { readonly url: string }) =>
   ({
     T3CODE_RELAY_URL: config.url,
     T3CODE_MOBILE_OTLP_TRACES_URL: config.mobileTracingUrl,

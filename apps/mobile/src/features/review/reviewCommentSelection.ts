@@ -46,16 +46,14 @@ function emitChange() {
   listeners.forEach((listener) => listener());
 }
 
-/** Registers a review selection subscriber and returns its unsubscribe callback. */
-function subscribeReviewCommentTarget(listener: () => void): () => void {
+export function subscribeReviewCommentTarget(listener: () => void): () => void {
   listeners.add(listener);
   return () => {
     listeners.delete(listener);
   };
 }
 
-/** Reads the current review selection snapshot for useSyncExternalStore. */
-function getReviewCommentTarget(): ReviewCommentTarget | null {
+export function getReviewCommentTarget(): ReviewCommentTarget | null {
   return currentTarget;
 }
 
@@ -87,8 +85,7 @@ export function getReviewUnifiedLineNumber(line: ReviewRenderableLineRow): numbe
   return line.newLineNumber ?? line.oldLineNumber;
 }
 
-/** Prefixes selected review lines with unified diff addition, deletion, or context markers. */
-function getReviewChangeMarker(change: ReviewRenderableLineRow["change"]): string {
+export function getReviewChangeMarker(change: ReviewRenderableLineRow["change"]): string {
   if (change === "add") return "+";
   if (change === "delete") return "-";
   return " ";

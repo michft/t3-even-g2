@@ -50,8 +50,8 @@ const ACTION_ICON_SIZE = 15;
 const COMPACT_ACTION_CIRCLE_SIZE = 28;
 const COMPACT_ACTION_ICON_SIZE = 13;
 
-const THREAD_SWIPE_ACTIONS_WIDTH = ACTION_ITEM_WIDTH * 2;
-const THREAD_SWIPE_SPRING = {
+export const THREAD_SWIPE_ACTIONS_WIDTH = ACTION_ITEM_WIDTH * 2;
+export const THREAD_SWIPE_SPRING = {
   damping: 26,
   mass: 0.7,
   overshootClamping: true,
@@ -698,8 +698,7 @@ function SwipeActionButton(props: {
   );
 }
 
-/** Renders revealed thread actions and reports when the drag crosses the full swipe threshold. */
-function ThreadSwipeActions(props: {
+export function ThreadSwipeActions(props: {
   readonly backgroundColor: ColorValue;
   readonly compact: boolean;
   readonly fullSwipeAction?: "delete" | "primary";

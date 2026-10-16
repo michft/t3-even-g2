@@ -972,7 +972,7 @@ describe("V2 session presentation", () => {
   });
 });
 
-describe("native provider presentation in the v2 timeline", /** Cover native provider timeline projection. */ () => {
+describe("native provider presentation in the v2 timeline", () => {
   const timestamp = DateTime.makeUnsafe("2026-09-04T12:00:00.000Z");
   const base = {
     id: TurnItemId.make("native-item"),
@@ -998,7 +998,7 @@ describe("native provider presentation in the v2 timeline", /** Cover native pro
     item,
   });
 
-  it("keeps async answers in the question row, including incrementally appended replies", /** Keep incremental async replies in the question row. */ () => {
+  it("keeps async answers in the question row, including incrementally appended replies", () => {
     const requestId = RuntimeRequestId.make("question");
     const question: OrchestrationV2TurnItem = {
       ...base,

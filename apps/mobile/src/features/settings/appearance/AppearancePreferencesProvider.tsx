@@ -82,7 +82,6 @@ interface AppearancePreferencesContextValue {
 
 const AppearancePreferencesContext = createContext<AppearancePreferencesContextValue | null>(null);
 
-/** Shares device-local appearance settings and stable setters across mobile surfaces. */
 export function AppearancePreferencesProvider(props: { readonly children: ReactNode }) {
   const preferencesResult = useAtomValue(mobilePreferencesAtom);
   const savePreferences = useAtomSet(updateMobilePreferencesAtom);

@@ -1686,7 +1686,6 @@ function makeModelDisabledReason(
   };
 }
 
-/** Connect the routed timeline and composer to prompt, approval, and question actions. */
 export default function ChatView(props: ChatViewProps) {
   const {
     environmentId,
@@ -10124,7 +10123,6 @@ export default function ChatView(props: ChatViewProps) {
 
   // Closes an async question without messaging the agent. The server records
   // the dismissal so every client releases the composer.
-  /** Dismiss a question only while this environment still grants thread operation. */
   const onDismissUserInput = async (requestId: RuntimeRequestId) => {
     if (!activeThreadId || !readEnvironmentScope(environmentId, AuthOrchestrationOperateScope))
       return;
