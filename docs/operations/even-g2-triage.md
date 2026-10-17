@@ -163,6 +163,13 @@ interaction limit to restrict PRs: it also restricts issue participation.
 The repository setting blocks public PR creation. Templates and labels guide
 the issue-first process; they do not enforce issue acceptance as a merge rule.
 
+In **Actions**, keep **Deploy T3 Connect relay** and **Release** disabled. They
+deploy T3's relay and publish T3 Nightlies with secrets the fork does not hold,
+so every push to `main` and the 30-minute Release cron would fail. Disabling
+them changes no workflow files, so Nightly merges stay conflict-free. Re-enable
+one with `gh workflow enable "<workflow name>" --repo michft/t3-even-g2` only
+after configuring its secrets.
+
 ## Verification boundaries
 
 Assume upstream works. Keep uncertain ownership in the fork tracker. Only
