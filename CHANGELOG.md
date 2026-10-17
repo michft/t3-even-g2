@@ -18,7 +18,8 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 ### Changed
 
 - Document the upstream relay deploy and Release workflows as disabled in the
-  fork, since they need T3 secrets and failed on every push or cron run.
+  fork because they need T3 secrets; the relay failed on pushes to `main` and
+  Release on scheduled runs.
 
 - Restore upstream-owned files to the published Nightly, removing fork-only
   refactors, export narrowing and docstrings that caused merge conflicts.
