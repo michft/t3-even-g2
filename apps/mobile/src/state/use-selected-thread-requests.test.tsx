@@ -7,7 +7,7 @@ const fixture = vi.hoisted(() => ({
   preparations: {} as Record<string, number>,
   preparationAtom: Symbol("preparation"),
 }));
-vi.mock("react-native", () => ({ Alert: { alert: vi.fn() } }));
+vi.mock("../components/ui/Dialog", () => ({ alert: vi.fn() }));
 vi.mock("@effect/atom-react", () => ({
   useAtomValue: (atom: unknown) =>
     atom === "drafts"

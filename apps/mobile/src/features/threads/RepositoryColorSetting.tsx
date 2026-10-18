@@ -1,8 +1,8 @@
 import { View } from "react-native";
-import { AppText as Text } from "../../components/AppText";
-import { SymbolView } from "../../components/AppSymbol";
-import { ControlPillMenu } from "../../components/ControlPill";
-import { RowPressable } from "../../components/RowPressable";
+import { AppText as Text } from "../../components/ui/AppText";
+import { SymbolView } from "../../components/ui/AppSymbol";
+import { Menu } from "../../components/ui/Menu";
+import { RowPressable } from "../../components/ui/RowPressable";
 import { THREAD_HIGHLIGHT_COLORS } from "../../lib/threadHighlight";
 import { useRepositoryHighlight } from "./use-repository-highlight";
 
@@ -18,7 +18,7 @@ export function RepositoryColorSetting(props: { readonly repositoryKey: string }
             ?.title ?? highlight.override);
   return (
     <View className="mx-4 mt-4 overflow-hidden rounded-2xl bg-grouped-card">
-      <ControlPillMenu
+      <Menu
         actions={highlight.actions}
         onPressAction={({ nativeEvent }) => highlight.handleAction(nativeEvent.event)}
       >
@@ -33,7 +33,7 @@ export function RepositoryColorSetting(props: { readonly repositoryKey: string }
           <Text className="text-base text-foreground-muted">{label}</Text>
           <SymbolView name="chevron.down" size={12} tintColorClassName="accent-foreground-muted" />
         </RowPressable>
-      </ControlPillMenu>
+      </Menu>
     </View>
   );
 }

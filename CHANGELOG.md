@@ -17,6 +17,9 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ### Changed
 
+- Integrate T3 Nightly 20261017 on current fork main, preserving G2/R1,
+  repository colours, numbered clarification replies and fork signing.
+
 - Document the upstream relay deploy and Release workflows as disabled in the
   fork because they need T3 secrets; the relay failed on pushes to `main` and
   Release on scheduled runs.
