@@ -11,7 +11,7 @@ import type { ThemeAppearance } from "@t3tools/shared/themePalettes";
 
 export type ThreadListProvider = Pick<
   ServerProvider,
-  "instanceId" | "driver" | "displayName" | "accentColor" | "iconUrl"
+  "instanceId" | "driver" | "enabled" | "displayName" | "accentColor" | "iconUrl"
 >;
 
 const capabilityKeys = [
@@ -24,12 +24,14 @@ const capabilityKeys = [
   "threadTitleRegeneration",
 ] as const;
 
+/** Resolve host canvas and accent independently for the device appearance. */
 function selectEnvironment(config: ServerConfig, appearance?: ThemeAppearance) {
   return {
     providers: config.providers.map(
-      ({ instanceId, driver, displayName, accentColor, iconUrl }) => ({
+      ({ instanceId, driver, enabled, displayName, accentColor, iconUrl }) => ({
         instanceId,
         driver,
+        enabled,
         displayName,
         accentColor,
         iconUrl,
@@ -55,6 +57,7 @@ function sameProviders(
       return (
         provider.instanceId === other.instanceId &&
         provider.driver === other.driver &&
+        provider.enabled === other.enabled &&
         provider.displayName === other.displayName &&
         provider.accentColor === other.accentColor &&
         provider.iconUrl === other.iconUrl

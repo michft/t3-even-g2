@@ -17,6 +17,9 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ### Changed
 
+- Integrate T3 Nightly 20261020 on current fork main, retaining G2 controls,
+  repository/server tints, numbered replies and the existing iOS app identity.
+
 - Integrate T3 Nightly 20261017 on current fork main, preserving G2/R1,
   repository colours, numbered clarification replies and fork signing.
 
