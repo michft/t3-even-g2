@@ -85,6 +85,7 @@ function setUserInputDraftCustomAnswer(
   });
 }
 
+/** Numbered replies stay bound to their original thread and request while asynchronous responses settle. */
 export function useSelectedThreadRequests() {
   const respondToApproval = useAtomCommand(
     threadEnvironment.respondToApproval,

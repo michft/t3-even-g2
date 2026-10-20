@@ -253,6 +253,7 @@ export function ThreadRouteScreen(props: ThreadRouteScreenProps) {
   );
 }
 
+/** Keep complete message history available to G2 while the native feed uses its rendering projection. */
 function ThreadRouteContent(
   props: ThreadRouteScreenProps & {
     readonly selectedThreadDetailState: ReturnType<typeof useSelectedThreadDetailState>;
@@ -878,6 +879,7 @@ function ThreadRouteContent(
           connectionState: routeConnectionState,
         });
   const serverConfig = routeEnvironmentRuntime?.serverConfig ?? null;
+  /** G2 submission and history must survive the native editor taking ownership of live draft text. */
   const renderThreadRouteBody = () => (
     <>
       <GitActionProgressOverlay

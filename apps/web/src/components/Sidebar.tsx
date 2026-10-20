@@ -1597,6 +1597,7 @@ type SidebarThreadRowProps = {
   onFileDropThreads?: ((threadRef: ScopedThreadRef, files: File[]) => void) | undefined;
 };
 
+/** Origin colour belongs to this row environment, which may differ from the selected thread. */
 const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowProps) {
   const {
     isRenaming,
@@ -2727,6 +2728,7 @@ const SidebarSearchResultRow = memo(function SidebarSearchResultRow(props: {
   );
 });
 
+/** Keep host-colour state scoped while rendering threads from multiple environments. */
 export default function Sidebar() {
   const {
     projects,
@@ -4827,6 +4829,7 @@ export default function Sidebar() {
                     )}
                   >
                     {(() => {
+                      /** Resolve each row tint from its destination rather than the currently displayed conversation. */
                       const renderThreadRow = (
                         thread: EnvironmentThreadShell,
                         section: SidebarSection,

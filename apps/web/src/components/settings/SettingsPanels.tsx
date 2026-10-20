@@ -512,6 +512,7 @@ function AboutVersionSection() {
   );
 }
 
+/** Fork tint preferences participate in the same confirmed reset as built-in appearance settings. */
 export function useSettingsRestore(onRestored?: () => void) {
   const {
     theme,
@@ -663,6 +664,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       : []),
   ];
 
+  /** Reset fork tint choices alongside built-in appearance settings only after confirmation. */
   const restoreDefaults = async () => {
     if (changedSettingLabels.length === 0) return;
     const api = readLocalApi();
@@ -1075,6 +1077,7 @@ function BackgroundActivityAdvancedDialog({
   );
 }
 
+/** Keep device tint controls separate from the originating server palette. */
 export function AppearanceSettingsPanel() {
   const {
     appearanceMode,

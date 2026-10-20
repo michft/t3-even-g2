@@ -24,6 +24,7 @@ const capabilityKeys = [
   "threadTitleRegeneration",
 ] as const;
 
+/** Resolve host canvas and accent independently for the device appearance. */
 function selectEnvironment(config: ServerConfig, appearance?: ThemeAppearance) {
   return {
     providers: config.providers.map(

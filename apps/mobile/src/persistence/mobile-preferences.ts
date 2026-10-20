@@ -141,6 +141,7 @@ function sanitizeThreadTintStrength(value: unknown): number | undefined {
     : undefined;
 }
 
+/** Malformed device tint and repository-colour overrides must not replace valid preferences. */
 function sanitizePreferences(parsed: Preferences): Preferences {
   const preferences: {
     pullRequestHideTestFiles?: boolean;

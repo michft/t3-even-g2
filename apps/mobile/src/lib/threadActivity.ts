@@ -1950,6 +1950,7 @@ function firstChangedIndex<T>(previous: ReadonlyArray<T>, next: ReadonlyArray<T>
   return index;
 }
 
+/** Synthetic question messages must retain source-row positions for incremental restart boundaries. */
 export function buildThreadFeed(
   visibleTurnItems: ReadonlyArray<OrchestrationV2ProjectedTurnItem>,
   options?: {
@@ -2054,6 +2055,7 @@ export function buildThreadFeed(
             };
       questionEntriesCache.set(row, { attemptId, entry });
       entries.push(entry);
+      entryRows.push(index);
       if (!item.questionAnswer) continue;
     }
     const cached = projectedEntriesCache.get(row);
@@ -2191,11 +2193,14 @@ export function buildThreadFeed(
     // Anchored messages shift entries away from their rows; such a build is not reused.
     anchoredMessages.length > 0
       ? undefined
-      : (entryIndex, groupedLength) =>
+      : (entryIndex, groupedLength) => {
+          // An answered question emits both a message and an activity from one row.
+          if (entryRows[entryIndex + 1] === entryRows[entryIndex]) return;
           restarts.push({
             row: entryRows[entryIndex]! + 1,
             feedLength: prefix.length + groupedLength,
-          }),
+          });
+        },
   );
   const feed = prefix.length === 0 ? grouped : prefix.concat(grouped);
   if (cache) {

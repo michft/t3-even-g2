@@ -2977,7 +2977,9 @@ describe("streamed feed updates", () => {
     exitCode: 0,
   });
   const requestId = RuntimeRequestId.make("request-color");
-  const question = (answered: boolean): OrchestrationV2TurnItem => ({
+  const question = (
+    answered: boolean,
+  ): Extract<OrchestrationV2TurnItem, { type: "user_input_request" }> => ({
     ...item("question", 12, runs[1]),
     type: "user_input_request",
     requestId,
@@ -3172,4 +3174,44 @@ describe("streamed feed updates", () => {
     expect(showsDelegation(steps[2]!)).toBe(true);
     expect(showsDelegation(steps[3]!)).toBe(false);
   });
+
+  it.each([false, true])(
+    "keeps replies current after nonempty questions (answered=%s)",
+    (answered) => {
+      const questionRow = projected(
+        {
+          ...question(answered),
+          questions: [
+            {
+              id: "color",
+              header: "Colour",
+              question: "Choose a colour",
+              multiSelect: false,
+              allowCustomAnswer: true,
+              options: [{ label: "Blue", description: "Use blue" }],
+            },
+          ],
+        },
+        0,
+      );
+      const cache = createThreadFeedCache();
+      const build = (text: string, streaming = false) => {
+        const rows = [
+          questionRow,
+          projected(reply("after-question", 13, runs[1], text, streaming), 1),
+        ];
+        const cached = buildThreadFeed(rows, { cache });
+        const fresh = buildThreadFeed(rows);
+        const values = (feed: ReadonlyArray<ThreadFeedEntry>) => JSON.parse(JSON.stringify(feed));
+        expect(values(cached)).toEqual(values(fresh));
+        expect(cached).toContainEqual(
+          expect.objectContaining({ type: "message", message: expect.objectContaining({ text }) }),
+        );
+      };
+      build("Original reply");
+      build("Streaming reply", true);
+      build("Updated reply", true);
+      build("Final reply");
+    },
+  );
 });
