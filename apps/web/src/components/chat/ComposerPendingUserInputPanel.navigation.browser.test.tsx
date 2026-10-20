@@ -1,0 +1,283 @@
+import {
+  EnvironmentId,
+  NodeId,
+  RuntimeRequestId,
+  ThreadId,
+  TurnItemId,
+  type OrchestrationV2ThreadProjection,
+} from "@t3tools/contracts";
+import { act, useLayoutEffect, useRef, type ComponentProps } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
+
+import { makeThreadProjectionFixture } from "../../test-fixtures";
+import { ComposerPendingUserInputPanel } from "./ComposerPendingUserInputPanel";
+import { usePendingThreadRequests } from "./usePendingThreadRequests";
+
+const threadRef = { environmentId: EnvironmentId.make("env"), threadId: ThreadId.make("thread") };
+
+const prompt = {
+  requestId: RuntimeRequestId.make("question-navigation"),
+  createdAt: "2026-10-09T00:00:00.000Z",
+  dismissible: false,
+  responseCapability: "live" as const,
+  questions: [0, 1, 2].map((index) => ({
+    id: `question-${index}`,
+    header: `Question ${index + 1}`,
+    question: `Choose for question ${index + 1}`,
+    options: [{ label: "Incremental", description: "One module at a time" }],
+    multiSelect: false,
+  })),
+};
+
+let root: Root;
+let container: HTMLDivElement;
+beforeEach(() => {
+  vi.useFakeTimers();
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  container = document.createElement("div");
+  document.body.append(container);
+  root = createRoot(container);
+});
+afterEach(async () => {
+  await act(async () => root.unmount());
+  container.remove();
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
+
+function progressText() {
+  return container.querySelector('[role="status"]')?.textContent;
+}
+
+it("does not skip the next unanswered question after manual advance", async () => {
+  await act(async () =>
+    root.render(
+      <PendingRequestsProbe
+        environmentId={EnvironmentId.make("manual-advance-environment")}
+        projection={questionProjection(threadRef.threadId)}
+        showPanel
+      />,
+    ),
+  );
+  await act(() => requests.onChangeActivePendingUserInputCustomAnswer("question-0", "1"));
+  await act(() => requests.onAdvanceActivePendingUserInput());
+  expect(progressText()).toBe("Answer question 2 of 3: Question 2");
+  await act(async () => vi.advanceTimersByTime(200));
+  expect(requests.activePendingQuestionIndex).toBe(1);
+
+  await act(() => requests.onChangeActivePendingUserInputCustomAnswer("question-1", "1"));
+  await act(async () => vi.advanceTimersByTime(200));
+  expect(requests.activePendingQuestionIndex).toBe(1);
+  await act(() => requests.onAdvanceActivePendingUserInput());
+  expect(progressText()).toBe("Answer question 3 of 3: Question 3");
+});
+
+it("does not undo previous-question navigation after editing an answer", async () => {
+  await act(async () =>
+    root.render(
+      <PendingRequestsProbe
+        environmentId={EnvironmentId.make("previous-question-environment")}
+        projection={questionProjection(threadRef.threadId)}
+        showPanel
+      />,
+    ),
+  );
+  await act(() => requests.onAdvanceActivePendingUserInput());
+  await act(() => requests.onChangeActivePendingUserInputCustomAnswer("question-1", "1"));
+  await act(() => requests.onPreviousActivePendingUserInputQuestion());
+  await act(async () => vi.advanceTimersByTime(200));
+  expect(requests.activePendingQuestionIndex).toBe(0);
+  expect(progressText()).toBe("Answer question 1 of 3: Question 1");
+  expect(requests.activePendingDraftAnswers["question-1"]?.customAnswer).toBe("1");
+});
+
+it("keeps typed answers on the current question without rendering clickable choices", async () => {
+  await act(async () =>
+    root.render(
+      <PendingRequestsProbe
+        environmentId={EnvironmentId.make("typed-answer-environment")}
+        projection={questionProjection(threadRef.threadId)}
+        showPanel
+      />,
+    ),
+  );
+  await act(() => requests.onChangeActivePendingUserInputCustomAnswer("question-0", "1"));
+  await act(async () => vi.advanceTimersByTime(200));
+  expect(requests.activePendingResolvedAnswers).toBeNull();
+  expect(requests.activePendingProgress).toMatchObject({
+    resolvedAnswer: "Incremental",
+    canAdvance: true,
+  });
+  expect(requests.activePendingDraftAnswers["question-0"]?.customAnswer).toBe("1");
+  expect(requests.activePendingQuestionIndex).toBe(0);
+  expect(progressText()).toBe("Answer question 1 of 3: Question 1");
+  expect(
+    container.querySelector(
+      'button:not([aria-label="Dismiss question without answering"]), input, select, [role=option], [role=radio]',
+    ),
+  ).toBeNull();
+  expect(container.textContent).not.toContain("Incremental");
+});
+
+function questionProjection(threadId: ThreadId, requestIds = ["first", "second"]) {
+  const projection = makeThreadProjectionFixture();
+  return {
+    ...projection,
+    thread: { ...projection.thread, id: threadId },
+    runtimeRequests: requestIds.map((id) => ({
+      id: RuntimeRequestId.make(id),
+      nodeId: NodeId.make(id),
+      providerTurnId: null,
+      nativeRequestRef: null,
+      kind: "user_input" as const,
+      status: "pending" as const,
+      responseCapability: { type: "message" as const },
+      createdAt: projection.updatedAt,
+      resolvedAt: null,
+    })),
+    turnItems: requestIds.map((id, ordinal) => ({
+      id: TurnItemId.make(id),
+      threadId,
+      runId: null,
+      nodeId: NodeId.make(id),
+      providerThreadId: null,
+      providerTurnId: null,
+      nativeItemRef: null,
+      parentItemId: null,
+      ordinal,
+      status: "completed" as const,
+      title: null,
+      startedAt: projection.updatedAt,
+      completedAt: projection.updatedAt,
+      updatedAt: projection.updatedAt,
+      type: "user_input_request" as const,
+      requestId: RuntimeRequestId.make(id),
+      questions: prompt.questions,
+    })),
+  } satisfies OrchestrationV2ThreadProjection;
+}
+
+let requests: ReturnType<typeof usePendingThreadRequests>;
+
+function PendingRequestsProbe({
+  environmentId,
+  projection,
+  loading = false,
+  showPanel = false,
+}: {
+  environmentId: EnvironmentId;
+  projection: OrchestrationV2ThreadProjection;
+  loading?: boolean;
+  showPanel?: boolean;
+}) {
+  const promptRef = useRef("");
+  const composerRef = useRef(null);
+  const state = usePendingThreadRequests({
+    environmentId,
+    activeThreadId: projection.thread.id,
+    activeThread: projection.thread,
+    serverProjection: loading ? null : projection,
+    supportsQuestionAttachments: false,
+    composerDraftTarget: { environmentId, threadId: projection.thread.id },
+    setComposerDraftPrompt: () => {},
+    promptRef,
+    composerRef,
+    setThreadError: () => {},
+  });
+  useLayoutEffect(() => {
+    requests = state;
+  });
+  return showPanel ? (
+    <ComposerPendingUserInputPanel
+      pendingUserInputs={state.pendingUserInputs}
+      disabled={false}
+      respondingRequestIds={state.respondingRequestIds}
+      questionIndex={state.activePendingQuestionIndex}
+      onDismiss={state.onDismissUserInput}
+    />
+  ) : null;
+}
+
+it("retains answers, selections and question position after leaving chat, including while the projection reloads", async () => {
+  const environmentId = EnvironmentId.make("remount-environment");
+  const projection = questionProjection(threadRef.threadId);
+  const render = (loading = false) =>
+    act(() =>
+      root.render(
+        <PendingRequestsProbe
+          environmentId={environmentId}
+          projection={projection}
+          loading={loading}
+        />,
+      ),
+    );
+  await render();
+  await act(() =>
+    requests.onChangeActivePendingUserInputCustomAnswer("question-0", "Keep my text"),
+  );
+  await act(() => requests.onAdvanceActivePendingUserInput());
+  await act(() => requests.onSelectActivePendingUserInputOption("question-1", "Incremental"));
+  await act(() => requests.onAdvanceActivePendingUserInput());
+  const expected = {
+    activePendingQuestionIndex: 2,
+    activePendingDraftAnswers: {
+      "question-0": { customAnswer: "Keep my text" },
+      "question-1": { selectedOptionValues: ["Incremental"] },
+    },
+  };
+  expect(requests).toMatchObject(expected);
+
+  // New thread and Settings both unmount the chat that owns this hook.
+  await act(() => root.render(null));
+  await render();
+  expect(requests).toMatchObject(expected);
+
+  await act(() => root.render(null));
+  await render(true);
+  expect(requests.activePendingUserInput).toBeNull();
+  await render();
+  expect(requests).toMatchObject(expected);
+});
+
+it("isolates drafts by environment, thread and request and discards only resolved requests", async () => {
+  const environmentId = EnvironmentId.make("scope-environment");
+  const projection = questionProjection(threadRef.threadId);
+  const scopes = [
+    { environmentId, projection },
+    { environmentId: EnvironmentId.make("other-environment"), projection },
+    { environmentId, projection: questionProjection(ThreadId.make("other-thread")) },
+    { environmentId, projection: questionProjection(threadRef.threadId, ["second", "first"]) },
+  ];
+  const show = (scope: ComponentProps<typeof PendingRequestsProbe>) =>
+    act(() => root.render(<PendingRequestsProbe {...scope} />));
+  for (const [index, scope] of scopes.entries()) {
+    await show(scope);
+    expect(requests.activePendingQuestionIndex).toBe(0);
+    expect(requests.activePendingDraftAnswers["question-0"]?.customAnswer).toBeUndefined();
+    await act(() =>
+      requests.onChangeActivePendingUserInputCustomAnswer("question-0", `Answer ${index}`),
+    );
+    await act(() => requests.onAdvanceActivePendingUserInput());
+  }
+
+  await show({
+    environmentId,
+    projection: {
+      ...projection,
+      runtimeRequests: projection.runtimeRequests.map((request) =>
+        request.id === "first"
+          ? { ...request, status: "resolved", resolvedAt: projection.updatedAt }
+          : request,
+      ),
+    },
+  });
+  expect(requests.activePendingUserInput?.requestId).toBe("second");
+  for (const [index, scope] of scopes.entries()) {
+    await show(scope);
+    expect(requests.activePendingQuestionIndex).toBe(index === 0 ? 0 : 1);
+    expect(requests.activePendingDraftAnswers["question-0"]?.customAnswer).toBe(
+      index === 0 ? undefined : `Answer ${index}`,
+    );
+  }
+});

@@ -39,6 +39,10 @@ import { cn } from "../../lib/cn";
 import { copyTextWithHaptic } from "../../lib/copyTextWithHaptic";
 import { useEnvironmentScope } from "../../state/session";
 import type { PendingNewTask } from "../../state/use-pending-new-tasks";
+import {
+  resolveThreadPrBadgeAction,
+  type ThreadPrPresentation,
+} from "../../state/thread-pr-presentation";
 import { useThreadPr } from "../../state/use-thread-pr";
 import { useSwipeRowDormant } from "../home/swipe-row-activation";
 import { ThreadSwipeable } from "../home/thread-swipe-actions";
@@ -56,6 +60,8 @@ import {
 import { QueuedMessageIcon } from "./queued-message-icon";
 import { shouldRecedeThreadRow } from "./thread-row-emphasis";
 import { ThreadSearchMatchExcerpt } from "./thread-search-match";
+import { PullRequestGlyph } from "../pull-requests/pullRequestGlyphs";
+import { pullRequestStatus } from "../pull-requests/pullRequestStatus";
 import {
   ThreadOriginAppearance,
   useAppearancePreferences,
@@ -492,6 +498,7 @@ export const ThreadListV2PendingRow = memo(function ThreadListV2PendingRow(props
   );
 });
 
+/** Repository identity shares a colour across worktrees while the opposite edge identifies the host. */
 export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
   readonly thread: EnvironmentThreadShell;
   readonly environmentAccent?: string | null;
@@ -509,16 +516,15 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
   readonly environmentLabel: string | null;
   readonly environmentMachine?: EnvironmentMachineKind;
   readonly environmentColor?: string | null;
-  /** Hosting surface. "screen" (default) renders the compact Home idiom:
-      flat edge-to-edge rows on the screen background with inset hairlines.
-      "sidebar" renders the iPad split-view idiom: rounded rows blending
-      into the drawer surface, selection filled with the accent color —
-      matching the v1 sidebar rows. */
   readonly pane?: "screen" | "sidebar";
   readonly showTrailingDivider?: boolean;
   readonly selected?: boolean;
   readonly fullSwipeWidth?: number;
   readonly onSelectThread: (thread: EnvironmentThreadShell) => void;
+  readonly onOpenThreadPullRequests: (
+    thread: EnvironmentThreadShell,
+    pr: ThreadPrPresentation,
+  ) => void;
   readonly onDeleteThread: (thread: EnvironmentThreadShell) => void;
   readonly onNewThreadOnBranch: (thread: EnvironmentThreadShell) => void;
   readonly onRenameThread: (thread: EnvironmentThreadShell) => void;
@@ -555,6 +561,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
     thread,
     variant,
     onSelectThread,
+    onOpenThreadPullRequests,
     onDeleteThread,
     onRenameThread,
     onRegenerateThreadTitle,
@@ -587,6 +594,16 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
 
   const providerInstance = props.providerInstance;
   const pr = useThreadPr(thread);
+  const prBadgeLabel = pr ? resolveThreadPrBadgeAction(pr).accessibilityLabel : null;
+  const handleOpenPullRequests = useCallback(() => {
+    if (pr) onOpenThreadPullRequests(thread, pr);
+  }, [onOpenThreadPullRequests, pr, thread]);
+  // VoiceOver cannot focus the badge inside the accessible row, so the row
+  // exposes the same action.
+  const rowAccessibilityActions = useMemo(
+    () => (prBadgeLabel ? [{ name: "openPullRequests", label: prBadgeLabel }] : undefined),
+    [prBadgeLabel],
+  );
 
   const {
     themeVariables: theme,
@@ -602,6 +619,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
     thread.projectId,
   );
   const highlight = useRepositoryHighlight(repositoryKey);
+  const handleRepositoryHighlightAction = highlight.handleAction;
   const repositoryColor = resolveRepositoryHighlight(highlight.override, repositoryKey);
   const rowColors =
     Platform.OS === "ios" ? (
@@ -671,21 +689,28 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
   const handleArchive = useCallback(() => onArchiveThread(thread), [onArchiveThread, thread]);
 
   const canUnsettle = variant === "slim";
-  const [snoozeGateTick, bumpSnoozeGateTick] = useState(0);
+  // The React Compiler caches render results on props and state, so a clock read
+  // in render would stay frozen until `thread` changes: the gate could never
+  // expire and its timer would re-fire every 50ms. The gate's clock is state.
+  const [snoozeGateClock, setSnoozeGateClock] = useState(() => ({ thread, now: Date.now() }));
+  if (snoozeGateClock.thread !== thread) setSnoozeGateClock({ thread, now: Date.now() });
+  const snoozeGateNow = new Date(snoozeGateClock.now).toISOString();
   const snoozeGateExpiryMs = props.snoozeSupported
-    ? resolveThreadListV2SnoozeGateExpiryMs(thread, { now: new Date().toISOString() })
+    ? resolveThreadListV2SnoozeGateExpiryMs(thread, { now: snoozeGateNow })
     : null;
   useEffect(() => {
-    if (snoozeGateExpiryMs === null) return;
-    const delayMs = Math.min(Math.max(0, snoozeGateExpiryMs - Date.now()) + 50, 2_147_483_647);
-    const id = setTimeout(() => bumpSnoozeGateTick((tick) => tick + 1), delayMs);
+    // A gate still closed past its expiry is held by runtime status, not time,
+    // so no clock tick can open it.
+    if (snoozeGateExpiryMs === null || snoozeGateExpiryMs <= snoozeGateClock.now) return;
+    const delayMs = Math.min(snoozeGateExpiryMs - Date.now() + 50, 2_147_483_647);
+    const id = setTimeout(() => setSnoozeGateClock({ thread, now: Date.now() }), delayMs);
     return () => clearTimeout(id);
-  }, [snoozeGateExpiryMs, snoozeGateTick]);
+  }, [snoozeGateExpiryMs, snoozeGateClock.now, thread]);
   const swipeActions = resolveThreadListV2SwipeActions({
     variant,
     settlementSupported: props.settlementSupported,
     snoozeSupported: props.snoozeSupported,
-    snoozable: canSnooze(thread, { now: new Date().toISOString() }),
+    snoozable: canSnooze(thread, { now: snoozeGateNow }),
     snoozed: snoozedRow,
   });
   const snoozePresets = useMemo(
@@ -830,9 +855,10 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
     ],
     [arrangementMenuItems, titleMenuItems],
   );
+  /** Repository colour actions coexist with native row actions without changing their destination. */
   const handleMenuAction = useCallback(
     ({ nativeEvent }: { readonly nativeEvent: { readonly event: string } }) => {
-      if (highlight.handleAction(nativeEvent.event)) return;
+      if (handleRepositoryHighlightAction(nativeEvent.event)) return;
       if (nativeEvent.event === "new-thread-on-branch") onNewThreadOnBranch(thread);
       if (nativeEvent.event === "settle") handleSettle();
       if (nativeEvent.event === "unsettle") handleUnsettle();
@@ -871,7 +897,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
     },
     [
       onNewThreadOnBranch,
-      highlight.handleAction,
+      handleRepositoryHighlightAction,
       thread,
       handleArchive,
       handleDelete,
@@ -1108,9 +1134,26 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
           <View className="flex-1" />
         )}
         {pr ? (
-          <View className="flex-row items-center gap-1" accessibilityLabel={pr.accessibilityLabel}>
+          <Pressable
+            // Padding cancelled by negative margin grows the touch target into
+            // the row padding without moving the badge.
+            className="-m-2.5 flex-row items-center gap-1 p-2.5"
+            accessibilityRole="button"
+            accessibilityLabel={prBadgeLabel ?? undefined}
+            onPress={handleOpenPullRequests}
+            // Without a long-press handler a hold that opens the row's iOS
+            // context menu would also open the pull request on release.
+            onLongPress={() => undefined}
+            style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+          >
             <SymbolView
-              name={pr.kind === "stack" ? "square.3.layers.3d" : "arrow.triangle.pull"}
+              name={
+                pr.kind === "stack"
+                  ? PullRequestGlyph.stack
+                  : pr.state === null
+                    ? PullRequestGlyph.pullRequest
+                    : pullRequestStatus({ state: pr.state, isDraft: pr.isDraft }).icon
+              }
               size={12}
               tintColorClassName={
                 pr.state === null || pr.isDraft
@@ -1129,7 +1172,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
             >
               {pr.label}
             </Text>
-          </View>
+          </Pressable>
         ) : null}
         {providerInstance ? (
           <View className="flex-row items-center">
@@ -1159,6 +1202,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
     cardContent
   );
 
+  /** Keep row selection styling readable over the independent host and repository tints. */
   const rowContent = (close: () => void) =>
     variant === "card" ? (
       <RowPressable
@@ -1172,6 +1216,10 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
         }
         accessibilityRole="button"
         accessibilityState={{ selected }}
+        accessibilityActions={rowAccessibilityActions}
+        onAccessibilityAction={(event) => {
+          if (event.nativeEvent.actionName === "openPullRequests") handleOpenPullRequests();
+        }}
         onPress={() => {
           close();
           onSelectThread(thread);
@@ -1209,7 +1257,6 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
         style={rowAppearance.style}
       >
         {rowColors}
-        {/* Settled history recedes: dimmed favicon + muted title. */}
         <View
           className={cn(
             "min-h-[44px] flex-row items-center gap-2.5 py-2",
@@ -1270,7 +1317,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
     );
 
   const row = !canOperateThread ? (
-    rowContent(() => {})
+    <View style={rowAppearance.swipeContainerStyle}>{rowContent(() => {})}</View>
   ) : (
     <View collapsable={false}>
       {customSnoozeOpen && (

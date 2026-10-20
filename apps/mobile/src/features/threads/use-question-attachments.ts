@@ -148,36 +148,49 @@ export function useQuestionAttachments(props: {
     if (!canAttach || props.disabled || !selectedThread) return;
     const scope = pickerScope.current;
     changeQuestionAttachmentPreparation(key, 1);
-    try {
-      const existingCount = appAtomRegistry.get(composerDraftsAtom)[key]?.attachments.length ?? 0;
-      const result =
-        kind === "files"
-          ? await pickComposerFiles({
-              existingCount,
-              maxBytes: capabilities?.fileAttachments?.maxUploadBytes,
-            })
-          : await pickComposerMedia({
-              existingCount,
-              maxVideoBytes: capabilities?.fileAttachments?.maxUploadBytes,
-            });
-      const picked = "files" in result ? result.files : result.attachments;
-      // Resolution on another client clears the reservation while the picker is open.
-      if (
-        !scope?.active ||
-        disabledRef.current ||
-        (appAtomRegistry.get(questionAttachmentPreparationAtom)[key] ?? 0) === 0
-      ) {
-        await releaseUnusedComposerAttachmentFiles(picked);
-        return;
-      }
-      const rejected = append(key, picked);
-      if (result.error || rejected > 0)
-        Alert.alert("Could not attach file", result.error ?? "Too many attachments.");
-    } catch (error) {
-      Alert.alert("Could not attach file", error instanceof Error ? error.message : "Try again.");
-    } finally {
-      changeQuestionAttachmentPreparation(key, -1);
-    }
+    await Promise.resolve()
+      .then(
+        /** Keep picker errors and every early return inside the reservation's cleanup chain. */ async () => {
+          const existingCount =
+            appAtomRegistry.get(composerDraftsAtom)[key]?.attachments.length ?? 0;
+          const result =
+            kind === "files"
+              ? await pickComposerFiles({
+                  existingCount,
+                  maxBytes: capabilities?.fileAttachments?.maxUploadBytes,
+                })
+              : await pickComposerMedia({
+                  existingCount,
+                  maxVideoBytes: capabilities?.fileAttachments?.maxUploadBytes,
+                });
+          const picked = "files" in result ? result.files : result.attachments;
+          // Resolution on another client clears the reservation while the picker is open.
+          if (
+            !scope?.active ||
+            disabledRef.current ||
+            (appAtomRegistry.get(questionAttachmentPreparationAtom)[key] ?? 0) === 0
+          ) {
+            await releaseUnusedComposerAttachmentFiles(picked);
+            return;
+          }
+          const rejected = append(key, picked);
+          if (result.error || rejected > 0)
+            Alert.alert("Could not attach file", result.error ?? "Too many attachments.");
+        },
+      )
+      .catch(
+        /** Report failed picker or unused-file cleanup without leaving a preparation pending. */ (
+          error,
+        ) =>
+          Alert.alert(
+            "Could not attach file",
+            error instanceof Error ? error.message : "Try again.",
+          ),
+      )
+      .finally(
+        /** Release exactly once after selection, cancellation, stale results, or failure. */ () =>
+          changeQuestionAttachmentPreparation(key, -1),
+      );
   };
   return {
     key,
