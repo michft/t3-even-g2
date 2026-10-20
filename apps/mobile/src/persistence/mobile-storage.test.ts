@@ -20,6 +20,7 @@ const { values, getItemAsync, setItemAsync, uuidv4 } = vi.hoisted(() => {
 
 vi.mock("expo-secure-store", () => ({ getItemAsync, setItemAsync }));
 vi.mock("expo-crypto", () => ({ randomUUID: uuidv4 }));
+vi.mock("react-native", () => ({ AppState: { currentState: "active" } }));
 
 import "../lib/uuid";
 
