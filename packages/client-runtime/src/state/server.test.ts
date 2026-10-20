@@ -422,11 +422,17 @@ describe("server state projection", () => {
     });
 
     const result = Option.getOrThrow(projected);
-    // An equal settings payload keeps the snapshot's object so readers don't re-render.
-    expect(result.config.settings).toBe(Option.getOrThrow(snapshot).config.settings);
+    expect(result.config.settings).not.toBe(Option.getOrThrow(snapshot).config.settings);
     expect(result.config.settings).toEqual(settings);
     expect(result.latestEvent.type).toBe("settingsUpdated");
     expect(result.config.settings.environmentColor).toBe("#ff8800");
+    const unchanged = applyServerConfigProjection(projected, {
+      version: 1,
+      type: "settingsUpdated",
+      payload: { settings: { ...settings } },
+    });
+    // Equal settings keep their reference so appearance readers don't re-render.
+    expect(Option.getOrThrow(unchanged).config.settings).toBe(result.config.settings);
     const cleared = applyServerConfigProjection(projected, {
       version: 1,
       type: "settingsUpdated",
