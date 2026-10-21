@@ -7154,7 +7154,7 @@ function ChatComposer(props: ChatComposerProps) {
                       showMobilePendingAnswerActions && "max-sm:pb-12",
                       isComposerResting &&
                         "my-0 max-h-8 min-h-8 overflow-hidden py-0 whitespace-pre! leading-8",
-                      isComposerApprovalState && "min-h-10",
+                      isComposerApprovalState && "min-h-0",
                     )}
                     placeholderClassName={cn(
                       isComposerResting &&
