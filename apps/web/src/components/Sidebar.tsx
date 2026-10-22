@@ -193,6 +193,13 @@ import {
 } from "./ui/combobox";
 import { SidebarContent, SidebarGroup, useSidebar } from "./ui/sidebar";
 import { SidebarChromeFooter, SidebarChromeHeader } from "./sidebar/SidebarChrome";
+import { SidebarSpaceSwitcher, useSidebarSpaceSwipeHandlers } from "./sidebar/SidebarSpaces";
+import {
+  intersectSidebarScopes,
+  resolveSidebarSpaceProjectKeys,
+  sidebarSpaceIncludesGroup,
+  useActiveSidebarSpace,
+} from "../sidebarSpacesStore";
 import { SidebarHeaderIconButton, SidebarThreadHeader } from "./sidebar/SidebarThreadHeader";
 import { TooltipProvider } from "./ui/tooltip";
 import { composerDraftHasUserContent, DraftId, useComposerDraftStore } from "../composerDraftStore";
@@ -908,11 +915,27 @@ export default function Sidebar() {
     clearSelection();
     setPersistedProjectScopeKey(key);
   };
-  const projectScopeKey = resolveSidebarProjectScopeKey({
+  const activeSpace = useActiveSidebarSpace();
+  const spaceSwipeHandlers = useSidebarSpaceSwipeHandlers();
+  const resolvedProjectScopeKey = resolveSidebarProjectScopeKey({
     groups: projectGroups,
     key: persistedProjectScopeKey,
     settings: projectGroupingSettings,
   });
+  // A picked project outside the active space is set aside, not cleared, so
+  // returning to its space restores it.
+  const isScopeKeyInSpace = (key: string) => {
+    if (activeSpace === null) return true;
+    const group = projectGroupByScopeKey.get(key);
+    return group !== undefined && sidebarSpaceIncludesGroup(activeSpace, group);
+  };
+  const projectScopeKey =
+    resolvedProjectScopeKey !== null && !isScopeKeyInSpace(resolvedProjectScopeKey)
+      ? null
+      : resolvedProjectScopeKey;
+  const spaceProjectScopeItems = projectScopeItems.filter(
+    (item) => item.value === "all" || isScopeKeyInSpace(item.value),
+  );
   const showProjectEnvironments = projectGroupsSpanEnvironments(projectGroups);
   const scratchMachineLabelFor = (
     thread: Pick<SidebarThreadSummary, "environmentId" | "projectId">,
@@ -931,7 +954,7 @@ export default function Sidebar() {
     projectScopeItems.find((item) => item.value === (projectScopeKey ?? "all")) ??
     projectScopeItems[0]!;
   const filteredProjectScopeItems = filterSidebarProjectScopeItems({
-    items: projectScopeItems,
+    items: spaceProjectScopeItems,
     query: projectScopeMenuState.query,
     matches: (item, query) =>
       projectScopeFilter.contains(item, query, (candidate) => candidate.label),
@@ -940,7 +963,7 @@ export default function Sidebar() {
     projectScopeKey === null
       ? null
       : (projectGroups.find((project) => project.projectKey === projectScopeKey) ?? null);
-  const scopedProjectKeys =
+  const pickedProjectKeys =
     scopedProjectGroup === null
       ? null
       : new Set(
@@ -948,6 +971,10 @@ export default function Sidebar() {
             (projectRef) => `${projectRef.environmentId}:${projectRef.projectId}`,
           ),
         );
+  const scopedProjectKeys = intersectSidebarScopes(
+    pickedProjectKeys,
+    resolveSidebarSpaceProjectKeys(activeSpace),
+  );
   useEffect(() => {
     const nextKey = resolveSidebarProjectScopeKey({
       groups: projectGroups,
@@ -2591,6 +2618,7 @@ export default function Sidebar() {
       <SidebarChromeHeader isElectron={isElectron} />
       <SidebarContent
         className="min-h-full"
+        {...spaceSwipeHandlers}
         fixedHeader={
           <SidebarGroup className="z-[1]">
             <SidebarThreadHeader
@@ -2598,7 +2626,7 @@ export default function Sidebar() {
               hasProjects={projectGroups.length > 0}
               projectScope={
                 <Combobox
-                  items={projectScopeItems}
+                  items={spaceProjectScopeItems}
                   filteredItems={filteredProjectScopeItems}
                   autoHighlight
                   itemToStringLabel={(item) => item.label}
@@ -3135,6 +3163,8 @@ export default function Sidebar() {
                 </>
               ) : scopedProjectGroup ? (
                 `No threads in ${scopedProjectGroup.displayName} yet`
+              ) : activeSpace ? (
+                `No threads in ${activeSpace.name} yet`
               ) : (
                 "No threads yet"
               )}
@@ -3142,7 +3172,7 @@ export default function Sidebar() {
           ) : null}
         </SidebarGroup>
       </SidebarContent>
-      <SidebarChromeFooter />
+      <SidebarChromeFooter utilityTrailing={<SidebarSpaceSwitcher projects={projectGroups} />} />
     </>
   );
 }

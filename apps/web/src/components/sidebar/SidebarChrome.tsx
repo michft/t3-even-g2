@@ -156,7 +156,11 @@ function SidebarUtilityItem({
   );
 }
 
-export const SidebarUtilityMenu = memo(function SidebarUtilityMenu() {
+export const SidebarUtilityMenu = memo(function SidebarUtilityMenu({
+  trailing,
+}: {
+  trailing?: ReactNode;
+}) {
   const navigate = useNavigate();
   const navigateToMainApp = useNavigateToMainApp();
   const { isMobile, setOpenMobile } = useSidebar();
@@ -224,17 +228,24 @@ export const SidebarUtilityMenu = memo(function SidebarUtilityMenu() {
         </>
       )}
       <SidebarUpdatePill />
+      {isOnUtilityPage || !trailing ? null : (
+        <SidebarMenuItem className="min-w-0 flex-1">{trailing}</SidebarMenuItem>
+      )}
     </SidebarMenu>
   );
 });
 
-export const SidebarChromeFooter = memo(function SidebarChromeFooter() {
+export const SidebarChromeFooter = memo(function SidebarChromeFooter({
+  utilityTrailing,
+}: {
+  utilityTrailing?: ReactNode;
+}) {
   return (
     <SidebarFooter>
       <SidebarThreadUndoNotice />
       <SidebarProviderUpdatePill />
       <SidebarUpdateArchitectureWarning />
-      <SidebarUtilityMenu />
+      <SidebarUtilityMenu trailing={utilityTrailing} />
     </SidebarFooter>
   );
 });

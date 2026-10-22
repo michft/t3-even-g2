@@ -180,6 +180,18 @@ On web and desktop, right-click a pull request link in a thread and choose
 same link to return to the branch PR, if one exists.
 The linked pull request participates in automatic settlement.
 
+## Group projects into spaces
+
+On web and desktop, a space is a named set of projects, such as Work or Personal.
+The sidebar then lists only that space's threads. Open the space menu at the
+right of the sidebar footer and choose **New space…** to name it, pick a color,
+and tick its projects. The thread list footer shows the current space's name,
+and thread search covers only that space.
+
+Switch spaces with the footer dots, or swipe sideways on the thread list with a
+trackpad or touch screen. The grid icon shows all projects. Spaces are saved on
+each device and do not sync, so a work computer can keep only work spaces.
+
 ## Find and reference work
 
 On web and desktop, open the command palette with `Cmd/Ctrl+K` to search threads

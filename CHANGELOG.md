@@ -5,6 +5,11 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ## Unreleased
 
+### Added
+
+- Group sidebar projects into swipeable spaces on web and desktop, with the
+  current space shown in the sidebar footer.
+
 ### Fixed
 
 - Prevent the mobile header from crashing while connecting an environment.
