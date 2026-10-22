@@ -66,7 +66,7 @@ launch do not verify physical G2/R1 behavior; run the hardware checks below.
   mobile README; old Pods may still reference a previous pnpm package path.
 - When a Nightly changes config plugins, back up generated-project edits and
   regenerate from `apps/mobile` with `node_modules/.bin/expo prebuild --platform
-ios --no-install`, then run `pod install` from `apps/mobile/ios`. Keep
+  ios --no-install`, then run `pod install` from `apps/mobile/ios`. Keep
   `APP_VARIANT=development`, the existing Personal Team bundle override, and
   `T3CODE_MOBILE_UPDATES_ENABLED=0` throughout. Inspect the regenerated signing
   identity before building; regeneration can replace local native settings.

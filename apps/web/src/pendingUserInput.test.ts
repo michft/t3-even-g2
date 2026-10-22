@@ -142,18 +142,21 @@ describe("resolvePendingUserInputAnswer", () => {
     ).toBe("Keep the existing envelope for one release");
   });
 
-  it("resolves numbered and word replies without changing provider values", /** Parse ordinary numbered or word replies into exact provider values. */ () => {
-    expect(resolvePendingUserInputAnswer(nativeChoiceQuestion, { customAnswer: "1" })).toBe(
-      " first\t",
-    );
-    expect(resolvePendingUserInputAnswer(multiSelectQuestion, { customAnswer: "2, 1, 2" })).toEqual(
-      ["Web", "Server"],
-    );
-    expect(
-      resolvePendingUserInputAnswer(multiSelectQuestion, { customAnswer: "web, server" }),
-    ).toEqual(["Web", "Server"]);
-    expect(resolvePendingUserInputAnswer(singleSelectQuestion, { customAnswer: "2" })).toBeNull();
-  });
+  it(
+    "resolves numbered and word replies without changing provider values",
+    /** Parse ordinary numbered or word replies into exact provider values. */ () => {
+      expect(resolvePendingUserInputAnswer(nativeChoiceQuestion, { customAnswer: "1" })).toBe(
+        " first\t",
+      );
+      expect(
+        resolvePendingUserInputAnswer(multiSelectQuestion, { customAnswer: "2, 1, 2" }),
+      ).toEqual(["Web", "Server"]);
+      expect(
+        resolvePendingUserInputAnswer(multiSelectQuestion, { customAnswer: "web, server" }),
+      ).toEqual(["Web", "Server"]);
+      expect(resolvePendingUserInputAnswer(singleSelectQuestion, { customAnswer: "2" })).toBeNull();
+    },
+  );
 
   it("does not replace a required choice with a custom answer", () => {
     expect(

@@ -19,7 +19,8 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ### Changed
 
-- Integrate T3 Nightly `v0.1.2-nightly.20261021.3457`, preserving G2 controls,
+- Integrate T3 Nightly `v0.1.2-nightly.20261021.3499`, restoring mobile config
+  compatibility while preserving G2 controls,
   fork appearance, numbered replies, signing, and GitHub-hosted runners.
 
 - Integrate T3 Nightly 20261020 on current fork main, retaining G2 controls,
