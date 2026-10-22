@@ -13,7 +13,8 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 ### Fixed
 
 - Keep iPhone thread headings readable with one Thread tools menu, allow
-  landscape rotation, and show the existing sidebar when usable width fits.
+  landscape rotation, show the existing sidebar when usable width fits, and
+  retain thread-list navigation after returning to portrait.
 
 - Route the fork checkout's triage command, source lookups, and reports to
   `michft/t3-even-g2`, preserving maintainer acceptance and publishing controls.
