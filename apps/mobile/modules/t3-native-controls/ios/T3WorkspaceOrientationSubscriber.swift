@@ -1,7 +1,7 @@
 import ExpoModulesCore
 import UIKit
 
-/// Keep ordinary phones portrait-only while allowing a hinge-backed scene to rotate.
+/// Respect iPad capture policy while allowing phone workspaces to rotate.
 public final class T3WorkspaceOrientationSubscriber: ExpoAppDelegateSubscriber {
   private static let hingeWindows = NSHashTable<UIWindow>.weakObjects()
 
@@ -17,6 +17,6 @@ public final class T3WorkspaceOrientationSubscriber: ExpoAppDelegateSubscriber {
       let orientations = Bundle.main.object(forInfoDictionaryKey: "UISupportedInterfaceOrientations~ipad") as? [String] ?? []
       return orientations == ["UIInterfaceOrientationPortrait"] ? .portrait : .all
     }
-    return window.map { Self.hingeWindows.contains($0) } == true ? .allButUpsideDown : .portrait
+    return .allButUpsideDown
   }
 }

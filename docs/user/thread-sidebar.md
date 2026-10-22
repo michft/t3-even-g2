@@ -3,6 +3,13 @@
 Use a new thread for a separate task. Choose **New worktree** when its code changes
 need a separate branch and working directory.
 
+## Work on an iPhone in landscape
+
+Rotate your iPhone with system rotation lock off to get more reading space.
+The thread sidebar appears beside the conversation when usable width and text
+size allow it; narrower windows keep one pane. Rotate back to return to the
+phone layout. Terminal, Files, and Git remain available from **Thread tools**.
+
 ## Start a thread
 
 On web and desktop, a new thread keeps the current project and carries your model

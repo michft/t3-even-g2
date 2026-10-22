@@ -87,6 +87,7 @@ export type WorkspaceAuxiliaryPaneRole = "supplementary" | "inspector";
 export function deriveLayout(input: {
   readonly width: number;
   readonly height: number;
+  readonly fontScale?: number;
   readonly nativeMetrics?: NativeLayoutMetrics | null;
 }): Layout {
   const { width, height } = input;
@@ -101,11 +102,19 @@ export function deriveLayout(input: {
     (metrics.hasHinge === true ||
       metrics.verticalBarEdge !== "none" ||
       metrics.reservedRegions.some((region) => region.kind === "division"));
+  // iPhones keep a compact UIKit size class in landscape. Use safe width and
+  // text scale rather than requiring the tablet's portrait-height floor.
+  const phoneLandscape =
+    metrics &&
+    !hasDuoGeometry &&
+    width > height &&
+    usableWidth >= SPLIT_LAYOUT_MIN_WIDTH * Math.max(1, input.fontScale ?? 1) &&
+    height >= 320;
   const wideEnoughForSplit = hasDuoGeometry
     ? metrics.horizontalSizeClass === "regular" &&
       usableWidth >= SPLIT_SIDEBAR_MIN_WIDTH + 320 &&
       height >= 400
-    : width >= SPLIT_LAYOUT_MIN_WIDTH && height >= SPLIT_LAYOUT_MIN_HEIGHT;
+    : phoneLandscape || (width >= SPLIT_LAYOUT_MIN_WIDTH && height >= SPLIT_LAYOUT_MIN_HEIGHT);
 
   if (!wideEnoughForSplit) {
     return {

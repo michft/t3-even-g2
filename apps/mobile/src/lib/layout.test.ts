@@ -9,6 +9,34 @@ import {
   isPrimarySidebarPinned,
 } from "./layout";
 
+describe("iPhone landscape workspace", () => {
+  const metrics = {
+    width: 874,
+    height: 402,
+    horizontalSizeClass: "compact" as const,
+    verticalBarEdge: "none" as const,
+    safeArea: { top: 0, bottom: 21, left: 62, right: 62 },
+    reservedRegions: [],
+  };
+
+  it("shows the thread sidebar when landscape has room despite compact UIKit size class", () => {
+    expect(deriveLayout({ ...metrics, nativeMetrics: metrics }).usesSplitView).toBe(true);
+    expect(
+      deriveLayout({ ...metrics, width: 402, height: 874, nativeMetrics: metrics }).usesSplitView,
+    ).toBe(false);
+  });
+
+  it("keeps narrow, enlarged-text and non-iOS short windows compact", () => {
+    expect(deriveLayout({ ...metrics, width: 740, nativeMetrics: metrics }).usesSplitView).toBe(
+      false,
+    );
+    expect(deriveLayout({ ...metrics, nativeMetrics: metrics, fontScale: 1.4 }).usesSplitView).toBe(
+      false,
+    );
+    expect(deriveLayout({ width: 874, height: 402 }).usesSplitView).toBe(false);
+  });
+});
+
 describe("thread work-log text sizing", () => {
   it.each([
     { baseFontSize: 16, fontScale: 1.25, estimatedRowHeight: 28 },

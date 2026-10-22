@@ -28,10 +28,13 @@ export function useThreadHeaderOptions(props: {
   const navigation = useNavigation();
   const { layout, panes, togglePrimarySidebar } = useAdaptiveWorkspaceLayout();
   const threadCenterHeaderItems = useThreadGitCenterHeaderItems(props.gitControls);
-  const compactRightHeaderItems = useThreadGitRightHeaderItems(props.gitControls);
+  const compactRightHeaderItems = useThreadGitRightHeaderItems(
+    props.gitControls,
+    deviceType === "phone",
+  );
   const splitLeftHeaderItems = useMemo<NativeHeaderItems>(
     () => [
-      ...(!usesDuoHeader
+      ...(!usesDuoHeader && deviceType !== "phone"
         ? [
             {
               spacing: 18,
@@ -64,7 +67,7 @@ export function useThreadHeaderOptions(props: {
         onPress: togglePrimarySidebar,
         type: "button" as const,
       }),
-      ...(!usesDuoHeader
+      ...(!usesDuoHeader && deviceType !== "phone"
         ? [
             withNativeGlassHeaderItem({
               accessibilityLabel: "New task",
@@ -84,6 +87,7 @@ export function useThreadHeaderOptions(props: {
       togglePrimarySidebar,
       usesDuoHeader,
       usesNativeWorkspaceColumns,
+      deviceType,
     ],
   );
   const canGoBack = navigation.canGoBack();
@@ -136,7 +140,7 @@ export function useThreadHeaderOptions(props: {
     unstable_headerRightItems: () =>
       usesDuoHeader
         ? duoRightHeaderItems
-        : layout.usesSplitView
+        : layout.usesSplitView && deviceType !== "phone"
           ? threadCenterHeaderItems
           : compactRightHeaderItems,
     unstable_headerToolbarItems: () => [],

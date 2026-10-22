@@ -71,11 +71,6 @@ function compactMenuStatus(gitStatus: VcsStatusResult | null): string {
 
 type HeaderItem = Record<string, unknown>;
 type HeaderItems = HeaderItem[];
-type ThreadGitHeaderActionItems = {
-  readonly terminal: HeaderItem;
-  readonly files: HeaderItem;
-  readonly git: HeaderItem;
-};
 type QuickActionIcon =
   | "arrow.down.circle"
   | "arrow.up.right.circle"
@@ -260,7 +255,7 @@ function useThreadGitControlModel(props: ThreadGitMenuProps) {
   };
 }
 
-function useThreadGitHeaderActionItems(props: ThreadGitControlsProps): ThreadGitHeaderActionItems {
+function useThreadGitHeaderActionItems(props: ThreadGitControlsProps) {
   const model = useThreadGitControlModel(props);
 
   return {
@@ -395,8 +390,33 @@ function useThreadGitHeaderActionItems(props: ThreadGitControlsProps): ThreadGit
   };
 }
 
-export function useThreadGitRightHeaderItems(props: ThreadGitControlsProps): HeaderItems {
+export function useThreadGitRightHeaderItems(
+  props: ThreadGitControlsProps,
+  compact = false,
+): HeaderItems {
   const actionItems = useThreadGitHeaderActionItems(props);
+  if (compact) {
+    return [
+      {
+        type: "menu",
+        identifier: "thread-right-tools",
+        accessibilityLabel: "Thread tools",
+        icon: { name: "ellipsis", type: "sfSymbol" },
+        menu: {
+          title: "Thread tools",
+          items: [
+            { ...actionItems.files, type: "action" },
+            {
+              ...actionItems.terminal,
+              type: actionItems.terminal.disabled ? "action" : "submenu",
+              items: actionItems.terminal.menu.items,
+            },
+            { ...actionItems.git, type: "submenu", items: actionItems.git.menu.items },
+          ],
+        },
+      },
+    ];
+  }
   return [actionItems.git, actionItems.files, actionItems.terminal] as HeaderItems;
 }
 
