@@ -12,6 +12,8 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ### Fixed
 
+- Submit the current address and pairing code from mobile native toolbar buttons.
+
 - Prevent the mobile header from crashing while connecting an environment.
 
 - Stop redrawing the G2 thread picker when unchanged choices arrive, and wait
@@ -23,6 +25,12 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
   unlock, preserving the saved connection catalog and healthy background reads.
 
 ### Changed
+
+- Run installed-native connection checks on iPhone and iPad simulators with the
+  same private read-only test configuration used for physical iOS deployments.
+
+- Allow iOS test deployments to require authenticated host and installed-native
+  configuration checks, using private read-only credentials and isolated sessions.
 
 - Integrate T3 Nightly `v0.1.2-nightly.20261021.3499`, restoring mobile config
   compatibility while preserving G2 controls,

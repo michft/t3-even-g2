@@ -7,6 +7,9 @@ import * as NodePath from "node:path";
 import * as NodeURL from "node:url";
 import * as Schema from "effect/Schema";
 
+import { runServerConnectionSmoke } from "./server-connection-smoke.ts";
+import { runIosNativeConnectionSmoke } from "./ios-native-connection-smoke.ts";
+
 const IdentitySchema = Schema.Struct({
   "application-identifier": Schema.String,
   "com.apple.developer.team-identifier": Schema.String,
@@ -262,7 +265,7 @@ function options(args: string[]) {
 }
 
 /** Validate the whole deployment first, then install and verify each target independently. */
-function main(args: string[]): void {
+async function main(args: string[]): Promise<void> {
   const input = options(args);
   NodeFS.mkdirSync(input.output, { recursive: true });
   const receiptPath = NodePath.join(input.output, "deployment.json");
@@ -276,6 +279,14 @@ function main(args: string[]): void {
     verified: false,
     error: undefined as string | undefined,
     processIdentifier: undefined as number | undefined,
+    nativeSmoke: {
+      status: (process.env.T3CODE_REQUIRE_NATIVE_SMOKE === "1" ? "not-run" : "not-configured") as
+        | "not-run"
+        | "not-configured"
+        | "running"
+        | "passed"
+        | "failed",
+    },
   }));
   const receipt: Record<string, unknown> = {
     sourceRevision: input.revision,
@@ -334,6 +345,22 @@ function main(args: string[]): void {
       "-enddate",
     ]).replace(/^notAfter=/, "");
     validateProvisioning(profile, current.identity, input.devices, certificateExpiry);
+    if (
+      process.env.T3CODE_SMOKE_CONFIG ||
+      process.env.T3CODE_REQUIRE_SMOKE === "1" ||
+      process.env.T3CODE_REQUIRE_NATIVE_SMOKE === "1"
+    ) {
+      receipt.connectionSmoke = { status: "running" };
+      save();
+      try {
+        receipt.connectionSmoke = await runServerConnectionSmoke();
+      } catch (error) {
+        receipt.connectionSmoke = { status: "failed" };
+        throw error;
+      }
+    } else {
+      receipt.connectionSmoke = { status: "not-configured" };
+    }
     for (const device of devices)
       validateBuildNumber(
         current.info.CFBundleVersion,
@@ -381,6 +408,20 @@ function main(args: string[]): void {
         );
         device.launched = true;
         save();
+        if (process.env.T3CODE_REQUIRE_NATIVE_SMOKE === "1") {
+          device.nativeSmoke = { status: "running" };
+          save();
+          await runIosNativeConnectionSmoke({
+            device: device.device,
+            bundle: current.info.CFBundleIdentifier,
+            output: NodePath.join(
+              input.output,
+              `${device.device.replace(/[^\w-]/g, "_")}.native-smoke.json`,
+            ),
+          });
+          device.nativeSmoke = { status: "passed" };
+          save();
+        }
         const expected = new globalThis.URL(
           current.info.CFBundleExecutable,
           installed.url.endsWith("/") ? installed.url : `${installed.url}/`,
@@ -395,6 +436,7 @@ function main(args: string[]): void {
         device.processIdentifier = running.processIdentifier;
         device.verified = true;
       } catch (error) {
+        if (device.nativeSmoke.status === "running") device.nativeSmoke = { status: "failed" };
         device.error = error instanceof Error ? error.message : String(error);
       }
       save();
@@ -416,7 +458,7 @@ if (
   NodePath.resolve(process.argv[1]) === NodeURL.fileURLToPath(import.meta.url)
 ) {
   try {
-    main(process.argv.slice(2));
+    await main(process.argv.slice(2));
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;

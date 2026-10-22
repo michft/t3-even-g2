@@ -56,6 +56,34 @@ function renderDocument(path: string, placement: Placement) {
   act(() => root!.render(<DocumentToolbar path={path} placement={placement} />));
 }
 
+function renderPairing(
+  host: string,
+  code: string,
+  onSubmit: (host: string, code: string) => void,
+  placement: Placement,
+) {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  root ??= createRoot(document.createElement("div"));
+  act(() =>
+    root!.render(
+      <NativeHeaderToolbar placement={placement}>
+        <NativeHeaderToolbar.Button
+          accessibilityLabel="Add environment"
+          icon="checkmark"
+          disabled={host.trim().length === 0}
+          onPress={() => onSubmit(host, code)}
+        />
+      </NativeHeaderToolbar>,
+    ),
+  );
+}
+
+function renderedButton() {
+  const item = harness.renderedItems[0];
+  if (item?.type !== "button") throw new Error("Expected the native submit button");
+  return item;
+}
+
 // Like React Navigation's NavigationStateContext, whose default value throws when
 // read. React restores a context's default outside render, so layout effects see it.
 const ContainerStateContext = createContext<object>({
@@ -119,6 +147,62 @@ it.each(["left", "right", "bottom"] as const)(
     openRenderedDocument();
 
     expect(harness.openedDocuments).toEqual(["first/guide.pdf", "second/guide.pdf"]);
+  },
+);
+
+it.each(["left", "right", "bottom"] as const)(
+  "submits the latest host and code through the retained %s native button",
+  (placement) => {
+    const onSubmit = vi.fn();
+    renderPairing("", "", onSubmit, placement);
+    expect(renderedButton().disabled).toBe(true);
+
+    renderPairing("https://first.example", "", onSubmit, placement);
+    const button = renderedButton();
+    expect(button.disabled).toBe(false);
+    const applied = harness.setOptionsCalls;
+
+    renderPairing("https://first.example", "pairing-code", onSubmit, placement);
+    button.onPress?.();
+
+    expect(onSubmit).toHaveBeenLastCalledWith("https://first.example", "pairing-code");
+    expect(harness.renderedItems[0]).toBe(button);
+    expect(harness.setOptionsCalls).toBe(applied);
+  },
+);
+
+it.each(["left", "right", "bottom"] as const)(
+  "submits a changed nonempty host through the retained %s native button",
+  (placement) => {
+    const onSubmit = vi.fn();
+    renderPairing("https://first.example", "pairing-code", onSubmit, placement);
+    const button = renderedButton();
+    const applied = harness.setOptionsCalls;
+
+    renderPairing("https://second.example", "pairing-code", onSubmit, placement);
+    button.onPress?.();
+
+    expect(onSubmit).toHaveBeenLastCalledWith("https://second.example", "pairing-code");
+    expect(harness.setOptionsCalls).toBe(applied);
+  },
+);
+
+it.each(["left", "right", "bottom"] as const)(
+  "uses a replacement callback without reapplying equivalent %s native items",
+  (placement) => {
+    const firstSubmit = vi.fn();
+    const nextSubmit = vi.fn();
+    renderPairing("https://first.example", "pairing-code", firstSubmit, placement);
+    const button = renderedButton();
+    const applied = harness.setOptionsCalls;
+
+    renderPairing("https://first.example", "pairing-code", nextSubmit, placement);
+    renderPairing("https://first.example", "pairing-code", nextSubmit, placement);
+    button.onPress?.();
+
+    expect(firstSubmit).not.toHaveBeenCalled();
+    expect(nextSubmit).toHaveBeenCalledExactlyOnceWith("https://first.example", "pairing-code");
+    expect(harness.setOptionsCalls).toBe(applied);
   },
 );
 
