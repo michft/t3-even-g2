@@ -21,6 +21,9 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ### Changed
 
+- Allow iOS test deployments to require authenticated host and installed-native
+  configuration checks, using private read-only credentials and isolated sessions.
+
 - Integrate T3 Nightly `v0.1.2-nightly.20261021.3499`, restoring mobile config
   compatibility while preserving G2 controls,
   fork appearance, numbered replies, signing, and GitHub-hosted runners.

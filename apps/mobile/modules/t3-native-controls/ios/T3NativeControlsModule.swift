@@ -189,6 +189,12 @@ public final class T3NativeControlsModule: Module {
     launchArgument("--showcasePairingUrl")
   }
 
+  /// Opt in per process so ordinary launches never consume private smoke credentials.
+  @JS
+  func getNativeConnectionSmokeEnabled() -> Bool {
+    ProcessInfo.processInfo.environment["T3CODE_NATIVE_SMOKE"] == "1"
+  }
+
   @JS
   func getShowcaseScene() -> String? {
     let scenePath = NSHomeDirectory() + "/Library/Caches/T3ShowcaseScene"
