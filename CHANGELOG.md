@@ -7,6 +7,8 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ### Fixed
 
+- Submit the current address and pairing code from mobile native toolbar buttons.
+
 - Prevent the mobile header from crashing while connecting an environment.
 
 - Stop redrawing the G2 thread picker when unchanged choices arrive, and wait

@@ -161,6 +161,18 @@ function stabilizeOptionFunctions(
   return value;
 }
 
+/** Keep retained native option callbacks stable while forwarding to their latest render values. */
+export function useStableOptionFunctions<T>(value: T): T {
+  const latestFunctionsRef = useRef(new Map<string, (...args: unknown[]) => unknown>());
+  const wrappersRef = useRef(new Map<string, (...args: unknown[]) => unknown>());
+  return stabilizeOptionFunctions(
+    value,
+    "options",
+    latestFunctionsRef.current,
+    wrappersRef.current,
+  ) as T;
+}
+
 export function NativeStackScreenOptions(props: {
   readonly options?: AppNativeStackNavigationOptions;
   /**
@@ -176,17 +188,8 @@ export function NativeStackScreenOptions(props: {
   const navigation = useNativeStackNavigation();
   const tabActive = use(NativeWorkspaceTabActivityContext)?.active ?? true;
   const lastAppliedOptionsSignatureRef = useRef<string | undefined>(undefined);
-  const latestOptionFunctionsRef = useRef(new Map<string, (...args: unknown[]) => unknown>());
-  const optionFunctionWrappersRef = useRef(new Map<string, (...args: unknown[]) => unknown>());
   const normalizedOptions = useMemo(() => normalizeScreenOptions(props.options), [props.options]);
-  const stableOptions = normalizedOptions
-    ? (stabilizeOptionFunctions(
-        normalizedOptions,
-        "options",
-        latestOptionFunctionsRef.current,
-        optionFunctionWrappersRef.current,
-      ) as NativeStackNavigationOptions)
-    : undefined;
+  const stableOptions = useStableOptionFunctions(normalizedOptions);
 
   useLayoutEffect(() => {
     if (!tabActive) {
