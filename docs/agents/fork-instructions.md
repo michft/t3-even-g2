@@ -33,7 +33,11 @@ use the same workflow. `.plans/` is reserved for planning, not documentation.
   do not ask again which remote a clear T3 Nightly sync targets.
 
 - Pushes, PRs, Build/install requests do not require explicit authorisation.
-  Requested sync PRs target fork main on `origin`; respect
+  A change requested in chat, or in a delegated or scheduled task, is finished
+  only as an actionable fork PR that follows [PR quality](pr-quality.md):
+  pushed, described, independently reviewed, and with checks passing. Open it
+  without asking again; ask first only when the target repository or base is
+  genuinely unclear. Requested sync PRs target fork main on `origin`; respect
   fork branch protection and any "PR only" instruction. Do not merge an open
   PR without authorization.
 - Do not modify or push to T3 upstream, or propose a PR there, as part of a
