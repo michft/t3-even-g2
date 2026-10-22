@@ -21,10 +21,11 @@ rerun affected checks and review the final revision. A skipped CodeRabbit review
 does not count; the automatic Nightly skip remains unchanged.
 
 The human sets acceptance criteria, judges tradeoffs and remaining gaps, checks
-the review evidence, and authorizes publishing and merging. CI verifies evidence
-and test results; it cannot prove that an agent actually ran independently or
-that its judgement is correct. A repository collaborator attests that review
-took place. The collaborator may operate both agents through one GitHub account.
+the review evidence, and authorizes merging; requesting a change authorizes its
+PR. CI verifies evidence and test results; it cannot prove that an agent
+actually ran independently or that its judgement is correct. A repository
+collaborator attests that review took place. The collaborator may operate both
+agents through one GitHub account.
 
 For example, a G2 input change must distinguish R1, left-arm, and right-arm
 behavior. Simulated checks do not prove glasses behavior. An iPhone deployment

@@ -156,7 +156,6 @@ For authorized mobile verification, a missing or outdated native client is a bui
 - This fork accepts public issues; only repository collaborators may open PRs.
   PRs implement accepted issues in `michft/t3-even-g2`. Follow
   [the maintainer workflow](docs/operations/even-g2-triage.md#maintainer-workflow).
-- Never make a PR unless the developer explicitly asks you to do so.
 - Conventional commit titles, plain language: `fix(web): new threads no longer spike CPU`.
 - Body: the problem in a sentence or two, then how you fixed it. End with the model and harness that did the work.
 - UI changes need before/after images. Motion or timing needs a short video.
