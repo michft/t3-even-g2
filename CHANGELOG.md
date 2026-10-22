@@ -21,6 +21,9 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ### Changed
 
+- Run installed-native connection checks on iPhone and iPad simulators with the
+  same private read-only test configuration used for physical iOS deployments.
+
 - Allow iOS test deployments to require authenticated host and installed-native
   configuration checks, using private read-only credentials and isolated sessions.
 
