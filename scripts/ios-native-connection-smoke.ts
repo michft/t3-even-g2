@@ -31,8 +31,14 @@ const decodeResult = Schema.decodeUnknownSync(NativeResult);
 type NativeResult = typeof NativeResult.Type;
 type HostStage = "input" | "copy" | "launch" | "result" | "restore" | "receipt";
 type Receipt = NativeResult & { hostStage?: HostStage };
-type Options = { device: string; bundle: string; output: string };
-type CommandRunner = (args: readonly string[]) => Promise<void>;
+type Options = { bundle: string; output: string } & (
+  | { device: string; simulator?: never }
+  | { simulator: string; device?: never }
+);
+type CommandRunner = (
+  args: readonly string[],
+  environment?: Readonly<Record<string, string>>,
+) => Promise<string | void>;
 
 /** Ignore earlier runs; accept exactly the configured targets and emit only safe fields. */
 export function validateNativeSmokeResult(
@@ -68,9 +74,12 @@ export function validateNativeSmokeResult(
   }
 }
 
-/** Capture and discard tool output: CoreDevice errors can contain private application data. */
-async function runCommand(args: readonly string[]): Promise<void> {
-  await new Promise<void>((resolve, reject) => {
+/** Capture stdout for container discovery; never expose tool errors or inherit private inputs. */
+async function runCommand(
+  args: readonly string[],
+  environment: Readonly<Record<string, string>> = {},
+): Promise<string> {
+  return await new Promise<string>((resolve, reject) => {
     NodeChildProcess.execFile(
       "xcrun",
       [...args],
@@ -82,9 +91,11 @@ async function runCommand(args: readonly string[]): Promise<void> {
           HOME: process.env.HOME,
           TMPDIR: process.env.TMPDIR,
           DEVELOPER_DIR: process.env.DEVELOPER_DIR,
+          ...environment,
         },
       },
-      (error) => (error ? reject(new Error("Native smoke device command failed.")) : resolve()),
+      (error, stdout) =>
+        error ? reject(new Error("Native smoke device command failed.")) : resolve(stdout),
     );
   });
 }
@@ -126,10 +137,24 @@ export async function runIosNativeConnectionSmoke(
   let scratch: string | undefined;
   let inputCopied = false;
   let consumed = false;
+  let container: string | undefined;
   const command = (args: string[]) =>
     run(["devicectl", "--timeout", "10", "--quiet", "device", ...args]);
-  const copy = (direction: "to" | "from", source: string, destination: string) =>
-    command([
+  const copy = async (direction: "to" | "from", source: string, destination: string) => {
+    if (options.simulator !== undefined) {
+      if (!container) throw new Error();
+      const file = NodePath.join(container, direction === "to" ? inputPath : resultPath);
+      if (direction === "to") {
+        // Replace only the known input; exclusive creation refuses a symlink left at that path.
+        NodeFS.rmSync(file, { force: true });
+        NodeFS.copyFileSync(source, file, NodeFS.constants.COPYFILE_EXCL);
+        NodeFS.chmodSync(file, 0o600);
+      } else {
+        NodeFS.copyFileSync(file, destination);
+      }
+      return;
+    }
+    await command([
       "copy",
       direction,
       "--device",
@@ -143,18 +168,26 @@ export async function runIosNativeConnectionSmoke(
       "--destination",
       destination,
     ]);
+  };
   const launch = (smoke: boolean) =>
-    command([
-      "process",
-      "launch",
-      "--device",
-      options.device,
-      "--terminate-existing",
-      "--environment-variables",
-      // CoreDevice rejects an empty environment dictionary; explicitly disable the hook on restore.
-      JSON.stringify({ T3CODE_NATIVE_SMOKE: smoke ? "1" : "0" }),
-      options.bundle,
-    ]);
+    options.simulator !== undefined
+      ? run(
+          ["simctl", "launch", "--terminate-running-process", options.simulator, options.bundle],
+          {
+            SIMCTL_CHILD_T3CODE_NATIVE_SMOKE: smoke ? "1" : "0",
+          },
+        )
+      : command([
+          "process",
+          "launch",
+          "--device",
+          options.device,
+          "--terminate-existing",
+          "--environment-variables",
+          // CoreDevice rejects an empty environment dictionary; explicitly disable the hook on restore.
+          JSON.stringify({ T3CODE_NATIVE_SMOKE: smoke ? "1" : "0" }),
+          options.bundle,
+        ]);
   try {
     if (!environment.T3CODE_SMOKE_CONFIG) throw new Error();
     const targets = readSmokeConfig(environment.T3CODE_SMOKE_CONFIG).map((target) => {
@@ -174,6 +207,18 @@ export async function runIosNativeConnectionSmoke(
     const result = NodePath.join(scratch, "result.json");
     writePrivateJson(input, { runId, targets });
     stage = "copy";
+    if (options.simulator !== undefined) {
+      const discovered = await run([
+        "simctl",
+        "get_app_container",
+        options.simulator,
+        options.bundle,
+        "data",
+      ]);
+      container = discovered?.trim();
+      if (!container || !NodePath.isAbsolute(container) || /[\0\r\n]/.test(container))
+        throw new Error();
+    }
     // A failed transfer may still have written credentials, so clean up attempted copies too.
     inputCopied = true;
     await copy("to", input, inputPath);
@@ -216,13 +261,17 @@ export async function runIosNativeConnectionSmoke(
     receipt = { runId, status: "failed", targets: [], hostStage: stage };
     failed = true;
   } finally {
-    if (inputCopied && !consumed && scratch) {
+    if (inputCopied && scratch && (options.simulator !== undefined || !consumed)) {
       try {
-        // CoreDevice exposes no file deletion. Scrub this exact file, then ask the hook to consume it.
-        const emptyInput = NodePath.join(scratch, "empty.json");
-        writePrivateJson(emptyInput, { runId, targets: [] });
-        await copy("to", emptyInput, inputPath);
-        await launch(true);
+        if (options.simulator !== undefined && container) {
+          NodeFS.rmSync(NodePath.join(container, inputPath), { force: true });
+        } else {
+          // CoreDevice exposes no file deletion. Scrub this exact file, then ask the hook to consume it.
+          const emptyInput = NodePath.join(scratch, "empty.json");
+          writePrivateJson(emptyInput, { runId, targets: [] });
+          await copy("to", emptyInput, inputPath);
+          await launch(true);
+        }
       } catch {
         // Best effort only; the normal launch must still be attempted.
       }
@@ -247,21 +296,35 @@ export async function runIosNativeConnectionSmoke(
 }
 
 /** Keep malformed command-line values out of parse failures. */
-function parseOptions(args: string[]): Options {
+export function parseOptions(args: string[]): Options {
+  const usage =
+    "Usage: (--device UDID | --simulator UDID) --bundle EXISTING_ID --output PRIVATE_RECEIPT_PATH";
   const values = new Map<string, string>();
   for (let index = 0; index < args.length; index += 2) {
     const key = args[index];
     const value = args[index + 1];
-    if (!key || !["--device", "--bundle", "--output"].includes(key) || !value || values.has(key))
-      throw new Error("Usage: --device UDID --bundle EXISTING_ID --output PRIVATE_RECEIPT_PATH");
+    if (
+      !key ||
+      !["--device", "--simulator", "--bundle", "--output"].includes(key) ||
+      !value ||
+      values.has(key)
+    )
+      throw new Error(usage);
     values.set(key, value);
   }
   const device = values.get("--device");
+  const simulator = values.get("--simulator");
   const bundle = values.get("--bundle");
   const output = values.get("--output");
-  if (!device || !bundle || !output || device.startsWith("-") || bundle.startsWith("-"))
-    throw new Error("Usage: --device UDID --bundle EXISTING_ID --output PRIVATE_RECEIPT_PATH");
-  return { device, bundle, output };
+  if (
+    Boolean(device) === Boolean(simulator) ||
+    !bundle ||
+    !output ||
+    (device ?? simulator)?.startsWith("-") ||
+    bundle.startsWith("-")
+  )
+    throw new Error(usage);
+  return simulator ? { simulator, bundle, output } : { device: device!, bundle, output };
 }
 
 if (

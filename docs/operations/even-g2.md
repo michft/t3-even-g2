@@ -406,6 +406,39 @@ node --env-file=.env.smoke.local scripts/ios-native-connection-smoke.ts \
   --output build/native-smoke-result.json
 ```
 
+For simulator testing, build one self-contained Release app for both device
+families, then install it on an iPhone and an iPad simulator. Use the Device panel
+to select and boot each target. On Apple Silicon, pass `ARCHS=arm64
+ONLY_ACTIVE_ARCH=YES` to Xcode: the bundled terminal framework has no x86 simulator
+slice. Run the same private configuration against each installed app:
+
+```bash
+node --env-file=.env.smoke.local scripts/ios-native-connection-smoke.ts \
+  --simulator YOUR-IPHONE-SIMULATOR-UDID --bundle YOUR-INSTALLED-BUNDLE-ID \
+  --output build/iphone-simulator-smoke.json
+node --env-file=.env.smoke.local scripts/ios-native-connection-smoke.ts \
+  --simulator YOUR-IPAD-SIMULATOR-UDID --bundle YOUR-INSTALLED-BUNDLE-ID \
+  --output build/ipad-simulator-smoke.json
+```
+
+The output directory must exist. `--device` and `--simulator` are mutually
+exclusive; both require an already installed app. A local iOS simulator can use
+the Mac's loopback address; physical devices need a reachable LAN or tailnet
+address. Include one positive run and one deliberately invalid-token run per
+target. The latter must fail at permissions and still restore normal launch.
+Supply the invalid value through a private environment override, never edit the
+retained valid credential. Receipts identify each run; do not reuse old results.
+
+To include T3 Account/Connect in the normal Settings screen, supply the public
+Clerk and relay values from the root `.env.example` through `.env.local` or the
+build environment before building. Preserve existing environment-file values.
+These public identifiers are separate from private smoke credentials. Confirm
+the built app's `EXConstants.bundle/app.config` contains nonempty
+`extra.clerk.publishableKey`, `extra.clerk.jwtTemplate`, and `extra.relay.url`,
+then check the account row in both simulator layouts. The upstream UI hides
+cloud settings when any is missing; successful direct-connection smoke alone
+does not verify this setup. Checking the row does not verify cloud sign-in.
+
 The native entry is selected only by the launch environment flag
 `T3CODE_NATIVE_SMOKE=1`. The runner transfers a private temporary input after
 installation; the app deletes it before validation and network access. This
