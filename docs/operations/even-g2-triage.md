@@ -119,8 +119,9 @@ issue when authorized, and close it once the fix is confirmed.
    agent can implement without guessing, or `ready-for-human` when human work
    is needed. Keep exactly one state label; `via-triage` is provenance only.
 3. **Claim.** Assign a repository collaborator before implementation. Check
-   for an existing assignee or linked PR to avoid duplicate work. Explicitly
-   request implementation and PR creation when ready to authorize publishing.
+   for an existing assignee or linked PR to avoid duplicate work. Requesting
+   implementation, in chat or as a task, also authorizes opening the fork PR;
+   merging still needs the maintainer.
 4. **Implement and verify.** Use a separate branch or JJ bookmark in the fork.
    Follow the accepted scope and record test results. For Swift/native changes,
    build and install the Release app on the phone; distinguish that from
