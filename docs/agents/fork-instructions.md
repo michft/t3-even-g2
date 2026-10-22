@@ -12,9 +12,10 @@ use the same workflow. `.plans/` is reserved for planning, not documentation.
   agent guidance; higher-priority harness instructions still take precedence.
 - Prefer the smallest change that meets the request. Preserve distinct product
   concepts and input sources; ask when intent or scope is unclear.
-- Plan broad work first. Complete multi-item requests sequentially unless
-  blocked. Complete items that can be done independently in parallel with
-  sub-agents If work is too large, state a bounded scope before proceeding.
+- Plan broad work first. Run independent tasks and subtasks in parallel and
+  keep dependent ones in order. Give each parallel task that edits files its
+  own JJ workspace, following the [workspace guide](worktree.md). If work is
+  too large, state a bounded scope before proceeding.
 
 ## Fork, upstream, and JJ
 
@@ -92,12 +93,12 @@ use the same workflow. `.plans/` is reserved for planning, not documentation.
   remote servers as verification targets.
 - Assume T3 upstream works. Verify local fork changes and their effects; do
   not launch separate verification of unchanged upstream code.
-- Before starting your verification server, check for any verification server
-  already listening on a port on this machine. An existing verification server
-  means another agent is running verification. Wait until that verification
-  completes before starting yours, regardless of checkout, target, or port.
-  Recheck before starting; do not bypass the wait by choosing another port,
-  reuse the other agent's server, or interrupt or stop its verification.
+- Each checkout or JJ workspace may run its own verification server at the
+  same time as others, using its own `.t3` state and the ports the dev runner
+  derives for it. Never reuse, interrupt, or stop another agent's server. The
+  main checkout keeps its state in-repo through `T3CODE_HOME=<repo>/.t3` in
+  its ignored `.env.local`. Physical devices and simulators are shared: only one
+  agent may build onto, install on, or drive a given device at a time.
 - Use isolated test state for verification; never run a verification server
   against live T3 userdata. Track processes started for verification and stop
   those servers afterward using their captured PIDs. Preserve existing servers.

@@ -44,6 +44,8 @@ config.resolver = {
         ? [config.resolver.blockList]
         : []),
     new RegExp(`${escapedWorkspaceRoot}[/\\\\]\\.t3[/\\\\].*`),
+    // Parallel JJ workspaces are full nested checkouts; see docs/agents/worktree.md.
+    new RegExp(`${escapedWorkspaceRoot}[/\\\\]\\.worktrees[/\\\\].*`),
   ],
   extraNodeModules: {
     ...config.resolver?.extraNodeModules,

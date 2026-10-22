@@ -7,6 +7,8 @@ Before working in this fork, read
 Follow [PR quality and human acceptance](docs/agents/pr-quality.md) for every
 PR: documentation relevance, focused validation, minimal design, regression
 assessment, and independent agent review evidence are required.
+Run independent tasks in parallel, each file-editing task in its own JJ
+workspace, following the [workspace guide](docs/agents/worktree.md).
 `.plans/` is for planning only. Building, deployment, issues, debugging, and
 contributor guidance belong in tracked public `docs/`, with explicit G2 examples.
 Link guides from the README, docs index, or contribution guide. Use placeholders
@@ -97,7 +99,7 @@ The most common defect in this repo is a change that works on the path you teste
 - Sharing over the tailnet is three steps: run `vp run dev --share` in the background, wait for the `pairingUrl:` line in its output, then give that full URL to an unpaired browser. Do not wire up `tailscale serve` by hand, open the URL yourself, or consume the user's pairing link. A browser with the reusable dev cookie can use the bare origin. If a normal one-time token was consumed, mint a fresh one with `node apps/server/src/bin.ts pair`. It carries standard scopes, while the startup URL carries admin scopes needed for Connections settings.
 - To reuse web dev auth across worktrees, configure one fixed `T3CODE_DEV_AUTH_TOKEN` in the main checkout's gitignored `.env`. The `t3.json` setup links that file into worktrees. Never commit or publish the token or a startup URL. See [Reusable dev credential](docs/operations/development.md#reusable-dev-credential).
 - Stop what you started, by the PID you tracked. See rule 1.
-- Need a second checkout? `git worktree add` it next to this worktree, not in `/tmp`. Remove it when done.
+- Need a second checkout? In this fork, create a JJ workspace under `.worktrees/` as described in the [workspace guide](docs/agents/worktree.md), not `git worktree add` or `/tmp`. Remove it when done.
 
 ## Test data
 
@@ -145,7 +147,7 @@ An empty database is a bad test. Seed your worktree's `.t3` with a copy of real 
   });
   ```
 
-- Upon request, user-visible frontend changes should get one integrated pass in a real client: `test-t3-app` for web, `test-t3-mobile` for mobile. The primary agent does this once after integrating. Subagents do not launch their own dev servers. Ask permission before doing computer use or spinning up browsers.
+- Upon request, user-visible frontend changes should get one integrated pass in a real client: `test-t3-app` for web, `test-t3-mobile` for mobile. The primary agent does this once after integrating. A subagent may run a dev server only in its own JJ workspace for that workspace's checks (see the [workspace guide](docs/agents/worktree.md)); subagents sharing a checkout do not launch dev servers. Ask permission before doing computer use or spinning up browsers.
 
 For authorized mobile verification, a missing or outdated native client is a build step, not a blocker. Run `node scripts/mobile-native-client.ts ensure <ios|android> <device-id>` on the simulator host before starting Metro. It checks the local Expo fingerprint and builds/installs when needed. See `test-t3-mobile` for the full workflow.
 
