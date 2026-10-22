@@ -7,6 +7,8 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ### Fixed
 
+- Prevent the mobile header from crashing while connecting an environment.
+
 - Stop redrawing the G2 thread picker when unchanged choices arrive, and wait
   for glasses acknowledgements without polling.
 
@@ -16,6 +18,10 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
   unlock, preserving the saved connection catalog and healthy background reads.
 
 ### Changed
+
+- Integrate T3 Nightly `v0.1.2-nightly.20261021.3499`, restoring mobile config
+  compatibility while preserving G2 controls,
+  fork appearance, numbered replies, signing, and GitHub-hosted runners.
 
 - Integrate T3 Nightly 20261020 on current fork main, retaining G2 controls,
   repository/server tints, numbered replies and the existing iOS app identity.

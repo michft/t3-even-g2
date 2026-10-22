@@ -26,181 +26,6 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("theme failure handling", () => {
-  it("preserves exact storage causes and operation context", async () => {
-    const readCause = new Error("storage read blocked");
-    const writeCause = new Error("storage quota exceeded");
-    vi.stubGlobal("window", {
-      localStorage: createStorage({
-        getItem: () => {
-          throw readCause;
-        },
-        setItem: () => {
-          throw writeCause;
-        },
-      }),
-    });
-
-    const { readThemePreference, ThemeStorageError, writeThemePreference } =
-      await import("./useTheme");
-
-    try {
-      readThemePreference();
-      expect.unreachable("expected the theme read to fail");
-    } catch (error) {
-      expect(error).toBeInstanceOf(ThemeStorageError);
-      expect(error).toMatchObject({
-        operation: "read",
-        storageKey: "t3code:theme",
-        cause: readCause,
-      });
-    }
-
-    try {
-      writeThemePreference("dark");
-      expect.unreachable("expected the theme write to fail");
-    } catch (error) {
-      expect(error).toBeInstanceOf(ThemeStorageError);
-      expect(error).toMatchObject({
-        operation: "write",
-        storageKey: "t3code:theme",
-        theme: "dark",
-        cause: writeCause,
-      });
-    }
-  });
-
-  it("reads the persisted T3 Chat theme preference", async () => {
-    vi.stubGlobal("window", {
-      localStorage: createStorage({
-        getItem: () => "t3-chat",
-      }),
-    });
-
-    const { readThemePreference } = await import("./useTheme");
-
-    expect(readThemePreference()).toBe("t3-chat");
-  });
-
-  it("falls back during initial theme application and logs only safe attributes", async () => {
-    const cause = new Error("private browsing storage failure");
-    const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
-    vi.stubGlobal("window", {
-      localStorage: createStorage({
-        getItem: () => {
-          throw cause;
-        },
-      }),
-      matchMedia: () => ({ matches: false }),
-    });
-    vi.stubGlobal("document", {
-      documentElement: {
-        classList: { toggle: vi.fn() },
-      },
-    });
-
-    await expect(import("./useTheme")).resolves.toBeDefined();
-
-    expect(errorLog).toHaveBeenCalledWith(
-      "Failed to read theme preference for t3code:theme.",
-      expect.objectContaining({
-        operation: "read",
-        storageKey: "t3code:theme",
-        errorTag: "ThemeStorageError",
-      }),
-    );
-    const attributes = errorLog.mock.calls[0]?.[1];
-    expect(attributes).not.toHaveProperty("cause");
-    expect(JSON.stringify(attributes)).not.toContain(cause.message);
-  });
-
-  it("retries a failed storage read only after a relevant storage event", async () => {
-    const cause = new Error("persistent storage failure");
-    const themeGetItem = vi.fn((): string | null => {
-      throw cause;
-    });
-    const getItem = vi.fn((key: string) => (key === "t3code:theme" ? themeGetItem() : null));
-    const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
-    let readSnapshot: (() => unknown) | undefined;
-    let subscribeToTheme: ((listener: () => void) => () => void) | undefined;
-    let storageHandler: ((event: StorageEvent) => void) | undefined;
-    vi.doMock("react", () => ({
-      useCallback: <A>(callback: A) => callback,
-      useEffect: () => undefined,
-      useSyncExternalStore: (
-        subscribe: (listener: () => void) => () => void,
-        getSnapshot: () => unknown,
-      ) => {
-        subscribeToTheme = subscribe;
-        readSnapshot = getSnapshot;
-        return getSnapshot();
-      },
-    }));
-    vi.stubGlobal("window", {
-      addEventListener: (type: string, listener: (event: StorageEvent) => void) => {
-        if (type === "storage") storageHandler = listener;
-      },
-      localStorage: createStorage({ getItem }),
-      matchMedia: () => ({
-        matches: false,
-        addEventListener: () => undefined,
-        removeEventListener: () => undefined,
-      }),
-      removeEventListener: () => undefined,
-    });
-
-    const { useTheme } = await import("./useTheme");
-    useTheme();
-    readSnapshot?.();
-    readSnapshot?.();
-
-    expect(themeGetItem).toHaveBeenCalledTimes(1);
-    expect(errorLog).toHaveBeenCalledTimes(1);
-
-    const unsubscribe = subscribeToTheme?.(() => undefined);
-    storageHandler?.({ key: "t3code:theme" } as StorageEvent);
-    readSnapshot?.();
-
-    expect(themeGetItem).toHaveBeenCalledTimes(2);
-    expect(errorLog).toHaveBeenCalledTimes(2);
-    unsubscribe?.();
-  });
-
-  it("preserves desktop sync causes and retries after a failed cosmetic sync", async () => {
-    const cause = new Error("desktop IPC unavailable");
-    const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
-    const setTheme = vi.fn().mockRejectedValue(cause);
-    vi.stubGlobal("window", { desktopBridge: { setTheme } });
-
-    const { DesktopThemeSyncError, syncDesktopTheme, syncDesktopThemePreference } =
-      await import("./useTheme");
-
-    const error = await syncDesktopThemePreference({ setTheme }, "dark").then(
-      () => undefined,
-      (failure: unknown) => failure,
-    );
-    expect(error).toBeInstanceOf(DesktopThemeSyncError);
-    expect(error).toMatchObject({ theme: "dark", cause });
-
-    setTheme.mockClear();
-    await syncDesktopTheme("dark");
-    await syncDesktopTheme("dark");
-
-    expect(setTheme).toHaveBeenCalledTimes(2);
-    expect(errorLog).toHaveBeenCalledWith(
-      "Failed to sync the dark theme to the desktop shell.",
-      expect.objectContaining({
-        theme: "dark",
-        errorTag: "DesktopThemeSyncError",
-      }),
-    );
-    for (const [, attributes] of errorLog.mock.calls) {
-      expect(attributes).not.toHaveProperty("cause");
-      expect(JSON.stringify(attributes)).not.toContain(cause.message);
-    }
-  });
-});
-
 function deferredPublication() {
   let resolve: () => void = () => {};
   const promise = new Promise<void>((complete) => {
@@ -270,7 +95,6 @@ async function desktopAppearanceFixture(appearanceMode: "system" | "dark" = "sys
   };
   return {
     hook,
-    module,
     root,
     storage,
     setTheme,
@@ -283,6 +107,29 @@ async function desktopAppearanceFixture(appearanceMode: "system" | "dark" = "sys
 }
 
 describe("host Appearance publication", () => {
+  it("retries failed canvas publication without leaking the IPC cause", async () => {
+    const fixture = await desktopAppearanceFixture();
+    const cause = new Error("desktop IPC unavailable");
+    const failed = deferredPublication();
+    using errorLog = vi.spyOn(console, "error").mockImplementation(() => failed.resolve());
+    fixture.setTheme.mockRejectedValueOnce(cause);
+    fixture.hook.setTheme("grove");
+    await failed.promise;
+
+    const published = fixture.nextPublication();
+    fixture.hook.refreshTheme();
+    await published;
+    expect(fixture.setTheme).toHaveBeenCalledTimes(3);
+    expect(fixture.setTheme.mock.calls[1]).toEqual(fixture.setTheme.mock.calls[2]);
+    expect(errorLog).toHaveBeenCalledWith(
+      "Failed to sync the grove theme to the desktop shell.",
+      expect.objectContaining({ theme: "grove", errorTag: "DesktopThemeSyncError" }),
+    );
+    const attributes = errorLog.mock.calls[0]?.[1];
+    expect(attributes).not.toHaveProperty("cause");
+    expect(JSON.stringify(attributes)).not.toContain(cause.message);
+  });
+
   it("publishes canvas changes between themes with the same native appearance", async () => {
     const fixture = await desktopAppearanceFixture("dark");
     const { GROVE_THEME, OCEAN_THEME, themeColorToHex } = await import("../themePalette");
@@ -340,7 +187,6 @@ describe("host Appearance publication", () => {
     const beforePreview = fixture.setTheme.mock.calls.length;
     palette.applyThemeColorPreview({ ...custom.colors, canvas: "#ff0000" }, "light");
     fixture.hook.refreshTheme({ preservePreview: true });
-    fixture.module.syncDesktopTheme(custom.id);
     expect(fixture.setTheme).toHaveBeenCalledTimes(beforePreview);
 
     palette.updateCustomTheme({ ...custom, colors: { ...custom.colors, canvas: "#445566" } });

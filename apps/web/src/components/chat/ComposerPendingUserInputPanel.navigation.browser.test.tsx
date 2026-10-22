@@ -6,10 +6,10 @@ import {
   TurnItemId,
   type OrchestrationV2ThreadProjection,
 } from "@t3tools/contracts";
-import { act, useLayoutEffect, useRef, type ComponentProps } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
+import { useLayoutEffect, useRef, type ComponentProps } from "react";
+import { expect, it, vi } from "vite-plus/test";
 
+import { act, fakeTimers, render } from "../../../test/render";
 import { makeThreadProjectionFixture } from "../../test-fixtures";
 import { ComposerPendingUserInputPanel } from "./ComposerPendingUserInputPanel";
 import { usePendingThreadRequests } from "./usePendingThreadRequests";
@@ -30,39 +30,22 @@ const prompt = {
   })),
 };
 
-let root: Root;
-let container: HTMLDivElement;
-beforeEach(() => {
-  vi.useFakeTimers();
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  container = document.createElement("div");
-  document.body.append(container);
-  root = createRoot(container);
-});
-afterEach(async () => {
-  await act(async () => root.unmount());
-  container.remove();
-  vi.unstubAllGlobals();
-  vi.useRealTimers();
-});
-
-function progressText() {
+function progressText(container: HTMLElement) {
   return container.querySelector('[role="status"]')?.textContent;
 }
 
 it("does not skip the next unanswered question after manual advance", async () => {
-  await act(async () =>
-    root.render(
-      <PendingRequestsProbe
-        environmentId={EnvironmentId.make("manual-advance-environment")}
-        projection={questionProjection(threadRef.threadId)}
-        showPanel
-      />,
-    ),
+  using _timers = fakeTimers();
+  await using screen = await render(
+    <PendingRequestsProbe
+      environmentId={EnvironmentId.make("manual-advance-environment")}
+      projection={questionProjection(threadRef.threadId)}
+      showPanel
+    />,
   );
   await act(() => requests.onChangeActivePendingUserInputCustomAnswer("question-0", "1"));
   await act(() => requests.onAdvanceActivePendingUserInput());
-  expect(progressText()).toBe("Answer question 2 of 3: Question 2");
+  expect(progressText(screen.container)).toBe("Answer question 2 of 3: Question 2");
   await act(async () => vi.advanceTimersByTime(200));
   expect(requests.activePendingQuestionIndex).toBe(1);
 
@@ -70,37 +53,35 @@ it("does not skip the next unanswered question after manual advance", async () =
   await act(async () => vi.advanceTimersByTime(200));
   expect(requests.activePendingQuestionIndex).toBe(1);
   await act(() => requests.onAdvanceActivePendingUserInput());
-  expect(progressText()).toBe("Answer question 3 of 3: Question 3");
+  expect(progressText(screen.container)).toBe("Answer question 3 of 3: Question 3");
 });
 
 it("does not undo previous-question navigation after editing an answer", async () => {
-  await act(async () =>
-    root.render(
-      <PendingRequestsProbe
-        environmentId={EnvironmentId.make("previous-question-environment")}
-        projection={questionProjection(threadRef.threadId)}
-        showPanel
-      />,
-    ),
+  using _timers = fakeTimers();
+  await using screen = await render(
+    <PendingRequestsProbe
+      environmentId={EnvironmentId.make("previous-question-environment")}
+      projection={questionProjection(threadRef.threadId)}
+      showPanel
+    />,
   );
   await act(() => requests.onAdvanceActivePendingUserInput());
   await act(() => requests.onChangeActivePendingUserInputCustomAnswer("question-1", "1"));
   await act(() => requests.onPreviousActivePendingUserInputQuestion());
   await act(async () => vi.advanceTimersByTime(200));
   expect(requests.activePendingQuestionIndex).toBe(0);
-  expect(progressText()).toBe("Answer question 1 of 3: Question 1");
+  expect(progressText(screen.container)).toBe("Answer question 1 of 3: Question 1");
   expect(requests.activePendingDraftAnswers["question-1"]?.customAnswer).toBe("1");
 });
 
 it("keeps typed answers on the current question without rendering clickable choices", async () => {
-  await act(async () =>
-    root.render(
-      <PendingRequestsProbe
-        environmentId={EnvironmentId.make("typed-answer-environment")}
-        projection={questionProjection(threadRef.threadId)}
-        showPanel
-      />,
-    ),
+  using _timers = fakeTimers();
+  await using screen = await render(
+    <PendingRequestsProbe
+      environmentId={EnvironmentId.make("typed-answer-environment")}
+      projection={questionProjection(threadRef.threadId)}
+      showPanel
+    />,
   );
   await act(() => requests.onChangeActivePendingUserInputCustomAnswer("question-0", "1"));
   await act(async () => vi.advanceTimersByTime(200));
@@ -111,13 +92,13 @@ it("keeps typed answers on the current question without rendering clickable choi
   });
   expect(requests.activePendingDraftAnswers["question-0"]?.customAnswer).toBe("1");
   expect(requests.activePendingQuestionIndex).toBe(0);
-  expect(progressText()).toBe("Answer question 1 of 3: Question 1");
+  expect(progressText(screen.container)).toBe("Answer question 1 of 3: Question 1");
   expect(
-    container.querySelector(
+    screen.container.querySelector(
       'button:not([aria-label="Dismiss question without answering"]), input, select, [role=option], [role=radio]',
     ),
   ).toBeNull();
-  expect(container.textContent).not.toContain("Incremental");
+  expect(screen.container.textContent).not.toContain("Incremental");
 });
 
 function questionProjection(threadId: ThreadId, requestIds = ["first", "second"]) {
@@ -200,19 +181,13 @@ function PendingRequestsProbe({
 }
 
 it("retains answers, selections and question position after leaving chat, including while the projection reloads", async () => {
+  using _timers = fakeTimers();
   const environmentId = EnvironmentId.make("remount-environment");
   const projection = questionProjection(threadRef.threadId);
-  const render = (loading = false) =>
-    act(() =>
-      root.render(
-        <PendingRequestsProbe
-          environmentId={environmentId}
-          projection={projection}
-          loading={loading}
-        />,
-      ),
-    );
-  await render();
+  const probe = (loading = false) => (
+    <PendingRequestsProbe environmentId={environmentId} projection={projection} loading={loading} />
+  );
+  await using screen = await render(probe());
   await act(() =>
     requests.onChangeActivePendingUserInputCustomAnswer("question-0", "Keep my text"),
   );
@@ -229,18 +204,19 @@ it("retains answers, selections and question position after leaving chat, includ
   expect(requests).toMatchObject(expected);
 
   // New thread and Settings both unmount the chat that owns this hook.
-  await act(() => root.render(null));
-  await render();
+  await screen.rerender(null);
+  await screen.rerender(probe());
   expect(requests).toMatchObject(expected);
 
-  await act(() => root.render(null));
-  await render(true);
+  await screen.rerender(null);
+  await screen.rerender(probe(true));
   expect(requests.activePendingUserInput).toBeNull();
-  await render();
+  await screen.rerender(probe());
   expect(requests).toMatchObject(expected);
 });
 
 it("isolates drafts by environment, thread and request and discards only resolved requests", async () => {
+  using _timers = fakeTimers();
   const environmentId = EnvironmentId.make("scope-environment");
   const projection = questionProjection(threadRef.threadId);
   const scopes = [
@@ -249,8 +225,9 @@ it("isolates drafts by environment, thread and request and discards only resolve
     { environmentId, projection: questionProjection(ThreadId.make("other-thread")) },
     { environmentId, projection: questionProjection(threadRef.threadId, ["second", "first"]) },
   ];
+  await using screen = await render(null);
   const show = (scope: ComponentProps<typeof PendingRequestsProbe>) =>
-    act(() => root.render(<PendingRequestsProbe {...scope} />));
+    screen.rerender(<PendingRequestsProbe {...scope} />);
   for (const [index, scope] of scopes.entries()) {
     await show(scope);
     expect(requests.activePendingQuestionIndex).toBe(0);
