@@ -158,20 +158,24 @@ export function HomeRouteScreen() {
   if (layout.usesSplitView && !nativePrimaryColumn) {
     return (
       <>
-        <NativeStackScreenOptions
-          options={
-            Platform.OS === "android"
-              ? { headerShown: false }
-              : {
-                  title: "",
-                  headerTitle: "",
-                  unstable_headerLeftItems: () => [],
-                  headerSearchBarOptions: undefined,
-                  unstable_headerRightItems: () => [],
-                  unstable_headerToolbarItems: () => [],
-                }
-          }
-        />
+        {/* The phone workspace owns its header across rotation. Clearing it here
+            leaves cached workspace options empty after returning to portrait. */}
+        {workspace !== null && deviceType === "phone" && Platform.OS === "ios" ? null : (
+          <NativeStackScreenOptions
+            options={
+              Platform.OS === "android"
+                ? { headerShown: false }
+                : {
+                    title: "",
+                    headerTitle: "",
+                    unstable_headerLeftItems: () => [],
+                    headerSearchBarOptions: undefined,
+                    unstable_headerRightItems: () => [],
+                    unstable_headerToolbarItems: () => [],
+                  }
+            }
+          />
+        )}
         {Platform.OS === "ios" ? (
           <Toolbar placement="left">
             <Toolbar.Button

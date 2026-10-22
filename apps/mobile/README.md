@@ -22,6 +22,9 @@ repository-root `.env` or `.env.local`, not an `apps/mobile/.env` file. See
 
 ## Development
 
+The fork supports iPhone landscape with an adaptive thread sidebar and compact
+thread tools. See [working with threads](../../docs/user/thread-sidebar.md#work-on-an-iphone-in-landscape).
+
 For simulator/emulator development, select and boot a device, then ensure its native client matches
 this checkout before starting Metro:
 
