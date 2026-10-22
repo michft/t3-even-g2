@@ -98,7 +98,7 @@ export default function NativeConnectionSmoke() {
   const [status, setStatus] = useState("Testing native connections…");
   useEffect(() => {
     void SplashScreen.hideAsync().catch(() => {});
-    smokeRun ??= runNativeConnectionSmoke();
+    if (smokeRun === undefined) smokeRun = runNativeConnectionSmoke();
     let mounted = true;
     void smokeRun.then((result) => {
       if (mounted) setStatus(`Native connection smoke ${result.status}.`);
