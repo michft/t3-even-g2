@@ -337,6 +337,99 @@ vp test run scripts/g2-diagnostics.test.ts
 These checks exercise code with simulated Bluetooth callbacks. They do not prove
 behavior on physical G2/R1 firmware. Report that distinction in issues and PRs.
 
+## Authenticated server checks for test deployments
+
+Use a dedicated bearer session with exactly `orchestration:read` for each test
+server. Keep it in a private build environment, separate from provider credentials.
+This permits the configuration subscription without allowing agent turns,
+settings changes, terminal access, or file access. Issue and revoke the session
+through the server's connection management. Do not copy an administrative session
+or run an authentication CLI against the live T3 database for this check.
+
+Create a local `build/server-smoke.json` with the intended server identities:
+
+```json
+{
+  "targets": [
+    {
+      "name": "test-server",
+      "environmentId": "YOUR-ENVIRONMENT-ID",
+      "httpBaseUrl": "http://YOUR-TAILSCALE-ADDRESS:3773",
+      "bearerTokenEnv": "T3CODE_SMOKE_TOKEN_TEST_SERVER"
+    }
+  ]
+}
+```
+
+Supply the referenced token through the build host's secret environment. An
+ignored, owner-readable `.env.smoke.local` is also supported through Node's
+`--env-file`; do not use `EXPO_PUBLIC_*`, Expo `extra`, or compiled resources for
+these credentials. Configure these nonsecret variables in that environment:
+
+```bash
+T3CODE_SMOKE_CONFIG=build/server-smoke.json
+T3CODE_REQUIRE_SMOKE=1
+```
+
+Run this from the same checkout before building the mobile bundle:
+
+```bash
+node --env-file=.env.smoke.local scripts/server-connection-smoke.ts
+```
+
+Pass the same private environment to `scripts/ios-release-deploy.ts` using
+`node --env-file=.env.smoke.local scripts/ios-release-deploy.ts ...`. Deployment
+then repeats the check before installing anything. `T3CODE_REQUIRE_SMOKE=1`
+fails if configuration is absent; without either variable, ordinary deployment
+retains its existing behavior and records `not-configured`.
+
+The check pins the public environment identity before sending the bearer token,
+verifies the session is read-only, obtains a WebSocket ticket, and uses the
+checkout's mobile RPC session to decode the initial configuration. An HTTP 200
+or an open socket alone cannot pass. Expired credentials and incompatible
+configuration fail deployment; output and receipts contain no tokens or tickets.
+
+The host check proves checkout compatibility. To require the installed iOS
+binary's own network/config check too, set `T3CODE_REQUIRE_NATIVE_SMOKE=1` in
+the same private environment before invoking `ios-release-deploy.ts`. The
+helper first requires the host check, installs the signed artifact, launches its
+isolated native smoke entry, waits for a matching run result, and restores normal
+launch. A failed native check fails deployment verification. Use a device-accessible
+origin (for a local fork test server, its tailnet IP and listening port), not
+`localhost`, which points at the phone itself.
+
+Run the installed-artifact check independently with:
+
+```bash
+node --env-file=.env.smoke.local scripts/ios-native-connection-smoke.ts \
+  --device YOUR-IOS-DEVICE-ID --bundle YOUR-INSTALLED-BUNDLE-ID \
+  --output build/native-smoke-result.json
+```
+
+The native entry is selected only by the launch environment flag
+`T3CODE_NATIVE_SMOKE=1`. The runner transfers a private temporary input after
+installation; the app deletes it before validation and network access. This
+entry never imports the ordinary app or saved connection catalog. It uses
+in-memory, read-only RPC sessions and writes only target names, stages and
+pass/fail results. Run IDs reject stale receipts. Normal launches retain the
+existing app identity and saved connections. No secret is compiled into the app.
+The runner scrubs attempted transfers on failure and always attempts normal
+relaunch. Keep the private input environment for subsequent builds; renew
+expired dedicated sessions through connection management.
+
+For local verification, start the fork from this checkout with explicit isolated
+state and a device-reachable bind address. The main checkout's default home may
+be shared state, so pass `--home-dir` explicitly:
+
+```bash
+vp run dev --home-dir ./build/native-test-home --host 0.0.0.0 --no-seed
+```
+
+Use the startup pairing link only to authorize a private launcher/browser;
+provision a separate `orchestration:read` session for the smoke configuration.
+Do not issue test sessions by opening live userdata read-write. These checks
+prove native config reception/decoding, not physical G2/R1 or every UI flow.
+
 ## Export diagnostics
 
 The native app retains diagnostics across launches, including Release builds
