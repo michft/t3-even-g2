@@ -32,10 +32,12 @@ use the same workflow. `.plans/` is reserved for planning, not documentation.
   change ancestry. Clarify when that meaning or a different target is unclear;
   do not ask again which remote a clear T3 Nightly sync targets.
 
-- Pushes, PRs, Build/install requests do not require explicit authorisation.
-  Requested sync PRs target fork main on `origin`; respect
-  fork branch protection and any "PR only" instruction. Do not merge an open
-  PR without authorization.
+- A change requested in chat or by a delegated or scheduled task ends in an
+  actionable fork PR that follows [PR quality](pr-quality.md). Push and open it
+  without asking again. Pushes and build/install requests do not require
+  explicit authorization either. Requested sync PRs target fork main on
+  `origin`; respect fork branch protection and any "PR only" instruction. The
+  maintainer merges; do not merge an open PR without authorization.
 - Do not modify or push to T3 upstream, or propose a PR there, as part of a
   downstream sync. If integration requires upstream changes or an upstream PR,
   request explicit maintainer approval first. Downstream merge authorization

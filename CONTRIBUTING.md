@@ -30,7 +30,7 @@ identifies a defect in upstream code.
 3. The owner implements the agreed scope on a separate branch or JJ bookmark
    and runs relevant checks. For native G2 changes, distinguish local tests,
    phone build/install results, and physical glasses verification.
-4. When authorized to publish, the collaborator opens a PR against this fork.
+4. The collaborator then opens a PR against this fork without asking again.
    Link the accepted issue with `Closes #123` for a complete fix or `Refs #123`
    for partial work. Do not target T3 upstream by default.
 5. Review checks and findings, verify the acceptance criteria, then merge.
