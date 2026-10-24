@@ -190,7 +190,7 @@ export const triageCommand = Command.make("triage", {
             terminalLogsDir: paths.terminalLogsDir,
             providerStatusCacheDir: paths.providerStatusCacheDir,
             secretsDir: paths.secretsDir,
-            sourceCacheDir: path.join(baseDir, "source"),
+            sourceCacheDir: path.join(baseDir, "source", "michft-t3-even-g2"),
           },
         }),
       );

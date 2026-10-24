@@ -21,10 +21,22 @@ Investigation, acceptance, assignment, and implementation remain maintainer-led.
 No dedicated mobile triage screen or automatic coding agent is required. Label
 and template automation takes effect when its files reach the default branch.
 
-Do not use `npx t3 triage` for this fork workflow yet. Its current playbook and
-generated context still point to T3 upstream, including upstream source and
-issue links. Changing the issue templates did not adapt that CLI. Use the
-thread workflow below instead.
+From this fork checkout, launch its fork-aware triage command with an installed
+agent, for example:
+
+```bash
+node apps/server/src/bin.ts triage --agent codex
+```
+
+Use `--agent claude` for Claude Code. The command writes its prompt and machine
+context into the selected T3 home's `userdata/triage` directory, then launches
+the agent there. Its bundled playbook routes source, duplicate searches, and
+reports to this fork. Provide the installed fork build commit when known;
+an upstream version tag alone does not identify your installed fork revision.
+
+This invocation uses the checkout's source. `npx t3 triage` resolves a registry
+package and does not select this fork automatically. For a phone conversation
+already connected to an agent, use the thread workflow below.
 
 ## Start on the phone
 

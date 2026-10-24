@@ -56,4 +56,16 @@ it("context file labels the CLI version as the CLI's, not the user's build", () 
   assert.notInclude(context, "Release tag");
   assert.include(context, "- Triage CLI version: 0.0.42 (");
   assert.include(context, "version 0.0.43-nightly.20260923.2173");
+  assert.include(context, "- Repo: https://github.com/michft/t3-even-g2");
+});
+
+it("keeps playbook refresh, source acquisition and reporting in the fork", () => {
+  assert.include(
+    TRIAGE_PLAYBOOK,
+    "https://raw.githubusercontent.com/michft/t3-even-g2/main/.github/triage/PLAYBOOK.md",
+  );
+  assert.include(TRIAGE_PLAYBOOK, "https://github.com/michft/t3-even-g2");
+  assert.include(TRIAGE_PLAYBOOK, "--repo michft/t3-even-g2");
+  assert.include(TRIAGE_PLAYBOOK, "https://github.com/michft/t3-even-g2/issues/new");
+  assert.notInclude(TRIAGE_PLAYBOOK, "https://github.com/pingdotgg/t3code/issues/new");
 });

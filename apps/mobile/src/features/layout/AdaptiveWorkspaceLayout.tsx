@@ -276,8 +276,14 @@ function AdaptiveWorkspaceLayoutContent(
   // re-renders on any layout state change, and the inspector registration then loops: each
   // re-register re-renders its screen, which hands over a new inspector renderer.
   const baseLayout = useMemo(
-    () => deriveLayout({ width: viewportWidth, height, nativeMetrics }),
-    [height, viewportWidth, nativeMetrics],
+    () =>
+      deriveLayout({
+        width: viewportWidth,
+        height,
+        fontScale: windowDimensions.fontScale,
+        nativeMetrics,
+      }),
+    [height, viewportWidth, windowDimensions.fontScale, nativeMetrics],
   );
   const primarySidebarPinned = isPrimarySidebarPinned({
     pathname,
