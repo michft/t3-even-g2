@@ -6,11 +6,14 @@ import { useThreadSelectionStore } from "~/threadSelectionStore";
 import {
   SIDEBAR_SPACE_COLORS,
   type SidebarSpace,
-  type SidebarSpacesStore,
   createSidebarSpaceSwipe,
   sidebarProjectRefKey,
   sidebarSpaceIncludesGroup,
   sidebarSpaceScopeChanged,
+  sidebarSpaceTouchSwipeDirection,
+} from "@t3tools/client-runtime/state/sidebar-spaces";
+import {
+  type SidebarSpacesStore,
   useActiveSidebarSpace,
   useSidebarSpacesStore,
 } from "~/sidebarSpacesStore";
@@ -49,9 +52,6 @@ interface SpaceProjectOption {
 /** Radio value for the All page; space IDs are UUIDs, so it cannot collide. */
 const ALL_SPACES_VALUE = "all";
 
-/** Finger travel needed before a touch swipe changes space. */
-const TOUCH_SWIPE_PX = 60;
-
 /** Every space change goes through here so selection is cleared whenever the visible scope moves. */
 function changeSpaces(change: (store: SidebarSpacesStore) => void) {
   const before = useSidebarSpacesStore.getState();
@@ -80,11 +80,11 @@ export function useSidebarSpaceSwipeHandlers() {
       const touch = event.changedTouches[0];
       touchStartRef.current = null;
       if (!start || !touch) return;
-      const dx = touch.clientX - start.x;
-      if (Math.abs(dx) >= TOUCH_SWIPE_PX && Math.abs(dx) > Math.abs(touch.clientY - start.y) * 2) {
-        // Content follows the finger, so swiping left reveals the next space.
-        changeSpaces((store) => store.step(dx < 0 ? 1 : -1));
-      }
+      const direction = sidebarSpaceTouchSwipeDirection(
+        touch.clientX - start.x,
+        touch.clientY - start.y,
+      );
+      if (direction !== 0) changeSpaces((store) => store.step(direction));
     },
   };
 }

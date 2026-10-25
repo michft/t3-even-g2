@@ -199,6 +199,11 @@ Switch spaces with the footer dots, or swipe sideways on the thread list with a
 trackpad or touch screen. The grid icon shows all projects. Spaces are saved on
 each device and do not sync, so a work computer can keep only work spaces.
 
+On iPad, the space bar sits at the bottom of the sidebar. Tap it to switch,
+create, edit, or delete spaces, or swipe sideways on the bar to page between
+them; thread rows keep their own swipe actions. iPad spaces are separate from
+the spaces on your computer. The phone thread list always shows every project.
+
 ## Find and reference work
 
 On web and desktop, open the command palette with `Cmd/Ctrl+K` to search threads

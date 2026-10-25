@@ -10,6 +10,9 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 - Group sidebar projects into swipeable spaces on web and desktop, with the
   current space shown in the sidebar footer.
 
+- Use spaces in the iPad sidebar: a space bar above the sidebar toolbar switches,
+  creates, edits, and deletes spaces, and pages between them with a sideways swipe.
+
 ### Fixed
 
 - Keep iPhone thread headings readable with one Thread tools menu, allow
