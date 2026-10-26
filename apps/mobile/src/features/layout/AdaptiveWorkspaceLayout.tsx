@@ -84,7 +84,7 @@ import {
   NativeWorkspaceInspectorContext,
 } from "../../native/v5-workspace-context";
 
-import { useNativeLayoutMetrics } from "../../native/native-layout-metrics";
+import { useDeviceType, useNativeLayoutMetrics } from "../../native/native-layout-metrics";
 import { AndroidHingeObserver } from "../../native/AndroidHingeObserver";
 import { WindowHingeContext } from "../../native/window-hinge-context";
 
@@ -251,6 +251,7 @@ function AdaptiveWorkspaceLayoutContent(
   const nativeWorkspace = use(NativeWorkspaceModeContext);
   const windowDimensions = useWindowDimensions();
   const nativeMetrics = useNativeLayoutMetrics();
+  const isPad = useDeviceType() === "pad";
   const { width: viewportWidth, height } = nativeMetrics ?? windowDimensions;
   const pathname = props.pathname;
   // Android's Settings tab is a full workspace page: the rail stays, the sidebar and
@@ -280,10 +281,10 @@ function AdaptiveWorkspaceLayoutContent(
       deriveLayout({
         width: viewportWidth,
         height,
-        fontScale: windowDimensions.fontScale,
         nativeMetrics,
+        isPad,
       }),
-    [height, viewportWidth, windowDimensions.fontScale, nativeMetrics],
+    [height, viewportWidth, nativeMetrics, isPad],
   );
   const primarySidebarPinned = isPrimarySidebarPinned({
     pathname,

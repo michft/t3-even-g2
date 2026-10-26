@@ -15,6 +15,9 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ### Fixed
 
+- Show the thread sidebar on iPhones in landscape with larger text or Display
+  Zoom, as on iPad, instead of keeping the portrait layout.
+
 - Keep iPhone thread headings readable with one Thread tools menu, allow
   landscape rotation, show the existing sidebar when usable width fits, and
   retain thread-list navigation after returning to portrait.

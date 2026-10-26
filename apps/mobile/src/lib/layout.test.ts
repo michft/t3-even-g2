@@ -26,11 +26,39 @@ describe("iPhone landscape workspace", () => {
     ).toBe(false);
   });
 
-  it("keeps narrow, enlarged-text and non-iOS short windows compact", () => {
-    expect(deriveLayout({ ...metrics, width: 740, nativeMetrics: metrics }).usesSplitView).toBe(
-      false,
-    );
-    expect(deriveLayout({ ...metrics, nativeMetrics: metrics, fontScale: 1.4 }).usesSplitView).toBe(
+  it("shows the sidebar on smaller landscape iPhones, like a small iPad", () => {
+    const zoomed = {
+      ...metrics,
+      width: 812,
+      height: 375,
+      safeArea: { ...metrics.safeArea, left: 50, right: 50 },
+    };
+    expect(deriveLayout({ ...zoomed, nativeMetrics: zoomed }).usesSplitView).toBe(true);
+    const homeButton = {
+      ...metrics,
+      width: 667,
+      height: 375,
+      safeArea: { top: 0, bottom: 0, left: 0, right: 0 },
+    };
+    expect(deriveLayout({ ...homeButton, nativeMetrics: homeButton }).usesSplitView).toBe(true);
+  });
+
+  it("keeps short landscape iPad windows on the tablet width floor", () => {
+    const short = (width: number) => {
+      const window = {
+        ...metrics,
+        width,
+        height: 500,
+        safeArea: { top: 0, bottom: 0, left: 0, right: 0 },
+      };
+      return deriveLayout({ ...window, nativeMetrics: window, isPad: true }).usesSplitView;
+    };
+    expect(short(640)).toBe(false);
+    expect(short(800)).toBe(true);
+  });
+
+  it("keeps windows too narrow for both columns and non-iOS short windows compact", () => {
+    expect(deriveLayout({ ...metrics, width: 640, nativeMetrics: metrics }).usesSplitView).toBe(
       false,
     );
     expect(deriveLayout({ width: 874, height: 402 }).usesSplitView).toBe(false);
