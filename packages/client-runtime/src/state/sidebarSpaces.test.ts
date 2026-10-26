@@ -1,14 +1,18 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  addSidebarSpace,
   createSidebarSpaceSwipe,
   intersectSidebarScopes,
   parseSidebarSpacesState,
+  removeSidebarSpace,
+  replaceSidebarSpace,
   resolveSidebarSpaceProjectKeys,
   sidebarSpaceIncludesGroup,
   sidebarSpaceScopeChanged,
+  sidebarSpaceTouchSwipeDirection,
   stepSidebarSpace,
-} from "./sidebarSpacesStore";
+} from "./sidebarSpaces.ts";
 
 const work = { id: "w", name: "Work", color: "#3b82f6", projectRefs: ["laptop:api", "laptop:web"] };
 const home = { id: "h", name: "Home", color: "#10b981", projectRefs: ["laptop:blog"] };
@@ -118,5 +122,31 @@ describe("createSidebarSpaceSwipe", () => {
     const swipe = createSidebarSpaceSwipe();
     expect(swipe(60, 100, 0)).toBe(0);
     expect(swipe(60, 100, 10)).toBe(0);
+  });
+});
+
+describe("space edits", () => {
+  it("shows a new space, edits in place, and returns to All when the shown space is deleted", () => {
+    const created = addSidebarSpace({ spaces: [work], activeSpaceId: null }, home);
+    expect(created).toEqual({ spaces: [work, home], activeSpaceId: "h" });
+
+    const edited = replaceSidebarSpace(created, "w", { ...work, name: "Job" });
+    expect(edited.spaces.map((space) => space.name)).toEqual(["Job", "Home"]);
+    expect(edited.activeSpaceId).toBe("h");
+
+    expect(removeSidebarSpace(edited, "w")).toEqual({ spaces: [home], activeSpaceId: "h" });
+    expect(removeSidebarSpace(edited, "h").activeSpaceId).toBeNull();
+  });
+});
+
+describe("sidebarSpaceTouchSwipeDirection", () => {
+  it("pages on long sideways drags, with a left drag showing the next space", () => {
+    expect(sidebarSpaceTouchSwipeDirection(-100, 10)).toBe(1);
+    expect(sidebarSpaceTouchSwipeDirection(100, 10)).toBe(-1);
+  });
+
+  it("ignores short drags and diagonal scrolling", () => {
+    expect(sidebarSpaceTouchSwipeDirection(-40, 0)).toBe(0);
+    expect(sidebarSpaceTouchSwipeDirection(-100, 60)).toBe(0);
   });
 });

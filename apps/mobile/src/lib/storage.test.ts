@@ -245,6 +245,21 @@ describe("mobile connection storage", () => {
     await expect(loadPreferences()).resolves.toEqual(persisted);
   });
 
+  it("keeps valid sidebar spaces and drops malformed ones and a dangling active space", async () => {
+    const work = { id: "w", name: "Work", color: "#3b82f6", projectRefs: ["mini:api"] };
+    mocks.setPreferencesJson(
+      JSON.stringify({
+        themeMode: "dark",
+        sidebarSpaces: { spaces: [work, { id: 1 }], activeSpaceId: "missing" },
+      }),
+      10,
+    );
+    await expect(loadPreferences()).resolves.toEqual({
+      themeMode: "dark",
+      sidebarSpaces: { spaces: [work], activeSpaceId: null },
+    });
+  });
+
   it("clamps and rounds finite saved tint strengths", async () => {
     await expect(
       savePreferencesPatch({ threadLeftTintStrength: -5, threadRightTintStrength: 90 }),

@@ -219,6 +219,10 @@
       "types": "./src/state/projectGrouping.ts",
       "default": "./src/state/projectGrouping.ts"
     },
+    "./state/sidebar-spaces": {
+      "types": "./src/state/sidebarSpaces.ts",
+      "default": "./src/state/sidebarSpaces.ts"
+    },
     "./state/relay": {
       "types": "./src/state/relayDiscovery.ts",
       "default": "./src/state/relayDiscovery.ts"

@@ -41,6 +41,11 @@ import type { WorkspaceEnvironment, WorkspaceState } from "../../state/workspace
 import type { SavedRemoteConnection } from "../../lib/connection";
 import { scopedProjectKey, scopedThreadKey } from "../../lib/scopedEntities";
 import { NativePrimaryColumnContext } from "../../native/v5-workspace-context";
+import {
+  intersectSidebarScopes,
+  resolveSidebarSpaceProjectKeys,
+  sidebarSpaceIncludesGroup,
+} from "@t3tools/client-runtime/state/sidebar-spaces";
 import { nativeHeaderScrollEdgeEffects } from "../../native/scrollEdgeEffects";
 import {
   useNativeColumnLayoutMetrics,
@@ -88,6 +93,8 @@ import { SwipeableScrollGateProvider, useSwipeableScrollGate } from "./thread-sw
 import { useFabScroll } from "./FabScrollContext";
 import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 import { ThreadListFilters } from "./ThreadListFilters";
+import { SidebarSpaceBar } from "../threads/SidebarSpaces";
+import { useSidebarSpaces } from "../threads/use-sidebar-spaces";
 
 interface HomeScreenProps {
   readonly projects: ReadonlyArray<EnvironmentProject>;
@@ -398,8 +405,28 @@ export function HomeScreen(props: HomeScreenProps) {
     return map;
   })();
 
+  // Spaces belong to the iPad sidebar column, like the desktop sidebar; the phone
+  // list keeps showing every project until the layout follows orientation (#51).
+  const sidebarSpaces = useSidebarSpaces();
+  const spacesEnabled = Platform.OS === "ios" && Boolean(primaryColumn);
+  const activeSpace = spacesEnabled ? sidebarSpaces.activeSpace : null;
+  // A picked project outside the active space is set aside, not cleared, so
+  // returning to its space restores it.
+  const spaceProjectScopes =
+    activeSpace === null
+      ? projectScopes
+      : projectScopes.filter((scope) =>
+          sidebarSpaceIncludesGroup(activeSpace, { memberProjectRefs: scope.projectRefs }),
+        );
+  const spaceSheetProjects = spacesEnabled
+    ? buildHomeProjectScopes({
+        projects: props.projects,
+        environmentId: null,
+        projectGroupingMode: props.projectGroupingMode,
+      })
+    : [];
   const v2ProjectScopeKey = props.selectedProjectKey;
-  const v2ScopedProjectGroup = findHomeProjectScope(projectScopes, v2ProjectScopeKey);
+  const v2ScopedProjectGroup = findHomeProjectScope(spaceProjectScopes, v2ProjectScopeKey);
   const v2ProjectTitleByProjectKey = new Map(
     projectScopes.flatMap((scope) =>
       scope.projectRefs.map(
@@ -408,14 +435,16 @@ export function HomeScreen(props: HomeScreenProps) {
       ),
     ),
   );
-  const v2ScopedProjectKeys =
+  const v2ScopedProjectKeys = intersectSidebarScopes(
+    resolveSidebarSpaceProjectKeys(activeSpace),
     v2ScopedProjectGroup === null
       ? null
       : new Set(
           v2ScopedProjectGroup.projectRefs.map((projectRef) =>
             scopedProjectKey(projectRef.environmentId, projectRef.projectId),
           ),
-        );
+        ),
+  );
   const handleSettleThread = props.onSettleThread;
   const handleSnoozeThread = props.onSnoozeThread;
   const handleUnsnoozeThread = props.onUnsnoozeThread;
@@ -430,7 +459,7 @@ export function HomeScreen(props: HomeScreenProps) {
   const [settledVisibleCount, setSettledVisibleCount] = useState(
     THREAD_LIST_V2_SETTLED_INITIAL_COUNT,
   );
-  const settledResetKey = `${props.selectedEnvironmentId ?? "all"}:${v2ProjectScopeKey ?? "all"}:${props.searchQuery.trim()}`;
+  const settledResetKey = `${props.selectedEnvironmentId ?? "all"}:${activeSpace?.id ?? "all"}:${v2ProjectScopeKey ?? "all"}:${props.searchQuery.trim()}`;
   const [lastSettledResetKey, setLastSettledResetKey] = useState(settledResetKey);
   if (lastSettledResetKey !== settledResetKey) {
     setLastSettledResetKey(settledResetKey);
@@ -508,7 +537,14 @@ export function HomeScreen(props: HomeScreenProps) {
       pendingOrder,
       threads: props.threads.filter((thread) => thread.archivedAt === null),
       environmentId: props.selectedEnvironmentId,
-      projectRefs: v2ScopedProjectGroup === null ? null : v2ScopedProjectGroup.projectRefs,
+      projectRefs:
+        v2ScopedProjectKeys === null
+          ? null
+          : props.projects
+              .filter((project) =>
+                v2ScopedProjectKeys.has(scopedProjectKey(project.environmentId, project.id)),
+              )
+              .map((project) => ({ environmentId: project.environmentId, projectId: project.id })),
       searchQuery: props.searchQuery,
       matchedThreadKeys,
       settlementEnvironmentIds,
@@ -731,6 +767,14 @@ export function HomeScreen(props: HomeScreenProps) {
     projectCount: props.projects.length,
   });
 
+  // Kept mounted when the list is empty so saved spaces stay reachable.
+  const spaceBar = spacesEnabled ? (
+    // The column's bottom toolbar floats over this clearance, so the bar sits just above it.
+    <View style={{ paddingBottom: iosBottomClearance }}>
+      <SidebarSpaceBar spaces={sidebarSpaces} projects={spaceSheetProjects} />
+    </View>
+  ) : null;
+
   if (!hasAnyThreads) {
     return (
       <View className={containerClassName}>
@@ -741,7 +785,11 @@ export function HomeScreen(props: HomeScreenProps) {
             Platform.OS === "android" && "overflow-hidden rounded-t-[28px]",
           )}
           style={{
-            paddingBottom: Platform.OS === "ios" ? iosBottomClearance : Math.max(insets.bottom, 24),
+            paddingBottom: spacesEnabled
+              ? 16
+              : Platform.OS === "ios"
+                ? iosBottomClearance
+                : Math.max(insets.bottom, 24),
             paddingTop: NATIVE_LIQUID_GLASS_SUPPORTED ? insets.top + 72 : 0,
             paddingLeft: 32 + (contentSideInsets?.left ?? 0),
             paddingRight: 32 + (contentSideInsets?.right ?? 0),
@@ -773,6 +821,7 @@ export function HomeScreen(props: HomeScreenProps) {
             ) : null}
           </View>
         </View>
+        {spaceBar}
       </View>
     );
   }
@@ -785,7 +834,7 @@ export function HomeScreen(props: HomeScreenProps) {
       {Platform.OS === "ios" && workspace ? (
         <ThreadListFilters
           environments={props.environments}
-          projects={projectScopes.map((scope) => ({ key: scope.key, label: scope.title }))}
+          projects={spaceProjectScopes.map((scope) => ({ key: scope.key, label: scope.title }))}
           selectedEnvironmentId={props.selectedEnvironmentId}
           selectedProjectKey={props.selectedProjectKey}
           onEnvironmentChange={props.onEnvironmentChange}
@@ -807,6 +856,11 @@ export function HomeScreen(props: HomeScreenProps) {
         title={`No threads in ${v2ScopedProjectGroup.title}`}
         detail="Choose another project or create a new task."
         variant={Platform.OS === "android" ? "plain" : undefined}
+      />
+    ) : activeSpace !== null ? (
+      <EmptyState
+        title={`No threads in ${activeSpace.name} yet`}
+        detail="Choose another space or add projects to this one."
       />
     ) : selectedEnvironmentLabel ? (
       <EmptyState
@@ -892,8 +946,9 @@ export function HomeScreen(props: HomeScreenProps) {
                   (contentSideInsets?.left ?? 0) + (primaryColumn ? 8 : 0) + androidListGutter,
                 paddingRight:
                   (contentSideInsets?.right ?? 0) + (primaryColumn ? 8 : 0) + androidListGutter,
-                paddingBottom:
-                  Platform.OS === "ios"
+                paddingBottom: spacesEnabled
+                  ? 16
+                  : Platform.OS === "ios"
                     ? iosBottomClearance
                     : (workspace?.bottomClearance ??
                       Math.max(insets.bottom, 16) +
@@ -902,6 +957,7 @@ export function HomeScreen(props: HomeScreenProps) {
             />
           </GestureDetector>
         </SwipeableScrollGateProvider>
+        {spaceBar}
       </View>
     </View>
   );

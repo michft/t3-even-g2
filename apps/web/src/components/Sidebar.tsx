@@ -198,8 +198,8 @@ import {
   intersectSidebarScopes,
   resolveSidebarSpaceProjectKeys,
   sidebarSpaceIncludesGroup,
-  useActiveSidebarSpace,
-} from "../sidebarSpacesStore";
+} from "@t3tools/client-runtime/state/sidebar-spaces";
+import { useActiveSidebarSpace } from "../sidebarSpacesStore";
 import { SidebarHeaderIconButton, SidebarThreadHeader } from "./sidebar/SidebarThreadHeader";
 import { TooltipProvider } from "./ui/tooltip";
 import { composerDraftHasUserContent, DraftId, useComposerDraftStore } from "../composerDraftStore";

@@ -20,6 +20,10 @@ import type { FollowUpBehavior } from "../lib/followUpBehavior";
 import { isMicrophoneKind, type MicrophoneEntry } from "../lib/microphonePriority";
 import { MOBILE_THEME_IDS, type MobileThemeId, type MobileThemeMode } from "../lib/mobileTheme";
 import { sanitizeThreadHighlights, type ThreadHighlights } from "../lib/threadHighlight";
+import {
+  parseSidebarSpacesState,
+  type SidebarSpacesState,
+} from "@t3tools/client-runtime/state/sidebar-spaces";
 import * as MobileDatabase from "./mobile-database";
 import * as MobileSecureStorage from "./mobile-secure-storage";
 import { MobileStorageDecodeError, MobileStorageEncodeError } from "./mobile-storage";
@@ -95,6 +99,8 @@ export interface Preferences {
   readonly threadListWorkingShelfExpanded?: boolean;
   readonly threadListFilters?: ThreadListFilters;
   readonly pullRequestListFilters?: PullRequestListPreferences;
+  /** Device-local sidebar spaces; never synced, matching the web sidebar. */
+  readonly sidebarSpaces?: SidebarSpacesState;
 }
 
 export class MobilePreferencesLoadError extends Schema.TaggedError<MobilePreferencesLoadError>()(
@@ -178,6 +184,7 @@ function sanitizePreferences(parsed: Preferences): Preferences {
     threadListWorkingShelfExpanded?: boolean;
     threadListFilters?: ThreadListFilters;
     pullRequestListFilters?: PullRequestListPreferences;
+    sidebarSpaces?: SidebarSpacesState;
   } = {};
 
   if (typeof parsed.pullRequestHideTestFiles === "boolean") {
@@ -321,6 +328,9 @@ function sanitizePreferences(parsed: Preferences): Preferences {
   }
   if (isPullRequestListPreferences(parsed.pullRequestListFilters)) {
     preferences.pullRequestListFilters = parsed.pullRequestListFilters;
+  }
+  if (parsed.sidebarSpaces !== undefined) {
+    preferences.sidebarSpaces = parseSidebarSpacesState(parsed.sidebarSpaces);
   }
   return preferences;
 }
