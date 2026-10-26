@@ -18,7 +18,16 @@ import {
   createNativeStackScreen,
   type NativeStackNavigationOptions,
 } from "@react-navigation/native-stack";
-import { useEffect, useRef, type ReactNode } from "react";
+import {
+  createContext,
+  use,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   Platform,
   Pressable,
@@ -147,7 +156,7 @@ import {
   transitionIncomingSharePresentation,
 } from "./features/sharing/incoming-share-presentation";
 import { NATIVE_LIQUID_GLASS_SUPPORTED } from "./native/native-glass";
-import { deriveLayout } from "./lib/layout";
+import { deriveLayout, rootSheetPresentsAsCard } from "./lib/layout";
 import { useDeviceType, useNativeLayoutMetrics } from "./native/native-layout-metrics";
 import { nativeHeaderScrollEdgeEffects } from "./native/StackHeader";
 import { FORM_SHEET_PRESENTATION_OPTIONS } from "./native/sheet-surface";
@@ -940,7 +949,12 @@ const RootStackConfig = createWorkspaceStackNavigator({
     }),
     SettingsSheet: createNativeStackScreen({
       screen: SettingsSheetStack,
-      layout: ({ children }) => <AndroidWorkspaceSettings>{children}</AndroidWorkspaceSettings>,
+      layout: ({ children, route }) => (
+        <AndroidWorkspaceSettings>
+          <RootSheetPresentationRecord routeKey={route.key} />
+          {children}
+        </AndroidWorkspaceSettings>
+      ),
       linking: "settings",
       options: {
         ...NESTED_NAVIGATOR_OPTIONS,
@@ -1005,6 +1019,7 @@ const RootStackConfig = createWorkspaceStackNavigator({
       // A screen's layout replaces the navigator's screenLayout.
       layout: ({ children, route }) => (
         <GuardedScreenLayout route={route}>
+          <RootSheetPresentationRecord routeKey={route.key} />
           <NewTaskFlowProvider>
             <View className="flex-1 bg-sheet-solid">{children}</View>
           </NewTaskFlowProvider>
@@ -1039,6 +1054,34 @@ function GuardedScreenLayout(props: {
   );
 }
 
+// RootStack's presentation choice for Settings and New Task, and the record of what each opening
+// showed. Those screens' own layouts replace the navigator's screenLayout, so they record it.
+const RootSheetPresentationContext = createContext<{
+  readonly shown: Map<string, boolean>;
+  readonly usesWorkspaceFlowScreens: boolean;
+} | null>(null);
+
+/** Records how a root sheet first appeared and forgets it once the sheet closes. */
+function RootSheetPresentationRecord(props: { readonly routeKey: string }) {
+  const presentation = use(RootSheetPresentationContext);
+  const { routeKey } = props;
+  const shown = presentation?.shown;
+  const asCard = presentation
+    ? rootSheetPresentsAsCard(presentation.shown, routeKey, presentation.usesWorkspaceFlowScreens)
+    : false;
+  // After commit, so a render React discards never records a presentation that was not shown.
+  useLayoutEffect(() => {
+    if (shown && !shown.has(routeKey)) shown.set(routeKey, asCard);
+  }, [shown, routeKey, asCard]);
+  useLayoutEffect(
+    () => () => {
+      shown?.delete(routeKey);
+    },
+    [shown, routeKey],
+  );
+  return null;
+}
+
 function ScreenRenderFallback(props: RenderFailureProps & { readonly routeName: string }) {
   const navigation = useNavigation();
   const exit = navigation.canGoBack()
@@ -1056,26 +1099,35 @@ export const RootStack = RootStackConfig.with(function AdaptiveRootStack({ Navig
   const isPad = useDeviceType() === "pad";
   const usesSplitView = deriveLayout({ width, height, nativeMetrics, isPad }).usesSplitView;
   const usesWorkspaceFlowScreens = Platform.OS === "android" || usesSplitView;
+  // Route key → shown as a card, written only after an opening is on screen.
+  const [shownRootSheets] = useState(() => new Map<string, boolean>());
+
+  const rootSheetPresentation = useMemo(
+    () => ({ shown: shownRootSheets, usesWorkspaceFlowScreens }),
+    [shownRootSheets, usesWorkspaceFlowScreens],
+  );
 
   return (
-    <Navigator
-      screenLayout={(props) => <GuardedScreenLayout {...props} />}
-      screenOptions={({ route }) => {
-        if (route.name !== "SettingsSheet" && route.name !== "NewTaskSheet") {
-          return Platform.OS === "android"
-            ? { animation: androidWorkspaceDestinationAnimation(route.name, usesSplitView) }
-            : {};
-        }
+    <RootSheetPresentationContext value={rootSheetPresentation}>
+      <Navigator
+        screenLayout={(props) => <GuardedScreenLayout {...props} />}
+        screenOptions={({ route }) => {
+          if (route.name !== "SettingsSheet" && route.name !== "NewTaskSheet") {
+            return Platform.OS === "android"
+              ? { animation: androidWorkspaceDestinationAnimation(route.name, usesSplitView) }
+              : {};
+          }
 
-        return usesWorkspaceFlowScreens
-          ? { presentation: "card" }
-          : {
-              ...FORM_SHEET_PRESENTATION_OPTIONS,
-              sheetAllowedDetents: [0.92],
-              sheetGrabberVisible: true,
-            };
-      }}
-    />
+          return rootSheetPresentsAsCard(shownRootSheets, route.key, usesWorkspaceFlowScreens)
+            ? { presentation: "card" }
+            : {
+                ...FORM_SHEET_PRESENTATION_OPTIONS,
+                sheetAllowedDetents: [0.92],
+                sheetGrabberVisible: true,
+              };
+        }}
+      />
+    </RootSheetPresentationContext>
   );
 });
 

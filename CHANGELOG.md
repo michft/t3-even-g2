@@ -15,6 +15,9 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ### Fixed
 
+- Keep iPhone Settings and New Task closable when the phone rotates while they
+  are open, instead of leaving them stuck behind the sidebar layout.
+
 - Show the thread sidebar on iPhones in landscape with larger text or Display
   Zoom, as on iPad, instead of keeping the portrait layout.
 
