@@ -6,8 +6,8 @@ need a separate branch and working directory.
 ## Work on an iPhone in landscape
 
 Rotate your iPhone with system rotation lock off to get more reading space.
-The thread sidebar appears beside the conversation when usable width and text
-size allow it; narrower windows keep one pane. Rotate back to return to the
+The thread sidebar appears beside the conversation, as on iPad, at any text
+size or Display Zoom setting; only windows too narrow for both keep one pane. Rotate back to return to the
 phone layout. Terminal, Files, and Git remain available from **Thread tools**.
 
 ## Start a thread

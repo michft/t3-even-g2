@@ -84,11 +84,13 @@ export function deriveThreadFeedInitialContentInset(input: {
 
 export type WorkspaceAuxiliaryPaneRole = "supplementary" | "inspector";
 
+/** Chooses the single-pane or sidebar layout for a window, and the sidebar width. */
 export function deriveLayout(input: {
   readonly width: number;
   readonly height: number;
-  readonly fontScale?: number;
   readonly nativeMetrics?: NativeLayoutMetrics | null;
+  /** An iPad window, whose short landscape windows keep the tablet width floor. */
+  readonly isPad?: boolean;
 }): Layout {
   const { width, height } = input;
   const metrics = input.nativeMetrics;
@@ -102,19 +104,22 @@ export function deriveLayout(input: {
     (metrics.hasHinge === true ||
       metrics.verticalBarEdge !== "none" ||
       metrics.reservedRegions.some((region) => region.kind === "division"));
-  // iPhones keep a compact UIKit size class in landscape. Use safe width and
-  // text scale rather than requiring the tablet's portrait-height floor.
-  const phoneLandscape =
+  // iPhones keep a compact UIKit size class in landscape. A landscape iPhone is
+  // a small iPad: split whenever the sidebar and a readable conversation fit in
+  // the safe width. Text size does not count, so Display Zoom and larger text
+  // keep the sidebar. Short landscape iPad windows keep the tablet width floor.
+  const landscapeMinWidth = input.isPad ? SPLIT_LAYOUT_MIN_WIDTH : SPLIT_SIDEBAR_MIN_WIDTH + 320;
+  const shortLandscape =
     metrics &&
     !hasDuoGeometry &&
     width > height &&
-    usableWidth >= SPLIT_LAYOUT_MIN_WIDTH * Math.max(1, input.fontScale ?? 1) &&
+    usableWidth >= landscapeMinWidth &&
     height >= 320;
   const wideEnoughForSplit = hasDuoGeometry
     ? metrics.horizontalSizeClass === "regular" &&
       usableWidth >= SPLIT_SIDEBAR_MIN_WIDTH + 320 &&
       height >= 400
-    : phoneLandscape || (width >= SPLIT_LAYOUT_MIN_WIDTH && height >= SPLIT_LAYOUT_MIN_HEIGHT);
+    : shortLandscape || (width >= SPLIT_LAYOUT_MIN_WIDTH && height >= SPLIT_LAYOUT_MIN_HEIGHT);
 
   if (!wideEnoughForSplit) {
     return {
