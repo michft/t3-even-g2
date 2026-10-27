@@ -15,6 +15,9 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ### Fixed
 
+- Use the full width on the side of a landscape iPhone without the Dynamic Island,
+  keeping content clear of the island instead of leaving both edges blank.
+
 - Show the thread sidebar on iPhones in landscape with larger text or Display
   Zoom, as on iPad, instead of keeping the portrait layout.
 
