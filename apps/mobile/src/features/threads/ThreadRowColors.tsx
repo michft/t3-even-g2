@@ -10,12 +10,22 @@ export const ThreadRowColors = memo(function ThreadRowColors(props: {
   readonly mode: ThreadOriginColorMode;
   readonly leftStrength: number;
   readonly rightStrength: number;
+  readonly workType?: { readonly name: string; readonly colour: string | null } | null;
 }) {
   const id = useId().replaceAll(":", "");
   const left = props.mode === "tint" && props.serverColor && props.leftStrength > 0;
   const right = props.mode === "tint" && props.repositoryColor && props.rightStrength > 0;
   return (
     <>
+      {props.workType?.colour ? (
+        <View
+          accessible
+          accessibilityLabel={`Work type: ${props.workType.name}`}
+          pointerEvents="none"
+          className="absolute bottom-0 left-4 right-4 h-0.5"
+          style={{ backgroundColor: props.workType.colour }}
+        />
+      ) : null}
       {left || right ? (
         <View
           pointerEvents="none"

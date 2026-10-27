@@ -7,6 +7,9 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ### Added
 
+- Choose Machine, Repo, or editable Work type grouping per iPad space, with
+  shared member colours and repository work-type assignments on this device.
+
 - Group sidebar projects into swipeable spaces on web and desktop, with the
   current space shown in the sidebar footer.
 
@@ -15,9 +18,18 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ### Fixed
 
+- Use the current iPhone sidebar width after landscape rotation instead of
+  retaining portrait width bounds, and keep its native stack mounted when
+  rotating back to portrait.
+
+- Reclaim iPhone thread-list height by removing the duplicate stacked search field.
+
+- Restore each iPad sidebar space's last-opened thread when switching spaces,
+  with a recent thread or empty detail as the fallback.
+
 - Use the full width on the side of a landscape iPhone without the Dynamic Island,
   keeping content clear of the island instead of leaving both edges blank.
-  
+
 - Keep iPhone Settings and New Task closable when the phone rotates while they
   are open, instead of leaving them stuck behind the sidebar layout.
 

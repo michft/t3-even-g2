@@ -41,11 +41,7 @@ import type { WorkspaceEnvironment, WorkspaceState } from "../../state/workspace
 import type { SavedRemoteConnection } from "../../lib/connection";
 import { scopedProjectKey, scopedThreadKey } from "../../lib/scopedEntities";
 import { NativePrimaryColumnContext } from "../../native/v5-workspace-context";
-import {
-  intersectSidebarScopes,
-  resolveSidebarSpaceProjectKeys,
-  sidebarSpaceIncludesGroup,
-} from "@t3tools/client-runtime/state/sidebar-spaces";
+import { intersectSidebarScopes } from "@t3tools/client-runtime/state/sidebar-spaces";
 import { nativeHeaderScrollEdgeEffects } from "../../native/scrollEdgeEffects";
 import {
   useNativeColumnLayoutMetrics,
@@ -93,6 +89,7 @@ import { SwipeableScrollGateProvider, useSwipeableScrollGate } from "./thread-sw
 import { useFabScroll } from "./FabScrollContext";
 import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 import { ThreadListFilters } from "./ThreadListFilters";
+import { mobileSpaceProjectKeys, spaceRepositoryKey } from "../../lib/sidebarSpaces";
 import { SidebarSpaceBar } from "../threads/SidebarSpaces";
 import { useSidebarSpaces } from "../threads/use-sidebar-spaces";
 
@@ -117,6 +114,7 @@ interface HomeScreenProps {
   readonly onOpenSettings: () => void;
   readonly onStartNewTask: () => void;
   readonly onSelectThread: (thread: EnvironmentThreadShell) => void;
+  readonly onClearThread: () => void;
   readonly onArchiveThread: (thread: EnvironmentThreadShell) => void;
   readonly onDeleteThread: (thread: EnvironmentThreadShell) => void;
   readonly onSettleThread: (thread: EnvironmentThreadShell) => Promise<boolean>;
@@ -407,22 +405,39 @@ export function HomeScreen(props: HomeScreenProps) {
 
   // Spaces belong to the iPad sidebar column, like the desktop sidebar; the phone
   // list keeps showing every project until the layout follows orientation (#51).
-  const sidebarSpaces = useSidebarSpaces();
   const spacesEnabled = Platform.OS === "ios" && Boolean(primaryColumn);
+  const sidebarSpaces = useSidebarSpaces(
+    spacesEnabled
+      ? {
+          selectedThreadKey,
+          threads: props.threads,
+          onSelectThread: props.onSelectThread,
+          onClearThread: props.onClearThread,
+        }
+      : undefined,
+    props.projects,
+  );
   const activeSpace = spacesEnabled ? sidebarSpaces.activeSpace : null;
+  const activeSpaceKeys = mobileSpaceProjectKeys(
+    activeSpace,
+    props.projects,
+    sidebarSpaces.preferences,
+  );
   // A picked project outside the active space is set aside, not cleared, so
   // returning to its space restores it.
   const spaceProjectScopes =
     activeSpace === null
       ? projectScopes
       : projectScopes.filter((scope) =>
-          sidebarSpaceIncludesGroup(activeSpace, { memberProjectRefs: scope.projectRefs }),
+          scope.projectRefs.some((ref) =>
+            activeSpaceKeys?.has(scopedProjectKey(ref.environmentId, ref.projectId)),
+          ),
         );
   const spaceSheetProjects = spacesEnabled
     ? buildHomeProjectScopes({
         projects: props.projects,
         environmentId: null,
-        projectGroupingMode: props.projectGroupingMode,
+        projectGroupingMode: "repository",
       })
     : [];
   const v2ProjectScopeKey = props.selectedProjectKey;
@@ -436,7 +451,7 @@ export function HomeScreen(props: HomeScreenProps) {
     ),
   );
   const v2ScopedProjectKeys = intersectSidebarScopes(
-    resolveSidebarSpaceProjectKeys(activeSpace),
+    activeSpaceKeys,
     v2ScopedProjectGroup === null
       ? null
       : new Set(
@@ -685,6 +700,12 @@ export function HomeScreen(props: HomeScreenProps) {
         timeLabel={item.timeLabel}
         showTrailingDivider={item.showTrailingDivider}
         project={projectByKey.get(scopedProjectKey(thread.environmentId, thread.projectId)) ?? null}
+        repositoryKey={(() => {
+          const project = projectByKey.get(
+            scopedProjectKey(thread.environmentId, thread.projectId),
+          );
+          return project ? spaceRepositoryKey(project, props.projects) : undefined;
+        })()}
         projectTitle={v2ProjectTitleByProjectKey.get(
           scopedProjectKey(thread.environmentId, thread.projectId),
         )}
@@ -771,7 +792,12 @@ export function HomeScreen(props: HomeScreenProps) {
   const spaceBar = spacesEnabled ? (
     // The column's bottom toolbar floats over this clearance, so the bar sits just above it.
     <View style={{ paddingBottom: iosBottomClearance }}>
-      <SidebarSpaceBar spaces={sidebarSpaces} projects={spaceSheetProjects} />
+      <SidebarSpaceBar
+        spaces={sidebarSpaces}
+        projects={spaceSheetProjects}
+        machines={props.environments}
+        machineColours={environmentAccentByEnvironmentId}
+      />
     </View>
   ) : null;
 

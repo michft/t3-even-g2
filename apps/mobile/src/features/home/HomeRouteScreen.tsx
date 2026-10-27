@@ -4,7 +4,7 @@ import { use } from "react";
 import { NativePrimaryColumnContext } from "../../native/v5-workspace-context";
 import * as Arr from "effect/Array";
 import * as Order from "effect/Order";
-import { useNavigation } from "@react-navigation/native";
+import { StackActions, useNavigation } from "@react-navigation/native";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Platform, useWindowDimensions } from "react-native";
 
@@ -55,14 +55,17 @@ export function HomeRouteScreen() {
   const navigation = useNavigation();
   const workspace = useWorkspaceTabs();
   const [localSearchQuery, setLocalSearchQuery] = useState("");
+  // Phone Home and the retained landscape sidebar share one query across navigation.
   const searchQuery =
-    Platform.OS === "android"
+    Platform.OS === "android" || deviceType === "phone"
       ? primarySidebarSearchQuery
       : (workspace?.state.tabs.threads.query ?? localSearchQuery);
   const setSearchQuery = (query: string) => {
-    if (Platform.OS === "android") setPrimarySidebarSearchQuery(query);
-    else if (workspace) workspace.dispatch({ type: "query", query, tab: "threads" });
-    else setLocalSearchQuery(query);
+    if (Platform.OS === "android" || deviceType === "phone") setPrimarySidebarSearchQuery(query);
+    if (Platform.OS !== "android") {
+      if (workspace) workspace.dispatch({ type: "query", query, tab: "threads" });
+      else setLocalSearchQuery(query);
+    }
   };
   const handleSelectThread = useHomeThreadSelection();
   const handleNewThreadOnBranch = useCallback(
@@ -287,6 +290,7 @@ export function HomeRouteScreen() {
           }
           onSearchQueryChange={setSearchQuery}
           onSelectThread={handleSelectThread}
+          onClearThread={() => navigation.dispatch(StackActions.popToTop())}
           onSelectPendingTask={openPendingTask}
           onDeletePendingTask={confirmDeletePendingTask}
           onNewThreadOnBranch={handleNewThreadOnBranch}

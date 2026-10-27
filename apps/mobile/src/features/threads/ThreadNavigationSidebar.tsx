@@ -19,8 +19,9 @@ import type { LayoutChangeEvent, TextInputInstance } from "react-native";
 import { Platform, StyleSheet, TextInput, View } from "react-native";
 import { GestureDetector, useNativeGesture } from "react-native-gesture-handler";
 import type { SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { SearchBarCommands } from "react-native-screens";
+import { useHardwareKeyboardCommand } from "../keyboard/hardwareKeyboardCommands";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppText as Text } from "../../components/ui/AppText";
 import { CompactBrandTitle } from "../../components/CompactBrandTitle";
@@ -28,6 +29,7 @@ import { Menu } from "../../components/ui/Menu";
 import { SymbolView } from "../../components/ui/AppSymbol";
 import { NATIVE_LIQUID_GLASS_SUPPORTED } from "../../native/native-glass";
 import { NativeStackScreenOptions } from "../../native/StackHeader";
+import { spaceRepositoryKey } from "../../lib/sidebarSpaces";
 import { scopedProjectKey, scopedThreadKey } from "../../lib/scopedEntities";
 import { useProjects, useNavigationThreadShells } from "../../state/entities";
 import { useThreadSearch } from "../../state/queries";
@@ -38,7 +40,6 @@ import { usePendingNewTasks, type PendingNewTask } from "../../state/use-pending
 import { useQueuedThreadKeys } from "../../state/use-thread-outbox";
 import { useWorkspaceState } from "../../state/workspace";
 import { useSavedRemoteConnections } from "../../state/use-remote-environment-registry";
-import { useHardwareKeyboardCommand } from "../keyboard/hardwareKeyboardCommands";
 import { useThreadJumpShortcuts } from "../keyboard/threadKeyboardShortcuts";
 import { useHomeListOptions } from "../home/home-list-options";
 import { buildHomeListFilterMenu } from "../home/home-list-filter-menu";
@@ -88,6 +89,7 @@ const SIDEBAR_STICKY_HEADER_HEIGHT = 106;
 interface ThreadNavigationSidebarProps {
   readonly width: number;
   readonly visible: boolean;
+  readonly usesSplitView: boolean;
   readonly selectedThreadKey: string | null;
   readonly onOpenSettings: () => void;
   readonly onOpenEnvironmentSettings: () => void;
@@ -138,8 +140,8 @@ function ThreadNavigationSidebarPane(
   const threads = useNavigationThreadShells();
   const { environments: workspaceEnvironments, state: catalogState } = useWorkspaceState();
   const { savedConnectionsById } = useSavedRemoteConnections();
-  const searchInputRef = useRef<TextInputInstance>(null);
   const searchBarRef = useRef<SearchBarCommands>(null);
+  const searchInputRef = useRef<TextInputInstance>(null);
   const openSwipeableRef = useRef<SwipeableMethods | null>(null);
   const sidebarScrollGesture = useNativeGesture();
   const {
@@ -538,7 +540,7 @@ function ThreadNavigationSidebarPane(
     threadSearchMatchByKey,
     workingShelfEnabled,
   };
-  useThreadJumpShortcuts(listItems, handleSelectThread);
+  useThreadJumpShortcuts(listItems, handleSelectThread, props.usesSplitView);
   const sidebarItemsAreEqual = (previous: SidebarListItem, item: SidebarListItem): boolean => {
     if (isThreadListV2ListItem(previous) && isThreadListV2ListItem(item)) {
       return threadListV2ListItemsAreEqual(previous, item);
@@ -548,24 +550,16 @@ function ThreadNavigationSidebarPane(
     }
     return false;
   };
-  const focusSearch = () => {
-    if (Platform.OS === "android") return false;
-    const focus = () => {
-      if (props.nativeChrome) {
-        searchBarRef.current?.focus();
-        return;
-      }
-      searchInputRef.current?.focus();
-    };
-    if (!props.visible) {
-      props.onRequestVisibility();
-      setTimeout(focus, 240);
-    } else {
-      focus();
-    }
+  const detailSearch = props.nativeChrome && props.selectedThreadKey !== null;
+  useEffect(() => {
+    if (detailSearch) searchBarRef.current?.setText(props.searchQuery);
+  }, [detailSearch, props.searchQuery]);
+  useHardwareKeyboardCommand("focusSearch", () => {
+    if (!detailSearch || !props.usesSplitView) return false;
+    if (!props.visible) props.onRequestVisibility();
+    searchBarRef.current?.focus();
     return true;
-  };
-  useHardwareKeyboardCommand("focusSearch", focusSearch);
+  });
   /** Sidebar colours follow the row destination even when another environment is selected. */
   const renderListItem = ({ item }: { readonly item: SidebarListItem }) => {
     switch (item.type) {
@@ -609,6 +603,11 @@ function ThreadNavigationSidebarPane(
             snoozeWakeLabelText={item.snoozeWakeLabelText}
             timeLabel={item.timeLabel}
             project={projectByKey.get(scopeKey) ?? null}
+            repositoryKey={
+              projectByKey.has(scopeKey)
+                ? spaceRepositoryKey(projectByKey.get(scopeKey)!, projects)
+                : undefined
+            }
             projectTitle={projectTitleByProjectKey.get(scopeKey)}
             providerInstance={resolveProviderInstance(thread)}
             providers={providersByEnvironmentId.get(thread.environmentId)}
@@ -745,7 +744,7 @@ function ThreadNavigationSidebarPane(
     return (
       <>
         <NativeStackScreenOptions
-          optionsVersion={[nativeHeaderItems, props.width]}
+          optionsVersion={[nativeHeaderItems, props.width, detailSearch]}
           options={{
             ...getConnectionAwareBrandHeaderOptions({
               headerWidth: props.width,
@@ -753,21 +752,22 @@ function ThreadNavigationSidebarPane(
               onOpenEnvironments: props.onOpenEnvironmentSettings,
               fallbackTitleStyle: { fontSize: 18, fontWeight: "800" },
             }),
-            headerSearchBarOptions: {
-              ref: searchBarRef,
-              autoCapitalize: "none",
-              hideNavigationBar: false,
-              hideWhenScrolling: false,
-              obscureBackground: false,
-              placeholder: "Search",
-              placement: "stacked",
-              onCancelButtonPress: () => {
-                props.onSearchQueryChange("");
-              },
-              onChangeText: (event) => {
-                props.onSearchQueryChange(event.nativeEvent.text);
-              },
-            },
+            // Home owns the other search control. With a detail open, keep one
+            // compact native Search button here instead of a permanent stacked row.
+            headerSearchBarOptions: detailSearch
+              ? {
+                  ref: searchBarRef,
+                  autoCapitalize: "none",
+                  hideNavigationBar: false,
+                  hideWhenScrolling: false,
+                  obscureBackground: false,
+                  placeholder: "Search threads",
+                  placement: "integratedButton",
+                  allowToolbarIntegration: true,
+                  onCancelButtonPress: () => props.onSearchQueryChange(""),
+                  onChangeText: ({ nativeEvent }) => props.onSearchQueryChange(nativeEvent.text),
+                }
+              : undefined,
             unstable_headerRightItems: () => nativeHeaderItems,
           }}
         />

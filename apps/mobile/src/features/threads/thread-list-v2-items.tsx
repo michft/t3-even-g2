@@ -31,7 +31,7 @@ import type { MenuAction } from "@react-native-menu/menu";
 import { memo, useCallback, useEffect, useMemo, useState, type ComponentProps } from "react";
 import { Platform, Pressable, useWindowDimensions, View } from "react-native";
 import { repositoryHighlightKey, resolveRepositoryHighlight } from "../../lib/repositoryHighlight";
-import { useRepositoryHighlight } from "./use-repository-highlight";
+import { useRepositoryHighlight, useSpaceMemberHighlights } from "./use-repository-highlight";
 import { ThreadRowColors } from "./ThreadRowColors";
 import type { SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
 
@@ -526,6 +526,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
   readonly snoozePresetMinute: string;
   readonly project: EnvironmentProject | null;
   readonly projectTitle?: string;
+  readonly repositoryKey?: string;
   readonly providers: ReadonlyArray<ThreadListProvider> | undefined;
   readonly providerInstance: ThreadRowProviderInstance | null;
   readonly environmentLabel: string | null;
@@ -622,18 +623,26 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
   } = useAppearancePreferences();
   const sidebarPane = props.pane === "sidebar";
   const selected = props.selected === true;
-  const repositoryKey = repositoryHighlightKey(
-    props.project?.repositoryIdentity,
-    thread.environmentId,
-    thread.projectId,
-  );
+  const repositoryKey =
+    props.repositoryKey ??
+    repositoryHighlightKey(
+      props.project?.repositoryIdentity,
+      thread.environmentId,
+      thread.projectId,
+    );
   const highlight = useRepositoryHighlight(repositoryKey);
   const handleRepositoryHighlightAction = highlight.handleAction;
   const repositoryColor = resolveRepositoryHighlight(highlight.override, repositoryKey);
+  const memberHighlights = useSpaceMemberHighlights(thread.environmentId, repositoryKey);
   const rowColors =
     Platform.OS === "ios" ? (
       <ThreadRowColors
-        serverColor={props.environmentAccent}
+        serverColor={
+          memberHighlights.machine === "none"
+            ? null
+            : (memberHighlights.machine ?? props.environmentAccent)
+        }
+        workType={memberHighlights.workType}
         repositoryColor={repositoryColor}
         mode={threadOriginColorMode}
         leftStrength={threadLeftTintStrength}
@@ -1031,6 +1040,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
           numberOfLines={1}
         >
           {props.projectTitle ?? props.project?.title ?? ""}
+          {memberHighlights.workType ? ` · ${memberHighlights.workType.name}` : ""}
         </Text>
         {props.hasQueuedMessages ? <QueuedMessageIcon selected={selected} /> : null}
         {pinnedRow ? (

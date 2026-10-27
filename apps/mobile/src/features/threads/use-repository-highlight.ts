@@ -4,6 +4,35 @@ import { useCallback, useMemo } from "react";
 import { repositoryHighlightMenuActions } from "../../lib/repositoryHighlight";
 import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
 import { isThreadHighlightOverride, updateThreadHighlight } from "../../lib/threadHighlight";
+import { resolveSpaceWorkType } from "../../lib/sidebarSpaces";
+
+const machineOverrideAtom = Atom.family((id: string) =>
+  Atom.make((get) => {
+    const preferences = get(mobilePreferencesAtom);
+    return AsyncResult.isSuccess(preferences)
+      ? preferences.value.machineHighlights?.[id]
+      : undefined;
+  }),
+);
+const workTypeAtom = Atom.family((key: string) => {
+  let previous: ReturnType<typeof resolveSpaceWorkType> = null;
+  return Atom.make((get) => {
+    const result = get(mobilePreferencesAtom);
+    const next = AsyncResult.isSuccess(result) ? resolveSpaceWorkType(key, result.value) : null;
+    // Unrelated Space memories change preferences often; keep unchanged row values stable.
+    if (previous?.name === next?.name && previous?.colour === next?.colour) return previous;
+    previous = next;
+    return next;
+  });
+});
+
+/** Canonical device-local machine and work-type colours remain distinct from repo colours. */
+export function useSpaceMemberHighlights(machineId: string, repositoryKey: string) {
+  return {
+    machine: useAtomValue(machineOverrideAtom(machineId)),
+    workType: useAtomValue(workTypeAtom(repositoryKey)),
+  };
+}
 
 const loadedAtom = Atom.make((get) => AsyncResult.isSuccess(get(mobilePreferencesAtom)));
 // Primitive selection keeps another repository's edits from repainting every visible row.
