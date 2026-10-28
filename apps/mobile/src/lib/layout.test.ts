@@ -7,6 +7,7 @@ import {
   deriveThreadWorkLogSizing,
   deriveWorkspacePaneLayout,
   isPrimarySidebarPinned,
+  rootSheetPresentsAsCard,
 } from "./layout";
 
 describe("iPhone landscape workspace", () => {
@@ -152,5 +153,15 @@ describe("alignListPaneToHinge", () => {
     };
     expect(alignListPaneToHinge(narrowList)).toBe(layout);
     expect(alignListPaneToHinge(narrowDetail)).toBe(layout);
+  });
+});
+
+describe("root sheet presentation", () => {
+  it("keeps a shown Settings or New Task presentation when the layout changes", () => {
+    // Opened in portrait as a sheet, then the phone rotates into the sidebar layout.
+    const shown = new Map([["settings-1", false]]);
+    expect(rootSheetPresentsAsCard(shown, "settings-1", true)).toBe(false);
+    // An opening not yet shown follows the current layout.
+    expect(rootSheetPresentsAsCard(shown, "settings-2", true)).toBe(true);
   });
 });
