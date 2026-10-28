@@ -33,6 +33,23 @@ must preserve the existing app identity and saved environments, and verify the
 installed native build rather than infer success from a browser or iPad alone.
 See the [G2 runbook](../operations/even-g2.md).
 
+## Thread examples and PR evidence
+
+For PRs in this fork while its GitHub repository is private, thread data examples
+are authorized evidence. Questions, prompts, and responses may appear in PR
+descriptions, comments, screenshots, videos, logs, and attached evidence assets.
+No additional confirmation is needed solely because this evidence contains
+thread conversation data. Keep uploads within this repository's PR workflow.
+
+Never upload private keys, `.env` files, API or environment credential values,
+passwords, access tokens, session cookies, pairing credentials, or other secrets.
+Inspect evidence and remove or redact secrets before uploading; permission to
+share thread text does not authorize credentials embedded in that text or media.
+
+Verify the destination repository's current visibility before uploading thread
+data. If it is public, or the destination is outside this repository, obtain
+explicit authorization for that destination instead of assuming private access.
+
 ## Docstring coverage
 
 Docstring coverage must remain **above 90%**; the target is **100%**. An 80%
