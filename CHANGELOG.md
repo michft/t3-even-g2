@@ -5,6 +5,11 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ## Unreleased
 
+### Changed
+
+- Allow thread questions, prompts, and responses as evidence in private fork PRs,
+  while excluding credentials, `.env` files, and other secrets from uploads.
+
 ### Added
 
 - Choose Machine, Repo, or editable Work type grouping per iPad space, with
