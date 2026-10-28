@@ -51,6 +51,7 @@ import { useUniwindTheme } from "../../lib/useUniwindTheme";
 import { themeColorWithAlpha } from "../../lib/mobileTheme";
 import { armAgentAwarenessLiveActivityForLocalWork } from "../agent-awareness/remoteRegistration";
 import { scopedThreadKey } from "../../lib/scopedEntities";
+import { spaceRepositoryKey } from "../../lib/sidebarSpaces";
 import { repositoryHighlightKey } from "../../lib/repositoryHighlight";
 import {
   getComposerDraftSnapshot,
@@ -62,7 +63,7 @@ import {
 } from "../../state/use-composer-drafts";
 import { appAtomRegistry } from "../../state/atom-registry";
 import type { ComposerDocumentAttachment } from "../../lib/composerContext";
-import { useProject, useThreadShells } from "../../state/entities";
+import { useProject, useProjects, useThreadShells } from "../../state/entities";
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 
 import { AppText as Text } from "../../components/ui/AppText";
@@ -361,6 +362,7 @@ export function ComposerSurface(props: {
 
 /** Question replies share this editor without taking ownership of the ordinary thread draft. */
 export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps) {
+  const allProjects = useProjects();
   const project = useProject(scopeProjectRef(props.environmentId, props.selectedThread.projectId));
   const { themeVariables: materialTheme } = useAppearancePreferences();
   const composerPanel = materialTheme["--color-composer-panel"];
@@ -702,11 +704,9 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
     selections: currentModelSelection.options,
   });
   const settingsOwnerId = composerOwnerKey;
-  const settingsRepositoryKey = repositoryHighlightKey(
-    project?.repositoryIdentity,
-    props.environmentId,
-    props.selectedThread.projectId,
-  );
+  const settingsRepositoryKey = project
+    ? spaceRepositoryKey(project, allProjects)
+    : repositoryHighlightKey(null, props.environmentId, props.selectedThread.projectId);
   const settingsRouteSession = {
     ownerId: settingsOwnerId,
     repositoryKey: settingsRepositoryKey,

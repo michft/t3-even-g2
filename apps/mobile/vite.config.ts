@@ -2,6 +2,7 @@ import { defineConfig } from "vite-plus";
 import "vite-plus/test/config";
 
 const reactTests = [
+  "src/features/threads/use-sidebar-spaces.test.tsx",
   "src/components/ui/Dialog.android.test.tsx",
   "src/features/even-g2/useEvenG2ThreadBridge.test.ts",
   "src/features/settings/SettingsServerControlsRouteScreen.test.tsx",

@@ -203,7 +203,26 @@ each device and do not sync, so a work computer can keep only work spaces.
 On iPad, the space bar sits at the bottom of the sidebar. Tap it to switch,
 create, edit, or delete spaces, or swipe sideways on the bar to page between
 them; thread rows keep their own swipe actions. iPad spaces are separate from
-the spaces on your computer. The phone thread list always shows every project.
+the spaces on your computer. Switching spaces restores the last thread opened in
+that space on this device. If it is no longer available, the most recently updated
+thread opens; an empty space clears the detail. Editing included members also
+updates the open thread. Losing an environment connection leaves navigation alone,
+so it does not dismiss Settings. The phone thread list always shows every project.
+
+Each iPad space has its own **Group by** choice: **Machine**, **Repo**, or
+**Work type**. Machine spaces include new projects from their selected machines;
+repo spaces include matching clones across connected machines. Work type spaces
+use one editable category per repository. Start with the suggested categories,
+add or rename your own, then assign repositories in the space editor. Unassigned
+repositories belong to **Unclassified**. Review the included members before saving
+a grouping change.
+
+Changing a space's color also changes its selected machines, repositories, or
+work types everywhere on this device. Overlapping spaces share those member
+colors; the latest explicit color edit wins. A space shows **Mixed** when its
+members have different colors. Select a color again to make them uniform.
+Changing only a name or grouping keeps existing member colors. Deleting a space
+keeps the colors and work-type assignments.
 
 ## Find and reference work
 

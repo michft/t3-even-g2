@@ -30,14 +30,16 @@ export function threadJumpTarget(
 export function useThreadJumpShortcuts(
   items: ReadonlyArray<ThreadShortcutListItem>,
   onSelectThread: (thread: EnvironmentThreadShell) => void,
+  enabled = true,
 ) {
   const jumpToThread = useCallback(
     (command: HardwareKeyboardCommand) => {
+      if (!enabled) return false;
       const thread = threadJumpTarget(items, command);
       if (thread !== null) onSelectThread(thread);
       return true;
     },
-    [items, onSelectThread],
+    [items, onSelectThread, enabled],
   );
   useHardwareKeyboardCommand(THREAD_JUMP_KEYBINDING_COMMANDS, jumpToThread);
 }

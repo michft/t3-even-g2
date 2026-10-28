@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   alignListPaneToHinge,
+  resolveListPaneContentWidth,
   deriveLayout,
   deriveThreadFeedInitialContentInset,
   deriveThreadWorkLogSizing,
@@ -163,5 +164,17 @@ describe("root sheet presentation", () => {
     expect(rootSheetPresentsAsCard(shown, "settings-1", true)).toBe(false);
     // An opening not yet shown follows the current layout.
     expect(rootSheetPresentsAsCard(shown, "settings-2", true)).toBe(true);
+  });
+});
+
+describe("sidebar content width after rotation", () => {
+  it("uses current iPhone landscape target even if initial portrait bounds were zero", () => {
+    expect(resolveListPaneContentWidth("ios", 280, 0, 0, 280, 0)).toBe(280);
+    expect(resolveListPaneContentWidth("ios", null, 280, 280, 0, 0)).toBe(0);
+  });
+  it("keeps Android hinge resizing inside its animated bounds", () => {
+    expect(resolveListPaneContentWidth("android", 320, 280, 360, 310, 10)).toBe(300);
+    expect(resolveListPaneContentWidth("android", 320, 280, 360, 200, 10)).toBe(280);
+    expect(resolveListPaneContentWidth("android", 320, 280, 360, 500, 10)).toBe(360);
   });
 });

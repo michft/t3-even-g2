@@ -260,6 +260,46 @@ describe("mobile connection storage", () => {
     });
   });
 
+  it("round-trips per-Space grouping, custom work types, assignments and canonical colours", async () => {
+    const preferences = {
+      themeMode: "dark" as const,
+      sidebarSpaces: {
+        spaces: [
+          {
+            id: "api",
+            name: "APIs",
+            color: "#3b82f6",
+            projectRefs: [],
+            groupBy: "work_type" as const,
+            workTypeIds: ["custom"],
+          },
+        ],
+        activeSpaceId: "api",
+      },
+      workTypes: [{ id: "custom", name: "My APIs" }],
+      repositoryWorkTypes: { "repository:github.com/example/api": "custom" },
+      repositoryHighlights: { "repository:github.com/example/api": "#123456" as const },
+      machineHighlights: { host: "none" as const },
+      workTypeHighlights: { custom: "#3b82f6" as const },
+    };
+    await savePreferencesPatch(preferences);
+    const persisted = mocks.getPreferencesJson()!;
+    mocks.clear();
+    mocks.setPreferencesJson(persisted, 10);
+    await expect(loadPreferences()).resolves.toEqual(preferences);
+  });
+
+  it("persists per-Space last-opened threads and discards malformed memories", async () => {
+    const sidebarSpaceLastThreadKeys = { all: "host:all-thread", "space:work": "host:work-thread" };
+    await savePreferencesPatch({ sidebarSpaceLastThreadKeys });
+    await expect(loadPreferences()).resolves.toMatchObject({ sidebarSpaceLastThreadKeys });
+    mocks.setPreferencesJson(
+      JSON.stringify({ themeMode: "dark", sidebarSpaceLastThreadKeys: { "space:work": 42 } }),
+      20,
+    );
+    await expect(loadPreferences()).resolves.toEqual({ themeMode: "dark" });
+  });
+
   it("clamps and rounds finite saved tint strengths", async () => {
     await expect(
       savePreferencesPatch({ threadLeftTintStrength: -5, threadRightTintStrength: 90 }),

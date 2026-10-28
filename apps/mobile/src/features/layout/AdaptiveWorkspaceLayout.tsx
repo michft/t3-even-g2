@@ -36,6 +36,7 @@ import { AsyncResult } from "effect/reactivity";
 
 import {
   deriveFileInspectorPaneLayout,
+  resolveListPaneContentWidth,
   alignListPaneToHinge,
   deriveLayout,
   type VerticalHinge,
@@ -328,6 +329,20 @@ function AdaptiveWorkspaceLayoutContent(
   const width = viewportWidth - navigationRailWidth;
   // The sidebar stays mounted under a workspace page, so its list is ready on the way back.
   const shouldRenderPrimarySidebar = layout.usesSplitView;
+  // Removing the sole attached screen during whole-host teardown queues an RNS
+  // root pop. Keep the iPhone native host after first use; compact mode clips it.
+  const [retainedSidebarWidth, setRetainedSidebarWidth] = useState(layout.listPaneWidth);
+  if (
+    Platform.OS === "ios" &&
+    layout.listPaneWidth !== null &&
+    retainedSidebarWidth !== layout.listPaneWidth
+  )
+    setRetainedSidebarWidth(layout.listPaneWidth);
+  const sidebarContentWidth =
+    layout.listPaneWidth ?? (Platform.OS === "ios" ? retainedSidebarWidth : null);
+  const mountPrimarySidebar =
+    shouldRenderPrimarySidebar || (Platform.OS === "ios" && retainedSidebarWidth !== null);
+
   const fileInspector = useMemo(
     () =>
       deriveFileInspectorPaneLayout({
@@ -666,15 +681,19 @@ function AdaptiveWorkspaceLayoutContent(
   // animated edge, so the header actions slide with it rather than jumping or being covered.
   const listPaneGap = layout.listPaneGap ?? 0;
   const listPaneAnimatedStyle = useAnimatedStyle(() => ({
-    width: Math.min(
+    width: resolveListPaneContentWidth(
+      Platform.OS,
+      sidebarContentWidth,
+      listPaneFloor,
       listPaneCeiling,
-      Math.max(listPaneFloor, renderedSidebarWidth.value - listPaneGap),
+      renderedSidebarWidth.value,
+      listPaneGap,
     ),
   }));
   const sidebarAnimatedStyle = useAnimatedStyle(() => ({
     // Fading a UIKit glass ancestor can leave remounted header effects missing.
     opacity: Platform.OS === "ios" ? 1 : Math.min(1, renderedSidebarWidth.value / 80),
-    width: renderedSidebarWidth.value,
+    width: Platform.OS === "ios" && !layout.usesSplitView ? 0 : renderedSidebarWidth.value,
   }));
 
   // The navigator (native header + markdown feed) lays out ONCE per pane toggle
@@ -782,7 +801,7 @@ function AdaptiveWorkspaceLayoutContent(
             {shouldRenderNavigationRail ? (
               <Animated.View className="self-stretch" style={railAnimatedStyle} />
             ) : null}
-            {shouldRenderPrimarySidebar && layout.listPaneWidth !== null ? (
+            {mountPrimarySidebar && sidebarContentWidth !== null ? (
               <Animated.View
                 className="self-stretch overflow-hidden"
                 accessibilityElementsHidden={!panes.primarySidebarVisible}
@@ -815,8 +834,9 @@ function AdaptiveWorkspaceLayoutContent(
                     >
                       <AndroidHomeFabLayout sidebar onStartNewTask={handleStartNewTask}>
                         <ThreadNavigationSidebar
-                          width={layout.listPaneWidth}
+                          width={sidebarContentWidth}
                           visible={panes.primarySidebarVisible}
+                          usesSplitView={layout.usesSplitView}
                           onRequestVisibility={revealPrimarySidebar}
                           selectedThreadKey={selectedThreadKey}
                           onOpenSettings={handleOpenSettings}

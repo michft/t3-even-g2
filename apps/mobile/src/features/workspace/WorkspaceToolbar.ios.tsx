@@ -36,10 +36,13 @@ export function WorkspaceToolbar(props: {
       (metrics?.verticalBarEdge ?? "none") !== "none");
   const { isTabActive } = workspace;
   const tabActive = use(NativeWorkspaceTabActivityContext)?.active ?? true;
-  const { panes, togglePrimarySidebar } = useAdaptiveWorkspaceLayout();
+  const { panes, togglePrimarySidebar, primarySidebarSearchQuery, setPrimarySidebarSearchQuery } =
+    useAdaptiveWorkspaceLayout();
   const searchRef = useRef<SearchBarCommands>(null);
   const tab = workspace.state.tabs[workspace.state.selectedTab];
   const selectedTab = workspace.state.selectedTab;
+  const sharedPhoneSearch = deviceType === "phone" && selectedTab === "threads";
+  const searchQuery = sharedPhoneSearch ? primarySidebarSearchQuery : tab.query;
   const enterSearch = useCallback(() => {
     workspace.dispatch({
       type: "scroll",
@@ -57,9 +60,9 @@ export function WorkspaceToolbar(props: {
   }, [workspace, selectedTab, enterSearch]);
   useHardwareKeyboardCommand("focusSearch", focusSearch);
   const restoreSearch = useCallback(() => {
-    if (isTabActive(selectedTab) && tab.searchMode !== "resting")
-      searchRef.current?.setText(tab.query);
-  }, [isTabActive, selectedTab, tab.searchMode, tab.query]);
+    if (isTabActive(selectedTab) && (sharedPhoneSearch || tab.searchMode !== "resting"))
+      searchRef.current?.setText(searchQuery);
+  }, [isTabActive, selectedTab, sharedPhoneSearch, tab.searchMode, searchQuery]);
   useFocusEffect(
     useCallback(() => {
       const frame = requestAnimationFrame(restoreSearch);
@@ -98,13 +101,18 @@ export function WorkspaceToolbar(props: {
                       : workspace.dispatch({ type: "search", tab: selectedTab }),
                   onBlur: () => workspace.dispatch({ type: "expand", tab: selectedTab }),
                   onSearchButtonPress: () => searchRef.current?.blur(),
-                  onChangeText: ({ nativeEvent }) =>
+                  onChangeText: ({ nativeEvent }) => {
                     workspace.dispatch({
                       type: "query",
                       query: nativeEvent.text,
                       tab: selectedTab,
-                    }),
+                    });
+                    if (deviceType === "phone" && selectedTab === "threads")
+                      setPrimarySidebarSearchQuery(nativeEvent.text);
+                  },
                   onCancelButtonPress: () => {
+                    if (deviceType === "phone" && selectedTab === "threads")
+                      setPrimarySidebarSearchQuery("");
                     workspace.recordScrollOffset(selectedTab, tab.searchEntryOffset);
                     workspace.dispatch({ type: "cancel", tab: selectedTab });
                   },

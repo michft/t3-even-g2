@@ -344,3 +344,18 @@ export function deriveCenteredContentHorizontalPadding(input: {
 
   return minimumPadding + Math.max(0, (viewportWidth - input.maxContentWidth) / 2);
 }
+
+/** Fixed iOS sidebar contents follow the target; Android hinge resizing follows its animated envelope. */
+export function resolveListPaneContentWidth(
+  platform: string,
+  target: number | null,
+  floor: number,
+  ceiling: number,
+  animatedWidth: number,
+  gap: number,
+): number {
+  "worklet";
+  return platform === "ios"
+    ? (target ?? 0)
+    : Math.min(ceiling, Math.max(floor, animatedWidth - gap));
+}
