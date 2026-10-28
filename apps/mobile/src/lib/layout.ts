@@ -176,6 +176,20 @@ export function alignListPaneToHinge(input: {
 }
 
 /**
+ * Whether Settings or New Task shows as a pushed card rather than a sheet. An opening keeps the
+ * presentation recorded in `shown` once it first appeared: UIKit cannot turn a presented sheet into
+ * a card, so following a rotation mid-presentation strands the screen without its close or back
+ * controls. An opening not yet shown follows the current layout.
+ */
+export function rootSheetPresentsAsCard(
+  shown: ReadonlyMap<string, boolean>,
+  routeKey: string,
+  usesWorkspaceFlowScreens: boolean,
+): boolean {
+  return shown.get(routeKey) ?? usesWorkspaceFlowScreens;
+}
+
+/**
  * Whether the workspace root must keep the primary sidebar open. Native split
  * columns keep a sidebar toggle in the empty detail header, so only they may
  * collapse it there. Compact layouts stay pinned so a reveal request (such as

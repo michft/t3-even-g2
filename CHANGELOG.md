@@ -17,6 +17,9 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 - Use the full width on the side of a landscape iPhone without the Dynamic Island,
   keeping content clear of the island instead of leaving both edges blank.
+  
+- Keep iPhone Settings and New Task closable when the phone rotates while they
+  are open, instead of leaving them stuck behind the sidebar layout.
 
 - Show the thread sidebar on iPhones in landscape with larger text or Display
   Zoom, as on iPad, instead of keeping the portrait layout.
