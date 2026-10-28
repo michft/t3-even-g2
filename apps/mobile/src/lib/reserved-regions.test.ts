@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vite-plus/test";
-import { deriveBottomControlInsets, type NativeLayoutMetrics } from "./reserved-regions";
+import {
+  deriveBottomControlInsets,
+  type NativeLayoutMetrics,
+  horizontalSafeAreaEdges,
+} from "./reserved-regions";
 import { deriveLayout, deriveWorkspacePaneLayout } from "./layout";
 
 const innerDisplay: NativeLayoutMetrics = {
@@ -86,5 +90,30 @@ describe("Duo workspace sizing", () => {
         auxiliaryPanePreferredVisible: false,
       }).contentPaneWidth,
     ).toBe(960);
+  });
+});
+
+describe("horizontal safe-area edges", () => {
+  const base = {
+    width: 874,
+    height: 402,
+    horizontalSizeClass: "compact" as const,
+    verticalBarEdge: "none" as const,
+    safeArea: { top: 0, bottom: 21, left: 62, right: 62 },
+    reservedRegions: [],
+  };
+
+  it("insets only the sensor housing side of a landscape iPhone", () => {
+    expect(horizontalSafeAreaEdges({ ...base, sensorHousingEdge: "left" })).toEqual(["left"]);
+    expect(horizontalSafeAreaEdges({ ...base, sensorHousingEdge: "right" })).toEqual(["right"]);
+  });
+
+  it("insets both sides when the housing side is unknown", () => {
+    expect(horizontalSafeAreaEdges({ ...base, sensorHousingEdge: "none" })).toEqual([
+      "left",
+      "right",
+    ]);
+    expect(horizontalSafeAreaEdges(base)).toEqual(["left", "right"]);
+    expect(horizontalSafeAreaEdges(null)).toEqual(["left", "right"]);
   });
 });

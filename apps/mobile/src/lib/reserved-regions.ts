@@ -12,6 +12,11 @@ export interface NativeLayoutMetrics {
   readonly hasHinge?: boolean;
   readonly horizontalSizeClass: "compact" | "regular";
   readonly verticalBarEdge: "none" | "left" | "right";
+  /**
+   * iOS: the side holding a landscape iPhone's sensor housing; absent on other platforms. When
+   * set, `safeArea` already omits the window's symmetric inset on the opposite side.
+   */
+  readonly sensorHousingEdge?: "none" | "left" | "right";
   readonly safeArea: {
     readonly top: number;
     readonly bottom: number;
@@ -19,6 +24,15 @@ export interface NativeLayoutMetrics {
     readonly right: number;
   };
   readonly reservedRegions: ReadonlyArray<ReservedRegion>;
+}
+
+/**
+ * Sides whose safe area insets column content. UIKit insets both sides of a landscape iPhone
+ * equally, but only the sensor housing needs avoiding, so the other side uses the full width.
+ */
+export function horizontalSafeAreaEdges(metrics: NativeLayoutMetrics | null): ("left" | "right")[] {
+  const edge = metrics?.sensorHousingEdge;
+  return edge === "left" || edge === "right" ? [edge] : ["left", "right"];
 }
 
 export function deriveBottomControlInsets(metrics: NativeLayoutMetrics | null) {

@@ -7,7 +7,8 @@ need a separate branch and working directory.
 
 Rotate your iPhone with system rotation lock off to get more reading space.
 The thread sidebar appears beside the conversation, as on iPad, at any text
-size or Display Zoom setting; only windows too narrow for both keep one pane. Rotate back to return to the
+size or Display Zoom setting; only windows too narrow for both keep one pane.
+Content keeps clear of the Dynamic Island and uses the full width on the other side. Rotate back to return to the
 phone layout. Terminal, Files, and Git remain available from **Thread tools**.
 
 ## Start a thread

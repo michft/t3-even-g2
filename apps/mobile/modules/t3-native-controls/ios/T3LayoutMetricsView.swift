@@ -7,6 +7,8 @@ final class T3LayoutMetricsView: ExpoView {
   let onMetricsChange = EventDispatcher()
   private var lastMetrics: NSDictionary?
   private var hasHinge: Bool? = false
+  // A 180° rotation keeps size and safe area, so only the scene geometry announces it.
+  private var geometryObservation: NSKeyValueObservation?
 
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
@@ -37,6 +39,9 @@ final class T3LayoutMetricsView: ExpoView {
   override func didMoveToWindow() {
     super.didMoveToWindow()
     lastMetrics = nil
+    geometryObservation = window?.windowScene?.observe(\.effectiveGeometry) { [weak self] _, _ in
+      DispatchQueue.main.async { self?.publishMetrics() }
+    }
     assumeNoHingeIfSilent()
     publishMetrics()
   }
@@ -90,14 +95,16 @@ final class T3LayoutMetricsView: ExpoView {
       }
     }
     #endif
+    let (sensorHousingEdge, safeArea) = housingAdjustedInsets(in: window)
     let metrics: [String: Any] = [
       "width": bounds.width, "height": bounds.height,
       "hasHinge": hasHinge,
       "horizontalSizeClass": traitCollection.horizontalSizeClass == .regular ? "regular" : "compact",
       "verticalBarEdge": verticalBarEdge,
+      "sensorHousingEdge": sensorHousingEdge,
       "safeArea": [
         "top": safeAreaInsets.top, "bottom": safeAreaInsets.bottom,
-        "left": safeAreaInsets.left, "right": safeAreaInsets.right,
+        "left": safeArea.left, "right": safeArea.right,
       ],
       "reservedRegions": regions,
     ]
@@ -105,5 +112,26 @@ final class T3LayoutMetricsView: ExpoView {
     guard lastMetrics?.isEqual(next) != true else { return }
     lastMetrics = next
     onMetricsChange(metrics)
+  }
+
+  /// UIKit insets both sides of a landscape iPhone's window equally; only the top of the device
+  /// holds the sensor housing. Interface landscapeRight puts the top of the device on the left.
+  /// Content keeps clear of the housing and uses the full width on the other side, so only the
+  /// window's symmetric inset comes off the opposite side. Any other reservation in this view's
+  /// inset, such as a Duo's system rail, which never reaches the window's safe area, stays.
+  private func housingAdjustedInsets(in window: UIWindow) -> (String, UIEdgeInsets) {
+    var insets = safeAreaInsets
+    let windowInsets = window.safeAreaInsets
+    guard traitCollection.userInterfaceIdiom == .phone, windowInsets.left > 0,
+      abs(windowInsets.left - windowInsets.right) < 0.5 else { return ("none", insets) }
+    switch window.windowScene?.effectiveGeometry.interfaceOrientation {
+    case .landscapeRight:
+      insets.right = max(0, insets.right - windowInsets.right)
+      return ("left", insets)
+    case .landscapeLeft:
+      insets.left = max(0, insets.left - windowInsets.left)
+      return ("right", insets)
+    default: return ("none", insets)
+    }
   }
 }
