@@ -71,9 +71,9 @@ describe("plain text question answers", () => {
     );
   });
   it("renders numbered inert choices and only offers free text when supported", () => {
-    expect(formatUserInputQuestions([question])).toContain("1. Same label — First runtime");
+    expect(formatUserInputQuestions([question])).toContain("1. Same label: First runtime");
     expect(formatUserInputQuestions([question])).toContain(
-      "3. Something else — reply in your own words.",
+      "3. Something else: reply in your own words.",
     );
     expect(formatUserInputQuestions([{ ...question, allowCustomAnswer: false }])).not.toContain(
       "Something else",

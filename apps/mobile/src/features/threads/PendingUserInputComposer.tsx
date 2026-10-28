@@ -80,6 +80,7 @@ function PendingQuestionComposer(
     disabled,
   });
   // Voice input reads this same question-scoped composer draft.
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- writes restored answer text into the question-scoped composer draft store that voice input reads
   useEffect(
     /** Keep the question composer snapshot aligned with restored answer text. */ () => {
       setComposerDraftText(attachments.key, text);

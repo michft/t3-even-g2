@@ -98,25 +98,30 @@ export function useEvenG2ThreadBridge(
   // ThreadDetailScreen: https://github.com/facebook/react/issues/34818.
   // Refresh committed input before native events without restarting subscriptions.
   const inputRef = useRef(input);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- refreshes committed input read by native G2 event handlers without restarting their subscriptions
   useLayoutEffect(() => {
     inputRef.current = input;
   }, [input]);
   const historyBridgeRef = useRef<ReturnType<typeof createEvenG2HistoryBridge> | null>(null);
 
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- subscribes the focused thread to native G2 dictation events
   useEffect(() => {
     if (input.enabled) {
       return subscribeEvenG2Dictation(() => inputRef.current);
     }
   }, [input.enabled]);
 
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- tells the native G2 driver which thread is focused
   useEffect(() => {
     if (input.enabled) setEvenG2ActiveThread(input.threadKey, true);
   }, [input.enabled, input.threadKey]);
 
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- mirrors the thread status line onto the G2 display
   useEffect(() => {
     if (input.enabled) setEvenG2ThreadActivity(input.threadKey, input.activityText ?? "");
   }, [input.enabled, input.threadKey, input.activityText]);
 
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- holds the native G2 reply-history subscriptions for the focused thread
   useEffect(() => {
     if (!input.enabled) return;
     const bridge = createEvenG2HistoryBridge({
@@ -132,6 +137,7 @@ export function useEvenG2ThreadBridge(
     // oxlint-disable-next-line react/exhaustive-effect-dependencies -- A route change reloads the selected thread's cached history.
   }, [input.enabled, input.threadKey]);
 
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- pushes loaded replies to the native G2 history bridge
   useEffect(() => {
     if (!input.enabled) return;
     historyBridgeRef.current?.update({

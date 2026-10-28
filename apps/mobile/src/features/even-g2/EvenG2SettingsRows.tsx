@@ -25,10 +25,11 @@ const statusLabels = {
   unsupported: "Unavailable",
 } as const;
 
-/** Shows Even G2 controls at the end of the iOS Interface settings section. */
+/** Shows Even G2 controls in their own iOS settings section. */
 export function EvenG2SettingsRows() {
   const status = useEvenG2Status();
 
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- starts the native G2 auto-connect session once Settings shows its controls
   useEffect(() => {
     ensureEvenG2AutoConnect();
   }, []);

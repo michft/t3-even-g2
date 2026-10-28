@@ -48,7 +48,9 @@ async function desktopAppearanceFixture(appearanceMode: "system" | "dark" = "sys
     classList: { add: vi.fn(), remove: vi.fn(), toggle: vi.fn() },
     offsetHeight: 0,
   };
-  vi.doMock("react", () => ({
+  // Modules useTheme imports create contexts at load, so keep the rest of React real.
+  vi.doMock("react", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("react")>()),
     useCallback: <A>(callback: A) => callback,
     useEffect: () => undefined,
     useSyncExternalStore: (
@@ -61,7 +63,11 @@ async function desktopAppearanceFixture(appearanceMode: "system" | "dark" = "sys
   }));
   vi.stubGlobal("window", {
     localStorage: storage,
-    desktopBridge: { setTheme },
+    // The palette's server-state imports read other bridge methods at load; they report nothing.
+    desktopBridge: new Proxy(
+      { setTheme },
+      { get: (bridge, key) => (key in bridge ? bridge[key as "setTheme"] : () => null) },
+    ),
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
     matchMedia: () => ({

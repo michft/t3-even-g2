@@ -57,6 +57,7 @@ function ThreadPickerContent() {
     else showEvenG2ThreadPicker();
   });
 
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- subscribes to native R1 thread selections and starts G2 auto-connect while mounted
   useEffect(() => {
     if (Platform.OS !== "ios") return;
     const unsubscribe = subscribeEvenG2ThreadSelections(chooseThread);
@@ -64,6 +65,7 @@ function ThreadPickerContent() {
     return unsubscribe;
   }, []);
 
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- pushes the current thread list to the native G2 picker
   useEffect(() => {
     if (Platform.OS === "ios") setEvenG2ThreadChoices(choices);
   }, [choices]);

@@ -52,6 +52,7 @@ export function SidebarSpaceBar(props: {
 }) {
   const { spaces } = props;
   const [sheet, setSheet] = useState<SheetState | null>(null);
+  // oxlint-disable-next-line react/capitalized-calls -- Gesture.Pan is a gesture factory, not a React component.
   const swipe = Gesture.Pan()
     .activeOffsetX([-12, 12])
     .failOffsetY([-12, 12])

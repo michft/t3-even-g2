@@ -74,6 +74,7 @@ final class T3LayoutMetricsView: ExpoView {
     }
     var verticalBarEdge = "none"
     var regions: [[String: Any]] = []
+    var bottomBarInset: CGFloat?
     #if canImport(UIKit, _version: 9127.0.85)
     if #available(iOS 27.1, *) {
       let rtl = effectiveUserInterfaceLayoutDirection == .rightToLeft
@@ -82,6 +83,8 @@ final class T3LayoutMetricsView: ExpoView {
       case .trailing: verticalBarEdge = rtl ? "left" : "right"
       default: break
       }
+      // Where UIKit floats a bar as tall as the app's bottom controls, level with its tab bar.
+      bottomBarInset = edgeInsets(for: .bar(onEdge: UIRectEdge.bottom, extent: 48)).bottom
       for kind in [UIView.ReservedRegion.Kind.division, .occlusion] {
         for region in reservedRegions(kind: kind) where region.isActive {
           let frame = region.frame.intersection(bounds)
@@ -96,7 +99,7 @@ final class T3LayoutMetricsView: ExpoView {
     }
     #endif
     let (sensorHousingEdge, safeArea) = housingAdjustedInsets(in: window)
-    let metrics: [String: Any] = [
+    var metrics: [String: Any] = [
       "width": bounds.width, "height": bounds.height,
       "hasHinge": hasHinge,
       "horizontalSizeClass": traitCollection.horizontalSizeClass == .regular ? "regular" : "compact",
@@ -108,6 +111,7 @@ final class T3LayoutMetricsView: ExpoView {
       ],
       "reservedRegions": regions,
     ]
+    metrics["bottomBarInset"] = bottomBarInset
     let next = metrics as NSDictionary
     guard lastMetrics?.isEqual(next) != true else { return }
     lastMetrics = next

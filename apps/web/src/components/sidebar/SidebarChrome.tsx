@@ -40,7 +40,7 @@ export const SidebarChromeHeader = memo(function SidebarChromeHeader({
   const environmentIdentificationMode = useEnvironmentIdentificationMode();
   const backdropVariant = resolveSidebarStageBackdropVariant(
     stageLabel,
-    environmentIdentificationMode === "artwork",
+    environmentIdentificationMode,
   );
   const pillLabel =
     environmentIdentificationMode === "pill"
@@ -156,7 +156,7 @@ function SidebarUtilityItem({
   );
 }
 
-export const SidebarUtilityMenu = memo(function SidebarUtilityMenu({
+const SidebarUtilityMenu = memo(function SidebarUtilityMenu({
   trailing,
 }: {
   trailing?: ReactNode;
@@ -216,7 +216,7 @@ export const SidebarUtilityMenu = memo(function SidebarUtilityMenu({
           {pullRequestsSupported ? (
             <SidebarUtilityItem
               icon={<PullRequestGlyph.pullRequest />}
-              label="Pull Requests"
+              label="Pull requests"
               onClick={handlePullRequestsClick}
             />
           ) : null}
@@ -236,13 +236,15 @@ export const SidebarUtilityMenu = memo(function SidebarUtilityMenu({
 });
 
 export const SidebarChromeFooter = memo(function SidebarChromeFooter({
+  showUndoNotice = false,
   utilityTrailing,
 }: {
+  showUndoNotice?: boolean;
   utilityTrailing?: ReactNode;
 }) {
   return (
     <SidebarFooter>
-      <SidebarThreadUndoNotice />
+      {showUndoNotice ? <SidebarThreadUndoNotice /> : null}
       <SidebarProviderUpdatePill />
       <SidebarUpdateArchitectureWarning />
       <SidebarUtilityMenu trailing={utilityTrailing} />

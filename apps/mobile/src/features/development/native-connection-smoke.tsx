@@ -96,6 +96,7 @@ let smokeRun: Promise<NativeSmokeResult> | undefined;
 /** Render only safe progress; remounts share the one credential-consuming run. */
 export default function NativeConnectionSmoke() {
   const [status, setStatus] = useState("Testing native connections…");
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- hides the native splash and subscribes this screen to the shared smoke run while mounted
   useEffect(() => {
     void SplashScreen.hideAsync().catch(() => {});
     if (smokeRun === undefined) smokeRun = runNativeConnectionSmoke();
