@@ -7,6 +7,10 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ### Changed
 
+- Integrate T3 Nightly `v0.1.6-nightly.20261030.3940`, retaining G2/R1 controls,
+  Spaces, host colours, numbered question replies, and iPhone landscape/search
+  behaviour while adopting upstream shared answer helpers and mobile updates.
+
 - Integrate T3 Nightly `v0.1.4-nightly.20261028.3814`, preserving G2 controls,
   spaces, host tints, numbered replies, signing, and GitHub-hosted runners. Even
   G2 controls move to their own Settings section, and Codex now uses its native

@@ -5,9 +5,9 @@ import { ThreadComposer, type ThreadComposerProps } from "./ThreadComposer";
 import { useQuestionAttachments } from "./use-question-attachments";
 import {
   buildPendingUserInputAnswers,
-  type PendingUserInput,
   type PendingUserInputDraftAnswer,
-} from "../../lib/threadActivity";
+} from "@t3tools/client-runtime/state/pending-user-input";
+import type { PendingUserInput } from "../../lib/threadActivity";
 import { setComposerDraftText, getComposerDraftSnapshot } from "../../state/use-composer-drafts";
 import { replaceTextSelection } from "@t3tools/client-runtime/text-paste";
 import type { RuntimeRequestId } from "@t3tools/contracts";

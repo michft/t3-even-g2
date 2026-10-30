@@ -1,3 +1,4 @@
+import type { PendingUserInputQuestion } from "../state/pendingUserInput.ts";
 import {
   type OrchestrationV2UserInputQuestion,
   type UserInputAttachmentAnswerPayload,
@@ -95,7 +96,7 @@ export function formatUserInputQuestions(
  * replies become trimmed custom text where allowed; blank or "Something else" alone is null.
  */
 export function resolveUserInputTextAnswer(
-  question: OrchestrationV2UserInputQuestion,
+  question: Pick<PendingUserInputQuestion, "options" | "multiSelect" | "allowCustomAnswer">,
   text: string,
 ): string | string[] | null {
   const answer = text.trim();

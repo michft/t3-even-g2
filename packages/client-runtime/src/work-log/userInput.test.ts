@@ -16,10 +16,7 @@ describe("plain text question answers", () => {
     expect(resolveUserInputTextAnswer(question, " 1 ")).toBe(" first\t");
     expect(resolveUserInputTextAnswer(question, "2")).toBe("second");
     expect(
-      resolveUserInputTextAnswer(
-        { ...question, options: [{ label: "Only label", description: "" }] },
-        "1",
-      ),
+      resolveUserInputTextAnswer({ ...question, options: [{ label: "Only label" }] }, "1"),
     ).toBe("Only label");
   });
   it("preserves free text and requires words for Something else", () => {
@@ -90,7 +87,7 @@ describe("plain text question answers", () => {
 it("preserves empty provider option IDs", () => {
   expect(
     resolveUserInputTextAnswer(
-      { ...question, options: [{ label: "Empty result", description: "", value: "" }] },
+      { ...question, options: [{ label: "Empty result", value: "" }] },
       "1",
     ),
   ).toBe("");
