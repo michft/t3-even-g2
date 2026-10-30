@@ -8,7 +8,6 @@ import {
   deriveThreadWorkLogSizing,
   deriveWorkspacePaneLayout,
   isPrimarySidebarPinned,
-  rootSheetPresentsAsCard,
 } from "./layout";
 
 describe("iPhone landscape workspace", () => {
@@ -107,6 +106,75 @@ describe("deriveThreadFeedInitialContentInset", () => {
   });
 });
 
+describe("native workspace sizing", () => {
+  it.each([
+    { width: 669, height: 951, hasHinge: true, nativeWorkspace: true, overlay: true },
+    { width: 951, height: 669, hasHinge: true, nativeWorkspace: true, overlay: false },
+    { width: 669, height: 951, hasHinge: false, nativeWorkspace: true, overlay: false },
+    { width: 669, height: 951, hasHinge: true, nativeWorkspace: false, overlay: false },
+  ])(
+    "overlays only a native unfolded portrait Duo sidebar: %j",
+    ({ overlay, nativeWorkspace, ...size }) => {
+      const nativeMetrics = {
+        ...size,
+        horizontalSizeClass: "regular" as const,
+        verticalBarEdge: "none" as const,
+        safeArea: { top: 24, bottom: 20, left: 0, right: 0 },
+        reservedRegions: [],
+      };
+      const layout = deriveLayout({ ...size, nativeMetrics, nativeWorkspace });
+      expect(layout.primarySidebarOverlaysContent).toBe(overlay);
+      for (const primarySidebarPreferredVisible of [true, false]) {
+        expect(
+          deriveWorkspacePaneLayout({
+            layout,
+            viewportWidth: size.width,
+            primarySidebarPreferredVisible,
+            auxiliaryPanePreferredVisible: false,
+          }).contentPaneWidth,
+        ).toBe(
+          !overlay && primarySidebarPreferredVisible
+            ? size.width - (layout.listPaneWidth ?? 0)
+            : size.width,
+        );
+      }
+    },
+  );
+
+  it("keeps the detail mounted in a narrow iPad window while UIKit still has two columns", () => {
+    const nativeMetrics = {
+      width: 715,
+      height: 1013.5,
+      hasHinge: false,
+      horizontalSizeClass: "regular" as const,
+      verticalBarEdge: "none" as const,
+      safeArea: { top: 32, bottom: 20, left: 0, right: 0 },
+      reservedRegions: [],
+    };
+    expect(deriveLayout({ ...nativeMetrics, nativeMetrics, nativeWorkspace: true })).toMatchObject({
+      usesSplitView: true,
+      listPaneWidth: 280,
+    });
+  });
+
+  it.each([
+    { width: 600, horizontalSizeClass: "regular" as const, split: true },
+    { width: 599, horizontalSizeClass: "regular" as const, split: false },
+    { width: 715, horizontalSizeClass: "compact" as const, split: false },
+  ])("respects UIKit collapse and native column minimums: %j", ({ split, ...size }) => {
+    const nativeMetrics = {
+      ...size,
+      height: 800,
+      verticalBarEdge: "none" as const,
+      safeArea: { top: 32, bottom: 20, left: 0, right: 0 },
+      reservedRegions: [],
+    };
+    expect(
+      deriveLayout({ ...nativeMetrics, nativeMetrics, nativeWorkspace: true }).usesSplitView,
+    ).toBe(split);
+  });
+});
+
 describe("isPrimarySidebarPinned", () => {
   // regression: #20406 sidebar toggle works on iPad and iPhone Duo
   it("keeps compact native roots pinned so search cannot hide the sidebar for a later split", () => {
@@ -117,6 +185,26 @@ describe("isPrimarySidebarPinned", () => {
 });
 
 describe("deriveWorkspacePaneLayout", () => {
+  it("lets UIKit keep the sidebar independent of the inspector in landscape", () => {
+    const layout = deriveLayout({ width: 1_194, height: 834 });
+    for (const primarySidebarPreferredVisible of [true, false]) {
+      expect(
+        deriveWorkspacePaneLayout({
+          layout,
+          viewportWidth: 1_194,
+          nativeWorkspace: true,
+          primarySidebarPreferredVisible,
+          auxiliaryPanePreferredVisible: true,
+          auxiliaryPaneRole: "inspector",
+        }),
+      ).toMatchObject({
+        primarySidebarVisible: primarySidebarPreferredVisible,
+        primarySidebarSuppressedByAuxiliary: false,
+        auxiliaryPaneVisible: true,
+      });
+    }
+  });
+
   it("keeps an explicitly hidden thread sidebar hidden when the file inspector is visible", () => {
     const layout = deriveLayout({ width: 1_024, height: 1_366 });
 
@@ -154,16 +242,6 @@ describe("alignListPaneToHinge", () => {
     };
     expect(alignListPaneToHinge(narrowList)).toBe(layout);
     expect(alignListPaneToHinge(narrowDetail)).toBe(layout);
-  });
-});
-
-describe("root sheet presentation", () => {
-  it("keeps a shown Settings or New Task presentation when the layout changes", () => {
-    // Opened in portrait as a sheet, then the phone rotates into the sidebar layout.
-    const shown = new Map([["settings-1", false]]);
-    expect(rootSheetPresentsAsCard(shown, "settings-1", true)).toBe(false);
-    // An opening not yet shown follows the current layout.
-    expect(rootSheetPresentsAsCard(shown, "settings-2", true)).toBe(true);
   });
 });
 

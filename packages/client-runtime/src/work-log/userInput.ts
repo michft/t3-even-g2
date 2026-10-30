@@ -69,11 +69,11 @@ export function formatUserInputQuestions(
                 option,
                 optionIndex,
               ) =>
-                `${optionIndex + 1}. ${option.label}${option.description && option.description !== option.label ? ` — ${option.description}` : ""}`,
+                `${optionIndex + 1}. ${option.label}${option.description && option.description !== option.label ? `: ${option.description}` : ""}`,
             ),
           );
           if (question.allowCustomAnswer !== false)
-            lines.push(`${question.options.length + 1}. Something else — reply in your own words.`);
+            lines.push(`${question.options.length + 1}. Something else: reply in your own words.`);
           lines.push(
             "",
             question.multiSelect
@@ -90,16 +90,9 @@ export function formatUserInputQuestions(
 }
 
 /**
- * Resolve typed choices without changing provider option IDs or allowing forbidden custom answers.
- * Trim the reply and match valid 1-based option numbers before case-insensitive
- * labels or exact option values, using the label when an option has no value.
- * For multi-select questions, accept comma-separated numbers or labels/values;
- * a whole label/value match takes precedence over splitting a word list.
- * Matched multi-select values are deduplicated in reply order and returned as
- * an array; a single-select match returns its value, which may be empty.
- * Return null for blank replies or the displayed "Something else" number alone.
- * Unmatched replies, including partially matched lists, return trimmed custom
- * text when allowed, or null otherwise.
+ * Resolve typed choices to option values; numbers win over labels, whole labels over lists.
+ * Multi-select returns deduplicated values in reply order. Unmatched or partly matched
+ * replies become trimmed custom text where allowed; blank or "Something else" alone is null.
  */
 export function resolveUserInputTextAnswer(
   question: OrchestrationV2UserInputQuestion,

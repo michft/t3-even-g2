@@ -563,7 +563,7 @@ driver require an updated native app.
 16. Select a thread, lock the phone, then dictate/send twice. Verify each
     message reaches that thread once.
 17. Power-cycle the glasses. Confirm recovery and two consecutive dictations. If
-    needed, separately test **Settings → Interface → Resume T3 display**.
+    needed, separately test **Settings → Even G2 → Resume T3 display**.
 
 For each failure, record
 `step | input device | starting screen/reply/page | exact gesture order |

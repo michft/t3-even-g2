@@ -49,6 +49,7 @@ export function useSidebarSpaces(
     pending: { outgoing: string | null; incoming: string | null } | null;
   } | null>(null);
 
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- drives workspace navigation to the remembered thread when the active Space or its scope changes
   useEffect(() => {
     if (!loaded || selection === undefined) {
       navigation.current = null;

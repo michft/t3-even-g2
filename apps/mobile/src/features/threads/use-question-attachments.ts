@@ -20,13 +20,9 @@ import {
 } from "../../state/question-attachments";
 
 /**
- * Manage the active question's attachment draft and picker, paste, and removal callbacks.
- * `questions` must include the whole request to enforce its shared attachment limit.
- * `canAttach` reflects provider support and custom-answer permission; callbacks
- * also honor `disabled`. Picker errors and rejected paste promises show alerts;
- * individual image conversion failures are skipped by the paste helper.
- * Files prepared after leaving the question or resolving its request are passed
- * to best-effort unused-file cleanup.
+ * The active question's attachment draft with picker, paste, and removal callbacks.
+ * `questions` is the whole request, which shares one attachment limit. Files prepared
+ * after the question changes or resolves go to best-effort unused-file cleanup.
  */
 export function useQuestionAttachments(props: {
   requestId: string;
@@ -45,12 +41,14 @@ export function useQuestionAttachments(props: {
   ]);
   const pickerScope = useRef<{ key: string; active: boolean } | null>(null);
   const disabledRef = useRef(props.disabled);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- mirrors committed editability into the ref async picker completions check
   useLayoutEffect(
     /** Keep async completion guards aligned with the question's committed editable state. */ () => {
       disabledRef.current = props.disabled;
     },
     [props.disabled],
   );
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- invalidates in-flight picker and paste results when the question changes or unmounts
   useEffect(
     /** Track whether asynchronous attachment work still belongs to the active question. */ () => {
       const scope = { key: scopeKey, active: true };

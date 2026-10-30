@@ -14,15 +14,7 @@ export type ThreadListProvider = Pick<
   "instanceId" | "driver" | "enabled" | "displayName" | "accentColor" | "iconUrl"
 >;
 
-const capabilityKeys = [
-  "threadSettlement",
-  "threadSnooze",
-  "threadPinning",
-  "threadAutoSettleOptOut",
-  "threadPinReorder",
-  "threadActiveReorder",
-  "threadTitleRegeneration",
-] as const;
+const capabilityKeys = ["threadAutoSettleOptOut"] as const;
 
 /** Resolve host canvas and accent independently for the device appearance. */
 function selectEnvironment(config: ServerConfig, appearance?: ThemeAppearance) {
@@ -41,6 +33,7 @@ function selectEnvironment(config: ServerConfig, appearance?: ThemeAppearance) {
     environmentColor: resolveMobileEnvironmentThemeColor(config, appearance),
     environmentAccent: resolveMobileEnvironmentThemeColor(config, appearance, "accent"),
     capabilities: config.environment.capabilities,
+    snoozePresets: config.settings.snoozePresets,
   };
 }
 
@@ -71,41 +64,35 @@ function collectEnvironments(environments: ReadonlyMap<EnvironmentId, ListEnviro
   const machineByEnvironmentId = new Map<EnvironmentId, EnvironmentMachineKind>();
   const environmentColorByEnvironmentId = new Map<EnvironmentId, string | null>();
   const environmentAccentByEnvironmentId = new Map<EnvironmentId, string | null>();
-  const settlementEnvironmentIds = new Set<EnvironmentId>();
-  const snoozeEnvironmentIds = new Set<EnvironmentId>();
-  const pinningEnvironmentIds = new Set<EnvironmentId>();
+  // Every protocol-2 server supports these thread actions; they only wait for its config.
+  const loadedEnvironmentIds = new Set<EnvironmentId>();
   const autoSettleOptOutEnvironmentIds = new Set<EnvironmentId>();
-  const pinReorderEnvironmentIds = new Set<EnvironmentId>();
-  const activeReorderEnvironmentIds = new Set<EnvironmentId>();
-  const titleRegenerationEnvironmentIds = new Set<EnvironmentId>();
+  const snoozePresetsByEnvironmentId = new Map<EnvironmentId, ListEnvironment["snoozePresets"]>();
   for (const [
     id,
-    { providers, machineKind, environmentColor, environmentAccent, capabilities },
+    { providers, machineKind, environmentColor, environmentAccent, capabilities, snoozePresets },
   ] of environments) {
     providersByEnvironmentId.set(id, providers);
+    snoozePresetsByEnvironmentId.set(id, snoozePresets);
     machineByEnvironmentId.set(id, machineKind);
     environmentColorByEnvironmentId.set(id, environmentColor);
     environmentAccentByEnvironmentId.set(id, environmentAccent);
-    if (capabilities.threadSettlement === true) settlementEnvironmentIds.add(id);
-    if (capabilities.threadSnooze === true) snoozeEnvironmentIds.add(id);
+    loadedEnvironmentIds.add(id);
     if (capabilities.threadAutoSettleOptOut === true) autoSettleOptOutEnvironmentIds.add(id);
-    if (capabilities.threadPinning === true) pinningEnvironmentIds.add(id);
-    if (capabilities.threadPinReorder === true) pinReorderEnvironmentIds.add(id);
-    if (capabilities.threadActiveReorder === true) activeReorderEnvironmentIds.add(id);
-    if (capabilities.threadTitleRegeneration === true) titleRegenerationEnvironmentIds.add(id);
   }
   return {
     providersByEnvironmentId,
     machineByEnvironmentId,
     environmentColorByEnvironmentId,
     environmentAccentByEnvironmentId,
-    settlementEnvironmentIds,
-    snoozeEnvironmentIds,
-    pinningEnvironmentIds,
+    settlementEnvironmentIds: loadedEnvironmentIds,
+    snoozeEnvironmentIds: loadedEnvironmentIds,
+    pinningEnvironmentIds: loadedEnvironmentIds,
     autoSettleOptOutEnvironmentIds,
-    pinReorderEnvironmentIds,
-    activeReorderEnvironmentIds,
-    titleRegenerationEnvironmentIds,
+    pinReorderEnvironmentIds: loadedEnvironmentIds,
+    activeReorderEnvironmentIds: loadedEnvironmentIds,
+    titleRegenerationEnvironmentIds: loadedEnvironmentIds,
+    snoozePresetsByEnvironmentId,
   };
 }
 
@@ -125,12 +112,16 @@ export function createThreadListEnvironmentsAtom(
       if (prior && sameProviders(prior.providers, selected.providers)) {
         selected.providers = prior.providers;
       }
+      if (prior && JSON.stringify(prior.snoozePresets) === JSON.stringify(selected.snoozePresets)) {
+        selected.snoozePresets = prior.snoozePresets;
+      }
       const unchanged =
         prior &&
         prior.providers === selected.providers &&
         prior.machineKind === selected.machineKind &&
         prior.environmentColor === selected.environmentColor &&
         prior.environmentAccent === selected.environmentAccent &&
+        prior.snoozePresets === selected.snoozePresets &&
         capabilityKeys.every(
           (key) => (prior.capabilities[key] === true) === (selected.capabilities[key] === true),
         );

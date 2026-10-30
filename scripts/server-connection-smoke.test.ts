@@ -48,7 +48,11 @@ class ConfigSocket extends EventTarget {
   send(data: string) {
     const request = JSON.parse(data);
     expect(request.tag).toBe("subscribeServerConfig");
-    expect(request.payload).toEqual({ usageLimitSources: true, usageLimitsCommand: true });
+    expect(request.payload).toEqual({
+      usageLimitSources: true,
+      usageLimitsCommand: true,
+      workspaceSnapshotsOnDemand: true,
+    });
     this.dispatchEvent(
       new MessageEvent("message", {
         data: JSON.stringify({

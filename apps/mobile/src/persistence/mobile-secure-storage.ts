@@ -60,7 +60,7 @@ function isLockedKeychain(error: MobileSecureStorageError): boolean {
   );
 }
 
-export const make = MobileSecureStorage.of({
+const make = MobileSecureStorage.of({
   getItem: Effect.fn("MobileSecureStorage.getItem")((key) =>
     Effect.tryPromise({
       try: () => SecureStore.getItemAsync(key),

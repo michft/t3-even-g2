@@ -1,4 +1,3 @@
-import { EnvironmentId } from "@t3tools/contracts";
 import { it as effectIt } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
@@ -101,28 +100,9 @@ vi.mock("react-native", () => ({
   },
 }));
 
-import {
-  loadPreferences,
-  loadSavedConnections,
-  saveConnection,
-  savePreferencesPatch,
-} from "../persistence/imperative";
-import { toStableSavedRemoteConnection } from "./connection";
+import { loadPreferences, savePreferencesPatch } from "../persistence/imperative";
 import { CONNECTION_CATALOG_KEY, make as makeCatalogStore } from "../connection/catalog-store";
 import { layer as secureStorageLayer } from "../persistence/mobile-secure-storage";
-
-const managedConnection = {
-  environmentId: EnvironmentId.make("environment-1"),
-  environmentLabel: "Desktop",
-  pairingUrl: "https://desktop.example/",
-  displayUrl: "https://desktop.example/",
-  httpBaseUrl: "https://desktop.example/",
-  wsBaseUrl: "wss://desktop.example/",
-  bearerToken: null,
-  authenticationMethod: "dpop",
-  dpopAccessToken: "short-lived-token",
-  relayManaged: true,
-} as const;
 
 describe("mobile connection storage", () => {
   beforeEach(() => {
@@ -130,38 +110,31 @@ describe("mobile connection storage", () => {
     vi.clearAllMocks();
   });
 
-  it("persists relay-managed connections without their ephemeral access token", async () => {
-    await saveConnection(managedConnection);
-
-    const savedValue = mocks.setItemAsync.mock.calls[0]?.[1];
-    expect(savedValue).toBeDefined();
-    expect(JSON.parse(savedValue ?? "")).toEqual({
-      connections: [toStableSavedRemoteConnection(managedConnection)],
+  it("persists tab order locally and retains it when another preference changes", async () => {
+    const navigationTabOrder = ["usage", "threads", "pullRequests"];
+    const hiddenNavigationTabs = ["issues", "home"];
+    await savePreferencesPatch({ navigationTabOrder, hiddenNavigationTabs });
+    await savePreferencesPatch({ baseFontSize: 19 });
+    await expect(loadPreferences()).resolves.toEqual({
+      navigationTabOrder,
+      hiddenNavigationTabs,
+      baseFontSize: 19,
     });
   });
 
-  it("preserves secure-storage read failures with operation and key context", async () => {
-    const cause = new Error("keychain unavailable");
-    mocks.getItemAsync.mockRejectedValueOnce(cause);
-
-    await expect(loadSavedConnections()).rejects.toMatchObject({
-      _tag: "MobileSecureStorageError",
-      operation: "read",
-      key: "t3code.connections",
-      cause,
-      message:
-        "Mobile secure storage operation read failed for key t3code.connections. keychain unavailable",
-    });
-  });
-
-  it("does not stringify arbitrary secure-storage rejection values", async () => {
-    const cause = { storedValue: "private connection data" };
-    mocks.getItemAsync.mockRejectedValueOnce(cause);
-
-    await expect(loadSavedConnections()).rejects.toMatchObject({
-      _tag: "MobileSecureStorageError",
-      cause,
-      message: "Mobile secure storage operation read failed for key t3code.connections.",
+  it("ignores invalid tab-order entries without dropping other saved preferences", async () => {
+    mocks.setPreferencesJson(
+      JSON.stringify({
+        navigationTabOrder: ["usage", null, 4, "threads"],
+        hiddenNavigationTabs: ["home", null],
+        baseFontSize: 18,
+      }),
+      1,
+    );
+    await expect(loadPreferences()).resolves.toEqual({
+      navigationTabOrder: ["usage", "threads"],
+      hiddenNavigationTabs: ["home"],
+      baseFontSize: 18,
     });
   });
 

@@ -7,6 +7,11 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ### Changed
 
+- Integrate T3 Nightly `v0.1.4-nightly.20261028.3814`, preserving G2 controls,
+  spaces, host tints, numbered replies, signing, and GitHub-hosted runners. Even
+  G2 controls move to their own Settings section, and Codex now uses its native
+  plan mode instead of the fork's plain-chat question instructions.
+
 - Allow thread questions, prompts, and responses as evidence in private fork PRs,
   while excluding credentials, `.env` files, and other secrets from uploads.
 
