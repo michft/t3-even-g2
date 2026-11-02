@@ -4,13 +4,10 @@ import {
   createOutdatedServerUpdateCommand,
 } from "@t3tools/client-runtime/state/outdatedServerUpdate";
 import { createEnvironmentServerConfigsAtom } from "@t3tools/client-runtime/state/shell";
-import { Atom } from "effect/reactivity";
-import type { ThemeAppearance } from "@t3tools/shared/themePalettes";
 
 import { environmentCatalog } from "../connection/catalog";
 import { connectionAtomRuntime } from "../connection/runtime";
 import { environmentSession } from "./session";
-import { createThreadListEnvironmentsAtom } from "./thread-list-environments";
 
 export const serverEnvironment = createServerEnvironmentAtoms(connectionAtomRuntime, {
   initialConfigValueAtom: environmentSession.initialConfigValueAtom,
@@ -24,7 +21,3 @@ export const environmentServerConfigsAtom = createEnvironmentServerConfigsAtom({
   catalogValueAtom: environmentCatalog.catalogValueAtom,
   serverConfigValueAtom: serverEnvironment.configValueAtom,
 });
-
-export const threadListEnvironmentsAtom = Atom.family((appearance: ThemeAppearance) =>
-  createThreadListEnvironmentsAtom(environmentServerConfigsAtom, appearance),
-);

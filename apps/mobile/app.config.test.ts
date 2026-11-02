@@ -16,6 +16,7 @@ const forkEnv = {
 
 beforeEach(() => {
   vi.resetModules();
+  for (const key of Object.keys(repoEnv)) delete repoEnv[key];
   Object.assign(repoEnv, forkEnv);
   for (const key of Object.keys(forkEnv)) vi.stubEnv(key, undefined);
   vi.stubEnv("MOBILE_VERSION_POLICY", undefined);
@@ -114,4 +115,24 @@ describe("fork TestFlight config", () => {
       extra: { eas: { projectId: "d763fcb8-d37c-41ea-a773-b54a0ab4a454" } },
     });
   });
+});
+
+it.each(["prod", ""])("rejects APP_VARIANT=%j before selecting production IDs", async (value) => {
+  repoEnv.APP_VARIANT = value;
+  await expect(readConfig()).rejects.toThrow(
+    "APP_VARIANT must be development, preview, or production.",
+  );
+});
+
+it.each([
+  [undefined, "com.t3tools.t3code"],
+  ["development", "com.t3tools.t3code.dev"],
+  ["preview", "com.t3tools.t3code.preview"],
+  ["production", "com.t3tools.t3code"],
+])("keeps the iOS and Android identifiers for APP_VARIANT=%j", async (variant, identifier) => {
+  for (const key of Object.keys(repoEnv)) delete repoEnv[key];
+  repoEnv.APP_VARIANT = variant;
+  const config = await readConfig();
+  expect(config.ios?.bundleIdentifier).toBe(identifier);
+  expect(config.android?.package).toBe(identifier);
 });

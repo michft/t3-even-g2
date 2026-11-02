@@ -17,8 +17,13 @@ export type ThreadListProvider = Pick<
 const capabilityKeys = ["threadAutoSettleOptOut"] as const;
 
 /** Resolve host canvas and accent independently for the device appearance. */
-function selectEnvironment(config: ServerConfig, appearance?: ThemeAppearance) {
+function selectEnvironment(
+  config: ServerConfig,
+  isConnected: boolean,
+  appearance?: ThemeAppearance,
+) {
   return {
+    isConnected,
     providers: config.providers.map(
       ({ instanceId, driver, enabled, displayName, accentColor, iconUrl }) => ({
         instanceId,
@@ -67,10 +72,19 @@ function collectEnvironments(environments: ReadonlyMap<EnvironmentId, ListEnviro
   // Every protocol-2 server supports these thread actions; they only wait for its config.
   const loadedEnvironmentIds = new Set<EnvironmentId>();
   const autoSettleOptOutEnvironmentIds = new Set<EnvironmentId>();
+  const reorderableEnvironmentIds = new Set<EnvironmentId>();
   const snoozePresetsByEnvironmentId = new Map<EnvironmentId, ListEnvironment["snoozePresets"]>();
   for (const [
     id,
-    { providers, machineKind, environmentColor, environmentAccent, capabilities, snoozePresets },
+    {
+      providers,
+      machineKind,
+      environmentColor,
+      environmentAccent,
+      capabilities,
+      isConnected,
+      snoozePresets,
+    },
   ] of environments) {
     providersByEnvironmentId.set(id, providers);
     snoozePresetsByEnvironmentId.set(id, snoozePresets);
@@ -79,6 +93,7 @@ function collectEnvironments(environments: ReadonlyMap<EnvironmentId, ListEnviro
     environmentAccentByEnvironmentId.set(id, environmentAccent);
     loadedEnvironmentIds.add(id);
     if (capabilities.threadAutoSettleOptOut === true) autoSettleOptOutEnvironmentIds.add(id);
+    if (isConnected) reorderableEnvironmentIds.add(id);
   }
   return {
     providersByEnvironmentId,
@@ -89,8 +104,8 @@ function collectEnvironments(environments: ReadonlyMap<EnvironmentId, ListEnviro
     snoozeEnvironmentIds: loadedEnvironmentIds,
     pinningEnvironmentIds: loadedEnvironmentIds,
     autoSettleOptOutEnvironmentIds,
-    pinReorderEnvironmentIds: loadedEnvironmentIds,
-    activeReorderEnvironmentIds: loadedEnvironmentIds,
+    pinReorderEnvironmentIds: reorderableEnvironmentIds,
+    activeReorderEnvironmentIds: reorderableEnvironmentIds,
     titleRegenerationEnvironmentIds: loadedEnvironmentIds,
     snoozePresetsByEnvironmentId,
   };
@@ -98,16 +113,18 @@ function collectEnvironments(environments: ReadonlyMap<EnvironmentId, ListEnviro
 
 export function createThreadListEnvironmentsAtom(
   configsAtom: Atom.Atom<ReadonlyMap<EnvironmentId, ServerConfig>>,
+  connectedEnvironmentIdsAtom: Atom.Atom<ReadonlyArray<EnvironmentId>>,
   appearance?: ThemeAppearance,
 ) {
   let previous = new Map<EnvironmentId, ListEnvironment>();
   let result = collectEnvironments(previous);
   return Atom.make((get) => {
     const configs = get(configsAtom);
+    const connectedEnvironmentIds = new Set(get(connectedEnvironmentIdsAtom));
     const next = new Map<EnvironmentId, ListEnvironment>();
     let changed = configs.size !== previous.size;
     for (const [id, config] of configs) {
-      const selected = selectEnvironment(config, appearance);
+      const selected = selectEnvironment(config, connectedEnvironmentIds.has(id), appearance);
       const prior = previous.get(id);
       if (prior && sameProviders(prior.providers, selected.providers)) {
         selected.providers = prior.providers;
@@ -121,6 +138,7 @@ export function createThreadListEnvironmentsAtom(
         prior.machineKind === selected.machineKind &&
         prior.environmentColor === selected.environmentColor &&
         prior.environmentAccent === selected.environmentAccent &&
+        prior.isConnected === selected.isConnected &&
         prior.snoozePresets === selected.snoozePresets &&
         capabilityKeys.every(
           (key) => (prior.capabilities[key] === true) === (selected.capabilities[key] === true),

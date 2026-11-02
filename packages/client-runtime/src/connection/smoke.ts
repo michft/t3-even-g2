@@ -1,5 +1,6 @@
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
+import * as Redacted from "effect/Redacted";
 import * as Schema from "effect/Schema";
 import * as HttpClient from "effect/http/HttpClient";
 import { issueRemoteWebSocketTicket } from "../authorization/remote.ts";
@@ -69,7 +70,7 @@ export const checkServerConnection = Effect.fn("deployment.checkServerConnection
       stage = "ticket";
       const issued = yield* issueRemoteWebSocketTicket({ httpBaseUrl, bearerToken });
       const socketUrl = new URL("/ws", deriveWsBaseUrl(httpBaseUrl));
-      socketUrl.searchParams.set("wsTicket", issued.ticket);
+      socketUrl.searchParams.set("wsTicket", Redacted.value(issued.ticket));
       stage = "config";
       const factory = yield* makeRpcSessionFactory({
         usageLimitSources: true,

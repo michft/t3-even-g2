@@ -38,7 +38,7 @@ function harness() {
       [OTHER_ID, config],
     ]),
   );
-  const list = createThreadListEnvironmentsAtom(configs);
+  const list = createThreadListEnvironmentsAtom(configs, Atom.make([ID, OTHER_ID]));
   let listNotifications = 0;
   registry.subscribe(list, () => listNotifications++);
   registry.get(list);
@@ -96,8 +96,8 @@ describe("thread list environment projection", () => {
   it("keeps light and dark origin colours current across remote default changes", () => {
     const registry = AtomRegistry.make();
     const configs = Atom.make<ReadonlyMap<EnvironmentId, ServerConfig>>(new Map());
-    const light = createThreadListEnvironmentsAtom(configs, "light");
-    const dark = createThreadListEnvironmentsAtom(configs, "dark");
+    const light = createThreadListEnvironmentsAtom(configs, Atom.make([ID]), "light");
+    const dark = createThreadListEnvironmentsAtom(configs, Atom.make([ID]), "dark");
     try {
       for (const [defaultTheme, lightColor, darkColor] of [
         ["ember", "#f9f7f5", "#291e1a"],
