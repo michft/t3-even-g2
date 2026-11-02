@@ -963,7 +963,6 @@ function AdaptiveWorkspaceLayoutContent(
                 <AndroidHomeFabLayout
                   sidebar
                   disabled={workspacePage}
-                  paneWidth={sidebarContentWidth}
                   onStartNewTask={handleStartNewTask}
                 >
                   <ThreadNavigationSidebar
