@@ -7,6 +7,10 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ### Changed
 
+- Integrate T3 Nightly `v0.1.7-nightly.20261102.4066` onto current fork main,
+  preserving G2/R1, Spaces, host colours, plain-chat questions, fork signing,
+  and GitHub-hosted runners.
+
 - Integrate T3 Nightly `v0.1.6-nightly.20261030.3940`, retaining G2/R1 controls,
   Spaces, host colours, numbered question replies, and iPhone landscape/search
   behaviour while adopting upstream shared answer helpers and mobile updates.

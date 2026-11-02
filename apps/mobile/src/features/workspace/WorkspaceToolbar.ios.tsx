@@ -16,6 +16,7 @@ import {
 import { useHardwareKeyboardCommand } from "../keyboard/hardwareKeyboardCommands";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
 import { useWorkspaceTabs } from "./WorkspaceTabsContext";
+import { shouldRestoreNativeSearch } from "./workspace-tabs-state";
 import { useFloatingWorkspaceTabs, useSidebarWorkspaceTabs } from "./useSystemWorkspaceTabBar";
 import { WorkspaceTabToolbarButtons } from "./WorkspaceSectionToolbar";
 
@@ -101,7 +102,7 @@ export function WorkspaceToolbar(props: {
       searchHostVisible &&
       searchVisible &&
       isTabActive(selectedTab) &&
-      (sharedPhoneSearch || tab.searchMode !== "resting")
+      (sharedPhoneSearch || shouldRestoreNativeSearch(tab, duoSearch))
     ) {
       searchRef.current?.setText(searchQuery);
       // Integrated search collapses to its button when its screen reappears,
