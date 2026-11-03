@@ -218,7 +218,11 @@ export function PullRequestMergeControls(props: {
               : label
         }
         icon={status?.icon ?? PullRequestGlyph.merged}
-        disabled={status?.action ? stateAction.busy : !canMerge || status !== null}
+        disabled={
+          status?.action
+            ? stateAction.busy
+            : stateAction.busy || !canMerge || (status !== null && !pr.autoMergeEnabled)
+        }
         loading={busy || stateAction.busy || (!status?.action && checkingStack)}
         onPress={() =>
           status?.action ? void stateAction.perform(status.action) : confirm("merge")

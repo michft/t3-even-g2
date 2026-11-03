@@ -97,7 +97,9 @@ it("counts the new threads an agent asks for, one brief per thread, over both cr
     failed(expect, run(launch("Fix reconnect", true), batch("Fix reconnect", "csv", "admin"))),
     [],
   );
-  assert.deepEqual(failed(expect, run(batch("reconnect", "csv"), launch("csv and admin"))), []);
+  assert.deepEqual(failed(expect, run(batch("reconnect", "csv"), launch("csv and admin"))), [
+    label,
+  ]);
   assert.deepEqual(failed(expect, run(batch("Fix reconnect, csv and admin"))), [label]);
   assert.deepEqual(failed(expect, run(batch("reconnect, csv, admin", "csv", "csv"))), [label]);
   assert.deepEqual(failed(expect, run(batch("reconnect", "csv", "admin", "docs"))), [label]);

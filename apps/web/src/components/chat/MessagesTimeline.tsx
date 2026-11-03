@@ -483,6 +483,7 @@ const ConversationTimeline = memo(function ConversationTimeline({
         setDisclosureToggleSettling(false);
         disclosureSettleFrameRef.current = null;
         disclosureSettleSecondFrameRef.current = null;
+        if (resolveTimelineIsAtEnd(listRef.current?.getState()) === false) navigateTimeline();
       });
     });
   };

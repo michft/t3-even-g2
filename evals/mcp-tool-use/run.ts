@@ -1514,11 +1514,18 @@ const matchesDistinct = (
 ): boolean => {
   const [first, ...rest] = expected;
   if (expected.length === 0) return true;
-  return requests.some(
-    ({ request, brief }, i) =>
-      !taken.has(i) &&
-      matches(first, typeof first === "string" ? brief : request) &&
-      matchesDistinct(rest, requests, new Set([...taken, i])),
+  return (
+    requests.every(
+      ({ request, brief }) =>
+        expected.filter((value) => matches(value, typeof value === "string" ? brief : request))
+          .length <= 1,
+    ) &&
+    requests.some(
+      ({ request, brief }, i) =>
+        !taken.has(i) &&
+        matches(first, typeof first === "string" ? brief : request) &&
+        matchesDistinct(rest, requests, new Set([...taken, i])),
+    )
   );
 };
 

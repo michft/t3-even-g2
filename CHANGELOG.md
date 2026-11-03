@@ -40,6 +40,12 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ### Fixed
 
+- Keep manual PR merging available while auto-merge is pending, preserve unset
+  Codex service tiers, and warn when Cursor compaction trims conversation history.
+
+- Keep expanded work headings in place after initial timeline positioning, and
+  release follow when expansion leaves the viewport above the latest messages.
+
 - Use the current iPhone sidebar width after landscape rotation instead of
   retaining portrait width bounds, and keep its native stack mounted when
   rotating back to portrait.

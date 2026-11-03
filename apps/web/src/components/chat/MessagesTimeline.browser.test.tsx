@@ -218,13 +218,18 @@ const AUTOMATION_PROMPT = "Triage the inbox\n\nLabel every new issue and close d
 
 describe("MessagesTimeline work rows", () => {
   it("keeps the worked-for heading in place when expanded at the bottom", async () => {
+    setup();
     const props = baseProps();
     const runId = RunId.make("completed-run");
+    const navigations: TimelineNavigation[] = [];
     const container = document.createElement("div");
     container.style.cssText = "height: 600px; width: 900px; display: flex; flex-direction: column;";
     await using screen = await render(
       <MessagesTimeline
         {...props}
+        onViewportAttach={(viewport) =>
+          viewport.subscribe((navigation) => navigations.push(navigation))
+        }
         timelineEntries={[
           ...Array.from({ length: 12 }, (_, index) =>
             message(`Earlier context ${index}`, {}, `context-${index}`),
@@ -238,9 +243,14 @@ describe("MessagesTimeline work rows", () => {
     const heading = screen.getByRole("button", { name: /^Worked for/ });
     await expect.element(heading).toBeVisible();
     const viewport = props.listRef.current!.getScrollableNode()!;
-    await vi.waitFor(() =>
-      expect(viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop).toBeLessThan(2),
-    );
+    await act(() => props.listRef.current!.scrollToEnd({ animated: false }));
+    let measuredTop: number | undefined;
+    await vi.waitFor(() => {
+      const previousTop = measuredTop;
+      measuredTop = heading.element().getBoundingClientRect().top;
+      expect(viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop).toBeLessThan(2);
+      expect(measuredTop).toBeCloseTo(previousTop ?? Number.NaN, 0);
+    });
     expect(viewport.scrollTop).toBeGreaterThan(0);
     const top = heading.element().getBoundingClientRect().top;
     const height = viewport.scrollHeight;
@@ -254,6 +264,9 @@ describe("MessagesTimeline work rows", () => {
         500,
       );
     });
+    await vi.waitFor(() =>
+      expect(navigations).toContainEqual({ source: "command", releasesFollow: true }),
+    );
   });
 
   it.each(["delegated", "legacy", "missing"] as const)(

@@ -540,6 +540,20 @@ export const makeCursorAgentSdkRunner = Effect.fn("makeCursorAgentSdkRunner")(fu
             agentId: run.agentId,
             wait: Effect.tryPromise({
               try: async () => {
+                if (sendInput.summarize === true) {
+                  for await (const event of run.stream()) {
+                    if (
+                      event.type === "summary" &&
+                      event.status === "completed" &&
+                      event.fallback === true
+                    ) {
+                      await dispatchUpdate({
+                        type: "text-delta",
+                        text: "Cursor could not summarize the conversation and kept a trimmed transcript instead. Some earlier context may be missing.",
+                      });
+                    }
+                  }
+                }
                 const result = await run.wait();
                 await callbackChain;
                 if (callbackFailure !== undefined) {

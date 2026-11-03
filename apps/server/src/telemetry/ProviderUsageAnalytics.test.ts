@@ -326,10 +326,10 @@ describe("provider usage reporting", () => {
   });
 
   it("reports closed service tiers from a tier option or a fast mode toggle", () => {
-    const tier = (option: { id: string; value: string | boolean }) =>
+    const tier = (option: { id: string; value: string | boolean }, driver = "codex") =>
       providerTurnProperties(
         {
-          driver: "codex",
+          driver,
           context: {
             modelSelection: {
               instanceId: ProviderInstanceId.make("codex"),
@@ -345,6 +345,7 @@ describe("provider usage reporting", () => {
     expect(tier({ id: "serviceTier", value: "default" })).toBe("standard");
     expect(tier({ id: "serviceTier", value: "/home/me/secret" })).toBeUndefined();
     expect(tier({ id: "fastMode", value: true })).toBe("fast");
-    expect(tier({ id: "fastMode", value: false })).toBe("standard");
+    expect(tier({ id: "fastMode", value: false })).toBeUndefined();
+    expect(tier({ id: "fastMode", value: false }, "claudeAgent")).toBe("standard");
   });
 });

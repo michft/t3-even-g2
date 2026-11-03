@@ -649,6 +649,10 @@ describe("CursorAdapterV2", () => {
         Stream.takeUntil((event) => event.type === "turn.terminal"),
         Stream.runCollect,
       );
+      assert.equal(
+        compactionEvents.find((event) => event.type === "turn.terminal")?.status,
+        "completed",
+      );
       assert.deepEqual(summarizeRequests, [false, true]);
       assert.notInclude(JSON.stringify(compactionEvents), "Summary of the conversation so far");
     }).pipe(

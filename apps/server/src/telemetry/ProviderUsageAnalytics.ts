@@ -118,11 +118,18 @@ const REPORTED_SERVICE_TIERS: ReadonlyMap<string, string> = new Map([
   ["ultrafast", "ultrafast"],
 ]);
 
-function selectedServiceTier(selection: ModelSelection): string | undefined {
+function selectedServiceTier(
+  driver: string | undefined,
+  selection: ModelSelection,
+): string | undefined {
   const tier = getModelSelectionStringOptionValue(selection, "serviceTier");
   if (tier !== undefined) return REPORTED_SERVICE_TIERS.get(tier);
   const fastMode = getModelSelectionBooleanOptionValue(selection, "fastMode");
-  return fastMode === undefined ? undefined : fastMode ? "fast" : "standard";
+  return fastMode === undefined || (driver === "codex" && !fastMode)
+    ? undefined
+    : fastMode
+      ? "fast"
+      : "standard";
 }
 
 /**
@@ -142,6 +149,7 @@ function modelObservation(
 }
 
 function selectionProperties(
+  driver: string | undefined,
   context: ProviderTurnAnalyticsContext | undefined,
   label: ModelLabeler,
 ) {
@@ -149,7 +157,7 @@ function selectionProperties(
   return defined({
     model: selection === undefined ? undefined : label(selection.model),
     effort: selection === undefined ? undefined : selectedEffort(selection),
-    serviceTier: selection === undefined ? undefined : selectedServiceTier(selection),
+    serviceTier: selection === undefined ? undefined : selectedServiceTier(driver, selection),
     runtimeMode: context?.runtimeMode,
     interactionMode: context?.interactionMode,
     ...context?.origin,
@@ -189,7 +197,7 @@ export function providerTurnProperties(
     localCommand: usage?.localCommand === true ? true : undefined,
     otherInputTokens: usage?.otherUsage?.inputTokens,
     otherOutputTokens: usage?.otherUsage?.outputTokens,
-    ...selectionProperties(context, label),
+    ...selectionProperties(report.driver, context, label),
     ...modelObservation([usage?.models], label),
     segment: context?.segment,
     childKind: childKind(context),
@@ -337,7 +345,7 @@ export class RequestUsageLedger {
       restartContinuation: entry.context?.restartContinuation === true ? true : undefined,
       terminalStatus: report.status,
       lifecycleObserved,
-      ...selectionProperties(entry.context, label),
+      ...selectionProperties(entry.driver, entry.context, label),
       providerTurns: root.length,
       continuations: root.filter((turn) => turn.segment === "continuation").length,
       steeringRestarts: root.filter((turn) => turn.segment === "steering_restart").length,
