@@ -54,14 +54,27 @@ const cursorSdkMock = vi.hoisted(() => {
       };
     },
   );
+  let summaryFallback = false;
+  const summarize = vi.fn(async () => ({
+    id: "run-cursor-agent-sdk-summary",
+    agentId: "agent-cursor-agent-sdk-test",
+    wait: runWait,
+    cancel: runCancel,
+    async *stream() {
+      yield { type: "summary", status: "running" };
+      yield { type: "summary", status: "completed", fallback: summaryFallback };
+    },
+  }));
   const create = vi.fn(async () => ({
     agentId: "agent-cursor-agent-sdk-test",
     send,
+    summarize,
     close: agentClose,
   }));
   const resume = vi.fn(async () => ({
     agentId: "agent-cursor-agent-sdk-test",
     send,
+    summarize,
     close: agentClose,
   }));
   const listRuns = vi.fn(async () => {
@@ -86,6 +99,9 @@ const cursorSdkMock = vi.hoisted(() => {
     runCancel,
     runWait,
     send,
+    setSummaryFallback: (fallback: boolean) => {
+      summaryFallback = fallback;
+    },
     setAgentCloseFailure: (failure: unknown) => {
       agentCloseFailure = failure;
     },
@@ -209,6 +225,36 @@ describe("CursorAgentSdkRunner", () => {
           cwd: process.cwd(),
         },
       ]);
+    }).pipe(Effect.provide(layerTest)),
+  );
+  it.effect.each([false, true])("reports compaction fallback before completing: %s", (fallback) =>
+    Effect.gen(function* () {
+      cursorSdkMock.setSummaryFallback(fallback);
+      const updates: unknown[] = [];
+      const runner = yield* CursorAgentSdk.CursorAgentSdkRunner;
+      const session = yield* runner.open({
+        operation: "create",
+        options: { model: { id: "default" }, mode: "agent", local: { cwd: process.cwd() } },
+        threadId: ThreadId.make("summary-thread"),
+        providerSessionId: ProviderSessionId.make("summary-session"),
+      });
+      const run = yield* session.send({
+        message: "",
+        summarize: true,
+        onDelta: (update) =>
+          Effect.sync(() => {
+            updates.push(update);
+          }),
+      });
+      yield* run.wait;
+      if (fallback) {
+        assert.deepStrictEqual(updates, [
+          {
+            type: "text-delta",
+            text: "Cursor could not summarize the conversation and kept a trimmed transcript instead. Some earlier context may be missing.",
+          },
+        ]);
+      } else assert.deepStrictEqual(updates, []);
     }).pipe(Effect.provide(layerTest)),
   );
 });

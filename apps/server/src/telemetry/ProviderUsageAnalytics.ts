@@ -20,7 +20,10 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
-import { getModelSelectionStringOptionValue } from "@t3tools/shared/model";
+import {
+  getModelSelectionBooleanOptionValue,
+  getModelSelectionStringOptionValue,
+} from "@t3tools/shared/model";
 import * as ProviderRegistry from "../provider/ProviderRegistry.ts";
 import * as AnalyticsService from "./AnalyticsService.ts";
 import { catalogModelLabel } from "./ProviderDimensions.ts";
@@ -106,6 +109,29 @@ function selectedEffort(selection: ModelSelection): string | undefined {
   return effort !== undefined && REPORTED_EFFORTS.has(effort) ? effort : undefined;
 }
 
+// Codex sends a tier id (its "fast" config shows up as "priority"); Claude has a fastMode toggle.
+const REPORTED_SERVICE_TIERS: ReadonlyMap<string, string> = new Map([
+  ["default", "standard"],
+  ["flex", "flex"],
+  ["fast", "fast"],
+  ["priority", "fast"],
+  ["ultrafast", "ultrafast"],
+]);
+
+function selectedServiceTier(
+  driver: string | undefined,
+  selection: ModelSelection,
+): string | undefined {
+  const tier = getModelSelectionStringOptionValue(selection, "serviceTier");
+  if (tier !== undefined) return REPORTED_SERVICE_TIERS.get(tier);
+  const fastMode = getModelSelectionBooleanOptionValue(selection, "fastMode");
+  return fastMode === undefined || (driver === "codex" && !fastMode)
+    ? undefined
+    : fastMode
+      ? "fast"
+      : "standard";
+}
+
 /**
  * Confirmed models across counted work. Unknown when any piece of work has no
  * reported model, unless two distinct models were already seen.
@@ -123,6 +149,7 @@ function modelObservation(
 }
 
 function selectionProperties(
+  driver: string | undefined,
   context: ProviderTurnAnalyticsContext | undefined,
   label: ModelLabeler,
 ) {
@@ -130,6 +157,7 @@ function selectionProperties(
   return defined({
     model: selection === undefined ? undefined : label(selection.model),
     effort: selection === undefined ? undefined : selectedEffort(selection),
+    serviceTier: selection === undefined ? undefined : selectedServiceTier(driver, selection),
     runtimeMode: context?.runtimeMode,
     interactionMode: context?.interactionMode,
     ...context?.origin,
@@ -169,7 +197,7 @@ export function providerTurnProperties(
     localCommand: usage?.localCommand === true ? true : undefined,
     otherInputTokens: usage?.otherUsage?.inputTokens,
     otherOutputTokens: usage?.otherUsage?.outputTokens,
-    ...selectionProperties(context, label),
+    ...selectionProperties(report.driver, context, label),
     ...modelObservation([usage?.models], label),
     segment: context?.segment,
     childKind: childKind(context),
@@ -317,7 +345,7 @@ export class RequestUsageLedger {
       restartContinuation: entry.context?.restartContinuation === true ? true : undefined,
       terminalStatus: report.status,
       lifecycleObserved,
-      ...selectionProperties(entry.context, label),
+      ...selectionProperties(entry.driver, entry.context, label),
       providerTurns: root.length,
       continuations: root.filter((turn) => turn.segment === "continuation").length,
       steeringRestarts: root.filter((turn) => turn.segment === "steering_restart").length,

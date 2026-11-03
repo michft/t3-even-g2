@@ -7,6 +7,10 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ### Changed
 
+- Integrate T3 Nightly `v0.1.7-nightly.20261102.4093` onto current fork main,
+  preserving G2/R1, Spaces, phone/sidebar navigation, host colours, question
+  handling, fork signing, and GitHub-hosted runners.
+
 - Integrate T3 Nightly `v0.1.7-nightly.20261102.4066` onto current fork main,
   preserving G2/R1, Spaces, host colours, plain-chat questions, fork signing,
   and GitHub-hosted runners.
@@ -35,6 +39,12 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
   creates, edits, and deletes spaces, and pages between them with a sideways swipe.
 
 ### Fixed
+
+- Keep manual PR merging available while auto-merge is pending, preserve unset
+  Codex service tiers, and warn when Cursor compaction trims conversation history.
+
+- Keep expanded work headings in place after initial timeline positioning, and
+  release follow when expansion leaves the viewport above the latest messages.
 
 - Use the current iPhone sidebar width after landscape rotation instead of
   retaining portrait width bounds, and keep its native stack mounted when
