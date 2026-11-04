@@ -1,6 +1,7 @@
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
 import type { WorkspaceTab } from "../workspace/workspace-tabs-state";
-import { createContext, use, type ReactNode } from "react";
+import { createContext, use } from "react";
+import type { InspectorContent } from "./inspector-panes";
 import type {
   WorkspaceDetail,
   WorkspaceDetailSheet,
@@ -11,7 +12,6 @@ import {
   deriveWorkspacePaneLayout,
   type FileInspectorPaneLayout,
   type Layout,
-  type WorkspaceAuxiliaryPaneRole,
   type WorkspacePaneLayout,
 } from "../../lib/layout";
 
@@ -24,12 +24,23 @@ interface AdaptiveWorkspaceContextValue {
   readonly selectThread: (thread: EnvironmentThreadShell) => void;
   /** Use `useSelectWorkspaceDetail`, which also works outside the layout. */
   readonly selectDetail?: (detail: WorkspaceDetail, sheet?: WorkspaceDetailSheet) => void;
-  readonly activateAuxiliaryPaneRole: (role: WorkspaceAuxiliaryPaneRole) => () => void;
-  readonly registerWorkspaceInspector: (render: () => ReactNode) => () => void;
+  readonly registerWorkspaceInspector: (
+    content: InspectorContent,
+    routeKey: string | undefined,
+    revealKey?: string,
+  ) => () => void;
   readonly setPrimarySidebarSearchQuery: (query: string) => void;
-  readonly showAuxiliaryPane: (role: WorkspaceAuxiliaryPaneRole) => void;
+  /** Opens the inspector: its column where the window has one, otherwise a sheet. */
+  readonly showInspector: () => void;
   readonly toggleAuxiliaryPane: () => void;
+  /**
+   * Whether the content pane offers a sidebar button: false without columns, on a list that keeps
+   * its sidebar, and on a workspace page (Android Settings, Usage) that covers it.
+   */
+  readonly sidebarToggleable: boolean;
   readonly togglePrimarySidebar: () => void;
+  /** Shows the sidebar, setting aside the keyboard or an inspector that took its room. */
+  readonly revealPrimarySidebar: () => void;
   readonly setPrimarySidebarVisible: (visible: boolean) => void;
   /** Opens a workspace tab with its list and, with columns, the page it last showed. */
   readonly openWorkspaceTab: (
@@ -37,6 +48,8 @@ interface AdaptiveWorkspaceContextValue {
     options?: { readonly columns?: boolean },
   ) => void;
   readonly setAuxiliaryPaneWidth: (width: number) => void;
+  readonly nativeInspectorWidth: number;
+  readonly setNativeInspectorWidth: (width: number) => void;
   /**
    * Android split view while the thread composer has the soft keyboard: the
    * sidebar and rail step aside and the thread header drops to one line.
@@ -47,6 +60,10 @@ interface AdaptiveWorkspaceContextValue {
    * (the unfolded Duo). The native split switches between them as a rotation starts.
    */
   readonly sidebarByOrientation: { readonly landscape: boolean; readonly portrait: boolean } | null;
+  /** Android split: the composer's keyboard slides the sidebar, from focus until it lets go. */
+  readonly keyboardHoldsSidebar?: boolean;
+  /** Android split: the width a workspace page (Usage) opens at; null without columns. */
+  readonly workspacePageWidth?: number | null;
   /** The thread composer reports its focus so the layout can make room for typing. */
   readonly setComposerEditing: (editing: boolean) => void;
 }
@@ -69,15 +86,18 @@ export const AdaptiveWorkspaceContext = createContext<AdaptiveWorkspaceContextVa
   primarySidebarSearchQuery: "",
   startNewTask: () => undefined,
   selectThread: () => undefined,
-  activateAuxiliaryPaneRole: () => () => undefined,
   registerWorkspaceInspector: () => () => undefined,
   setPrimarySidebarSearchQuery: () => undefined,
-  showAuxiliaryPane: () => undefined,
+  showInspector: () => undefined,
   toggleAuxiliaryPane: () => undefined,
+  sidebarToggleable: false,
   togglePrimarySidebar: () => undefined,
+  revealPrimarySidebar: () => undefined,
   setPrimarySidebarVisible: () => undefined,
   openWorkspaceTab: () => undefined,
   setAuxiliaryPaneWidth: () => undefined,
+  nativeInspectorWidth: 0,
+  setNativeInspectorWidth: () => undefined,
   composerKeyboardActive: false,
   sidebarByOrientation: null,
   setComposerEditing: () => undefined,
