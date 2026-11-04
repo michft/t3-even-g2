@@ -245,7 +245,7 @@ describe("MessagesTimeline work rows", () => {
     // frames, which the fake clock below would freeze.
     await expect.element(heading).toHaveStyle({ pointerEvents: "auto" });
     const viewport = props.listRef.current!.getScrollableNode()!;
-    await act(() => props.listRef.current!.scrollToEnd({ animated: false }));
+    await props.listRef.current!.scrollToEnd({ animated: false });
     let measuredTop: number | undefined;
     await vi.waitFor(() => {
       const previousTop = measuredTop;

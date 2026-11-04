@@ -1,3 +1,4 @@
+import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
 import {
   WorkspaceColumnsRendererContext,
   WorkspacePresentationHostContext,
