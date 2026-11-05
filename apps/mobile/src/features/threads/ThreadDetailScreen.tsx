@@ -18,7 +18,6 @@ import { resolveMobileEnvironmentThemeColor, themeColorWithAlpha } from "../../l
 import { useEvenG2ThreadBridge } from "../even-g2/useEvenG2ThreadBridge";
 import { evenG2ThreadActivityText } from "../even-g2/evenG2ThreadBridge.logic";
 import { UsageLimitRecoveryCard } from "./UsageLimitRecoveryCard";
-import { ChatGptUsageLimitNotice } from "./ChatGptUsageLimitNotice";
 import { useFocusEffect, useIsFocused, useNavigation } from "@react-navigation/native";
 import {
   effectiveSnoozed,
@@ -1615,10 +1614,6 @@ function ThreadDetailBody(
                       key={props.selectedThread.latestRun?.runId}
                       thread={props.selectedThread}
                       environmentId={props.environmentId}
-                    />
-                    <ChatGptUsageLimitNotice
-                      key={`chatgpt-limit:${props.selectedThread.latestRun?.runId}`}
-                      thread={props.selectedThread}
                     />
                     <ChildThreadApprovals
                       threadRef={props.selectedThreadDetailRef}
