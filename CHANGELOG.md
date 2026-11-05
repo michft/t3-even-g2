@@ -7,6 +7,10 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ### Changed
 
+- Add Spaces to iPhone in portrait and landscape, and float the space bar at the
+  bottom of the thread list on iPhone and iPad in the app's glass style. Remove the
+  iOS environment and project filters in favour of Spaces and search.
+
 - Keep the navigation tabs in the thread column on a landscape iPhone, as on
   iPad, instead of over the conversation. Hiding the sidebar hides them too. The
   column's rows keep the same width on either side of the Dynamic Island.

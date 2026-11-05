@@ -3,7 +3,7 @@ import type {
   EnvironmentThreadShell,
 } from "@t3tools/client-runtime/state/shell";
 import { EnvironmentId, ThreadId } from "@t3tools/contracts";
-import { useNavigation, useNavigationState } from "@react-navigation/native";
+import { StackActions, useNavigation, useNavigationState } from "@react-navigation/native";
 
 import { scopedThreadKey } from "../../lib/scopedEntities";
 import { uuidv4 } from "../../lib/uuid";
@@ -93,6 +93,7 @@ export function WorkspaceThreadSidebar({ width }: { readonly width?: number } = 
           threadId: String(thread.id),
         })
       }
+      onClearThread={() => navigation.dispatch(StackActions.popToTop())}
       onOpenThreadPullRequests={openThreadPullRequests}
       onSearchQueryChange={setPrimarySidebarSearchQuery}
       searchQuery={primarySidebarSearchQuery}

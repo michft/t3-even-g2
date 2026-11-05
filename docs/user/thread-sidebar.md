@@ -235,16 +235,17 @@ Switch spaces with the footer dots, or swipe sideways on the thread list with a
 trackpad or touch screen. The grid icon shows all projects. Spaces are saved on
 each device and do not sync, so a work computer can keep only work spaces.
 
-On iPad, the space bar sits at the bottom of the sidebar. Tap it to switch,
-create, edit, or delete spaces, or swipe sideways on the bar to page between
-them; thread rows keep their own swipe actions. iPad spaces are separate from
-the spaces on your computer. Switching spaces restores the last thread opened in
-that space on this device. If it is no longer available, the most recently updated
-thread opens; an empty space clears the detail. Editing included members also
-updates the open thread. Losing an environment connection leaves navigation alone,
-so it does not dismiss Settings. The phone thread list always shows every project.
+On iPhone and iPad, the space bar sits at the bottom of the thread list. Tap it to
+switch, create, edit, or delete spaces, or swipe sideways on the bar to page between
+them; thread rows keep their own swipe actions. Use spaces and search to narrow the
+list. These spaces are separate from the spaces on your computer. When the list sits
+beside a conversation, switching spaces restores the last thread opened in that
+space on this device. If it is no longer available, the most recently updated thread
+opens; an empty space clears the detail. Editing included members also updates the
+open thread. Losing an environment connection leaves navigation alone, so it does not
+dismiss Settings.
 
-Each iPad space has its own **Group by** choice: **Machine**, **Repo**, or
+Each iPhone or iPad space has its own **Group by** choice: **Machine**, **Repo**, or
 **Work type**. Machine spaces include new projects from their selected machines;
 repo spaces include matching clones across connected machines. Work type spaces
 use one editable category per repository. Start with the suggested categories,

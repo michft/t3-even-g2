@@ -27,6 +27,7 @@ import { WorkspaceEmptyDetail } from "../layout/WorkspaceEmptyDetail";
 import { AppBar } from "../../components/ui/AppBar";
 import { AndroidHomeFabLayout } from "./AndroidHomeFab";
 import { HomeScreen } from "./HomeScreen";
+import { SIDEBAR_SPACE_BAR_HEIGHT } from "../threads/SidebarSpaces";
 import { HomeHeader } from "./HomeHeader";
 import { useHomeListOptions } from "./home-list-options";
 import { useAtomValueWhileVisible, useHomeRouteVisible } from "./home-route-visibility";
@@ -257,8 +258,6 @@ export function HomeRouteScreen() {
           onMoveThread={moveThread}
           onRenameThread={renameThread}
           onRegenerateThreadTitle={regenerateThreadTitle}
-          onEnvironmentChange={setSelectedEnvironmentId}
-          onProjectChange={setSelectedProjectKey}
           onOpenSettings={() => selectTab("settings")}
           onSearchQueryChange={setSearchQuery}
           onSelectThread={handleSelectThread}
@@ -287,7 +286,14 @@ export function HomeRouteScreen() {
           selectedProjectKey={selectedProjectKey}
           threads={threads}
         />
-        <ThreadUndoNotice visible={visible} />
+        <ThreadUndoNotice
+          visible={visible}
+          tabsClearance={
+            Platform.OS === "ios" && workspace
+              ? workspace.bottomClearance + SIDEBAR_SPACE_BAR_HEIGHT
+              : undefined
+          }
+        />
       </>
     </AndroidHomeFabLayout>
   );
