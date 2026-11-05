@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppText as Text, AppTextInput as TextInput } from "../../components/ui/AppText";
 import { SymbolView } from "../../components/ui/AppSymbol";
+import { GlassSurface } from "../../components/ui/GlassSurface";
 import { ListSection } from "../../components/ui/ListSection";
 import { ListToggleRow } from "../../components/ui/ListToggleRow";
 import { Menu } from "../../components/ui/Menu";
@@ -39,8 +40,11 @@ type SheetState =
   | { readonly mode: "create" }
   | { readonly mode: "edit"; readonly space: SidebarSpace };
 
+/** The room a thread list leaves for the floating bar: its 42-point capsule and an 8-point gap. */
+export const SIDEBAR_SPACE_BAR_HEIGHT = 50;
+
 /**
- * Footer control showing the current space. Tap to switch, create, edit, or delete
+ * Floating control showing the current space. Tap to switch, create, edit, or delete
  * spaces; drag sideways on it to page between them. Paging lives on the bar rather
  * than the thread list because list rows already own horizontal swipes.
  */
@@ -105,55 +109,59 @@ export function SidebarSpaceBar(props: {
   return (
     <>
       <GestureDetector gesture={swipe}>
-        <View
-          collapsable={false}
-          className="flex-row items-center gap-2 border-t border-border-subtle px-3 py-2"
-        >
-          <Menu actions={actions} onPressAction={onAction}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Space: ${active?.name ?? "All projects"}`}
-              accessibilityHint="Switch, create, edit, or delete spaces. Swipe sideways to page."
-              disabled={!spaces.loaded}
-              className="min-w-0 shrink flex-row items-center gap-1.5 rounded-lg px-2 py-1.5 active:opacity-70"
-            >
-              <View
-                className="size-2.5 rounded-full bg-drawer-foreground-muted"
-                style={activeAppearance ? { backgroundColor: activeAppearance.colour } : undefined}
-              />
-              <Text
-                numberOfLines={1}
-                className="shrink text-sm font-t3-medium text-drawer-foreground"
+        <View collapsable={false} className="px-3 pb-2">
+          <GlassSurface
+            className="h-[42px] flex-row items-center gap-2 px-2.5"
+            style={{ borderRadius: 21 }}
+          >
+            <Menu actions={actions} onPressAction={onAction}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Space: ${active?.name ?? "All projects"}`}
+                accessibilityHint="Switch, create, edit, or delete spaces. Swipe sideways to page."
+                disabled={!spaces.loaded}
+                className="min-w-0 shrink flex-row items-center gap-1.5 rounded-lg px-2 py-1.5 active:opacity-70"
               >
-                {active?.name ?? "All projects"}
-                {activeAppearance?.mixed ? " · Mixed" : ""}
-              </Text>
-              <SymbolView
-                name="chevron.down"
-                size={11}
-                tintColorClassName="accent-drawer-foreground-muted"
-                type="monochrome"
-              />
-            </Pressable>
-          </Menu>
-          {spaces.spaces.length > 0 ? (
-            <View className="ml-auto flex-row items-center gap-1.5" accessibilityElementsHidden>
-              {pages.map((space) => {
-                const selected = (space?.id ?? null) === (active?.id ?? null);
-                return (
-                  <View
-                    key={space?.id ?? "all"}
-                    className={
-                      selected
-                        ? "size-2 rounded-full bg-drawer-foreground-muted"
-                        : "size-1.5 rounded-full bg-drawer-foreground-muted opacity-50"
-                    }
-                    style={space ? { backgroundColor: appearance(space).colour } : undefined}
-                  />
-                );
-              })}
-            </View>
-          ) : null}
+                <View
+                  className="size-2.5 rounded-full bg-foreground-muted"
+                  style={
+                    activeAppearance ? { backgroundColor: activeAppearance.colour } : undefined
+                  }
+                />
+                <Text numberOfLines={1} className="shrink text-sm font-t3-medium text-foreground">
+                  {active?.name ?? "All projects"}
+                  {activeAppearance?.mixed ? " · Mixed" : ""}
+                </Text>
+                <SymbolView
+                  name="chevron.down"
+                  size={11}
+                  tintColorClassName="accent-icon-muted"
+                  type="monochrome"
+                />
+              </Pressable>
+            </Menu>
+            {spaces.spaces.length > 0 ? (
+              <View
+                className="ml-auto flex-row items-center gap-1.5 pr-1.5"
+                accessibilityElementsHidden
+              >
+                {pages.map((space) => {
+                  const selected = (space?.id ?? null) === (active?.id ?? null);
+                  return (
+                    <View
+                      key={space?.id ?? "all"}
+                      className={
+                        selected
+                          ? "size-2 rounded-full bg-foreground-muted"
+                          : "size-1.5 rounded-full bg-foreground-muted opacity-50"
+                      }
+                      style={space ? { backgroundColor: appearance(space).colour } : undefined}
+                    />
+                  );
+                })}
+              </View>
+            ) : null}
+          </GlassSurface>
         </View>
       </GestureDetector>
       {sheet ? (

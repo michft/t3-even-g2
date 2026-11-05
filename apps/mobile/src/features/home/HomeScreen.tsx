@@ -1,3 +1,4 @@
+import { useNavigationState } from "@react-navigation/native";
 import { usePaneRole } from "../../components/ui/Pane";
 import { ScreenContent } from "../../components/ui/ScreenContent";
 import { useActiveNewTask } from "../../state/active-new-task";
@@ -45,6 +46,7 @@ import { NativePrimaryColumnContext } from "../../native/v5-workspace-context";
 import { intersectSidebarScopes } from "@t3tools/client-runtime/state/sidebar-spaces";
 import { nativeHeaderScrollEdgeEffects } from "../../native/scrollEdgeEffects";
 import {
+  useDeviceType,
   useNativeColumnLayoutMetrics,
   useNativeLayoutMetrics,
 } from "../../native/native-layout-metrics";
@@ -90,9 +92,10 @@ import { createSwipeRowActivation } from "./swipe-row-activation";
 import { SwipeableScrollGateProvider, useSwipeableScrollGate } from "./thread-swipe-actions";
 import { useFabScroll } from "./FabScrollContext";
 import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
-import { ThreadListFilters } from "./ThreadListFilters";
+import { spaceMayOpenThread } from "../workspace/workspace-detail-selection";
+import { useAdaptiveWorkspaceLayout } from "../layout/adaptive-workspace-context";
 import { mobileSpaceProjectKeys, spaceRepositoryKey } from "../../lib/sidebarSpaces";
-import { SidebarSpaceBar } from "../threads/SidebarSpaces";
+import { SIDEBAR_SPACE_BAR_HEIGHT, SidebarSpaceBar } from "../threads/SidebarSpaces";
 import { useSidebarSpaces } from "../threads/use-sidebar-spaces";
 
 interface HomeScreenProps {
@@ -110,8 +113,6 @@ interface HomeScreenProps {
   readonly projectSortOrder: HomeProjectSortOrder;
   readonly projectGroupingMode: SidebarProjectGroupingMode;
   readonly onSearchQueryChange: (query: string) => void;
-  readonly onEnvironmentChange: (environmentId: EnvironmentId | null) => void;
-  readonly onProjectChange: (projectKey: string | null) => void;
   readonly onAddConnection: () => void;
   readonly onOpenSettings: () => void;
   readonly onStartNewTask: () => void;
@@ -262,6 +263,8 @@ export function HomeScreen(props: HomeScreenProps) {
     Platform.OS === "android" ? "bg-header" : contentBackground,
   );
   const columnMetrics = useNativeColumnLayoutMetrics();
+  const deviceType = useDeviceType();
+  const { usesSplitView } = useAdaptiveWorkspaceLayout().layout;
   const activeNewTask = useActiveNewTask();
   const selectedThreadKey = activeNewTask ? null : (primaryColumn?.selectedThreadKey ?? null);
   const fullSwipeWidth = primaryColumn && columnMetrics ? columnMetrics.width - 20 : undefined;
@@ -392,11 +395,11 @@ export function HomeScreen(props: HomeScreenProps) {
     return map;
   })();
 
-  // Spaces belong to the iPad sidebar column, like the desktop sidebar; the phone
-  // list keeps showing every project until the layout follows orientation (#51).
-  const spacesEnabled = Platform.OS === "ios" && Boolean(primaryColumn);
+  const spacesEnabled = Platform.OS === "ios";
+  const spaceMayOpen = useNavigationState(spaceMayOpenThread);
+  // Only a list beside a conversation restores a Space's last thread; elsewhere that would push.
   const sidebarSpaces = useSidebarSpaces(
-    spacesEnabled
+    spacesEnabled && primaryColumn && usesSplitView && spaceMayOpen
       ? {
           selectedThreadKey,
           threads: props.threads,
@@ -746,8 +749,16 @@ export function HomeScreen(props: HomeScreenProps) {
 
   // Kept mounted when the list is empty so saved spaces stay reachable.
   const spaceBar = spacesEnabled ? (
-    // The column's bottom toolbar floats over this clearance, so the bar sits just above it.
-    <View style={{ paddingBottom: iosBottomClearance }}>
+    // The clearance includes the list's padding above the tabs; the bar sits closer, at their edges.
+    <View
+      pointerEvents="box-none"
+      style={{
+        position: "absolute",
+        left: deviceType === "phone" ? 17 : 10,
+        right: deviceType === "phone" ? 11 : 10,
+        bottom: iosBottomClearance - (deviceType === "phone" ? 32 : 16),
+      }}
+    >
       <SidebarSpaceBar
         spaces={sidebarSpaces}
         projects={spaceSheetProjects}
@@ -768,10 +779,8 @@ export function HomeScreen(props: HomeScreenProps) {
             )}
             style={{
               paddingBottom: spacesEnabled
-                ? 16
-                : Platform.OS === "ios"
-                  ? iosBottomClearance
-                  : Math.max(insets.bottom, 24),
+                ? iosBottomClearance + SIDEBAR_SPACE_BAR_HEIGHT
+                : Math.max(insets.bottom, 24),
               paddingTop: NATIVE_LIQUID_GLASS_SUPPORTED ? insets.top + 72 : 0,
               paddingLeft: 32 + (contentSideInsets?.left ?? 0),
               paddingRight: 32 + (contentSideInsets?.right ?? 0),
@@ -814,26 +823,6 @@ export function HomeScreen(props: HomeScreenProps) {
   }
 
   const listHeader = Platform.OS === "ios" ? undefined : <HomeTopContentSpacer />;
-
-  const v2ListHeader = (
-    <>
-      {listHeader}
-      {Platform.OS === "ios" && workspace ? (
-        <ThreadListFilters
-          gutter={sidebarSurface ? 8 : 0}
-          environments={props.environments}
-          projects={pickableProjectGroups(spaceProjectScopes).map((scope) => ({
-            key: scope.key,
-            label: scope.title,
-          }))}
-          selectedEnvironmentId={props.selectedEnvironmentId}
-          selectedProjectKey={props.selectedProjectKey}
-          onEnvironmentChange={props.onEnvironmentChange}
-          onProjectChange={props.onProjectChange}
-        />
-      ) : null}
-    </>
-  );
 
   const v2ListEmpty =
     hasSearchQuery && threadSearch.isPending ? undefined : hasSearchQuery ? (
@@ -903,7 +892,7 @@ export function HomeScreen(props: HomeScreenProps) {
                 drawDistance={THREAD_LIST_V2_DRAW_DISTANCE}
                 recycleItems
                 extraData={v2ExtraData}
-                ListHeaderComponent={v2ListHeader}
+                ListHeaderComponent={listHeader}
                 ListFooterComponent={
                   settledShelfExpanded && threadListV2Layout.hiddenSettledCount > 0 ? (
                     <ThreadListV2ShowMoreRow
@@ -945,12 +934,12 @@ export function HomeScreen(props: HomeScreenProps) {
                   paddingRight:
                     (contentSideInsets?.right ?? 0) + (sidebarSurface ? 8 : 0) + androidListGutter,
                   paddingBottom: spacesEnabled
-                    ? 16
-                    : Platform.OS === "ios"
-                      ? iosBottomClearance - (columnMetrics?.safeArea.bottom ?? insets.bottom)
-                      : (workspace?.bottomClearance ??
-                        Math.max(insets.bottom, 16) +
-                          (Platform.OS === "android" ? fabClearance : 88)),
+                    ? iosBottomClearance -
+                      (columnMetrics?.safeArea.bottom ?? insets.bottom) +
+                      SIDEBAR_SPACE_BAR_HEIGHT
+                    : (workspace?.bottomClearance ??
+                      Math.max(insets.bottom, 16) +
+                        (Platform.OS === "android" ? fabClearance : 88)),
                 }}
               />
             </GestureDetector>

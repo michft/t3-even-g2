@@ -85,6 +85,15 @@ function workspaceDetailState<
   return { ...state, index: routes.length - 1, routes };
 }
 
+/** Whether the detail column shows a thread or nothing, so a Space may open a thread there. */
+export function spaceMayOpenThread(state: {
+  readonly index: number;
+  readonly routes: readonly { readonly name: string }[];
+}) {
+  const page = state.routes.slice(0, state.index + 1).at(-1)?.name;
+  return page === undefined || page === "Home" || page.startsWith("Thread");
+}
+
 /** Root stack router overrides that handle `selectWorkspaceDetail`. */
 export function workspaceDetailRouter<Action extends NavigationAction>(
   original: Router<StackNavigationState<ParamListBase>, Action>,

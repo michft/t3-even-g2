@@ -34,7 +34,7 @@ import { Menu } from "../../components/ui/Menu";
 import { SymbolView } from "../../components/ui/AppSymbol";
 import { NATIVE_LIQUID_GLASS_SUPPORTED } from "../../native/native-glass";
 import { NativeStackScreenOptions } from "../../native/StackHeader";
-import { spaceRepositoryKey } from "../../lib/sidebarSpaces";
+import { mobileSpaceProjectKeys, spaceRepositoryKey } from "../../lib/sidebarSpaces";
 import { scopedProjectKey, scopedThreadKey } from "../../lib/scopedEntities";
 import { useProjects, useNavigationThreadShells } from "../../state/entities";
 import { useThreadSearch } from "../../state/queries";
@@ -51,7 +51,6 @@ import { useThreadJumpShortcuts } from "../keyboard/threadKeyboardShortcuts";
 import { requestThreadMessageJump } from "./threadMessageJump";
 import { useThreadListSearchMatches } from "./useThreadListSearchMatches";
 import { useHomeListOptions } from "../home/home-list-options";
-import { buildHomeListFilterMenu } from "../home/home-list-filter-menu";
 import { buildHomeProjectScopes } from "../home/homeThreadList";
 import { SwipeableScrollGateProvider, useSwipeableScrollGate } from "../home/thread-swipe-actions";
 import { usePendingTaskListActions } from "../home/usePendingTaskListActions";
@@ -66,6 +65,8 @@ import { useFabScroll } from "../home/FabScrollContext";
 import { SidebarFilterButton } from "./sidebar-filter-button";
 import { createSidebarHeaderItems } from "./sidebar-native-header-items";
 import { SidebarNavigationShell } from "./sidebar-navigation-shell";
+import { SIDEBAR_SPACE_BAR_HEIGHT, SidebarSpaceBar } from "./SidebarSpaces";
+import { useSidebarSpaces } from "./use-sidebar-spaces";
 import {
   ThreadListV2PendingRow,
   ThreadListV2Row,
@@ -112,6 +113,10 @@ interface ThreadNavigationSidebarProps {
   readonly onOpenPendingTask: (pendingTask: PendingNewTask) => void;
   readonly onSearchQueryChange: (query: string) => void;
   readonly onSelectThread: (thread: EnvironmentThreadShell) => void;
+  /** False while Settings or a pull request fills the detail, so a Space leaves that page open. */
+  readonly spaceMayOpenThread: boolean;
+  /** Empties the detail column when a Space has no thread to restore. */
+  readonly onClearThread: () => void;
   readonly onOpenThreadPullRequests: (
     thread: EnvironmentThreadShell,
     pr: ThreadPrPresentation,
@@ -155,12 +160,27 @@ function ThreadNavigationSidebarPane(
   const drawerColor = materialTheme["--color-drawer"];
 
   const insets = useSafeAreaInsets();
-  const tabsClearance = usePhoneSidebarWorkspaceTabs()
-    ? workspaceDockBottomClearance({ bottomInset: insets.bottom, keyboardHeight: 0 })
-    : undefined;
+  const phoneSidebarTabs = usePhoneSidebarWorkspaceTabs();
+  const spaceBarBottom = phoneSidebarTabs
+    ? workspaceDockBottomClearance({ bottomInset: insets.bottom, keyboardHeight: 0 }) - 16
+    : Math.max(insets.bottom, 16);
   const { fabClearance, fabSize } = useAndroidControlSizing();
   const projects = useProjects();
   const threads = useNavigationThreadShells();
+  // The retained phone sidebar stays mounted in portrait, where restoring a thread would push it.
+  const spaces = useSidebarSpaces(
+    props.nativeChrome && props.usesSplitView && props.spaceMayOpenThread
+      ? {
+          selectedThreadKey: props.selectedThreadKey,
+          threads,
+          onSelectThread: props.onSelectThread,
+          onClearThread: props.onClearThread,
+        }
+      : undefined,
+    projects,
+  );
+  const activeSpace = props.nativeChrome ? spaces.activeSpace : null;
+  const activeSpaceKeys = mobileSpaceProjectKeys(activeSpace, projects, spaces.preferences);
   const { environments: workspaceEnvironments, state: catalogState } = useWorkspaceState();
   const { savedConnectionsById } = useSavedRemoteConnections();
   const searchBarRef = useRef<SearchBarCommands>(null);
@@ -270,7 +290,7 @@ function ThreadNavigationSidebarPane(
   const [settledVisibleCount, setSettledVisibleCount] = useState(
     THREAD_LIST_V2_SETTLED_INITIAL_COUNT,
   );
-  const settledResetKey = `${options.selectedEnvironmentId ?? "all"}:${selectedProjectKey ?? "all"}:${props.searchQuery.trim()}`;
+  const settledResetKey = `${options.selectedEnvironmentId ?? "all"}:${activeSpace?.id ?? "all"}:${selectedProjectKey ?? "all"}:${props.searchQuery.trim()}`;
   const [lastSettledResetKey, setLastSettledResetKey] = useState(settledResetKey);
   if (lastSettledResetKey !== settledResetKey) {
     setLastSettledResetKey(settledResetKey);
@@ -315,7 +335,16 @@ function ThreadNavigationSidebarPane(
     threads,
     pendingTasks,
     environmentId: options.selectedEnvironmentId,
-    projectRefs: selectedProjectScope === null ? null : selectedProjectScope.projectRefs,
+    projectRefs:
+      activeSpaceKeys !== null
+        ? projects
+            .filter((project) =>
+              activeSpaceKeys.has(scopedProjectKey(project.environmentId, project.id)),
+            )
+            .map((project) => ({ environmentId: project.environmentId, projectId: project.id }))
+        : selectedProjectScope === null
+          ? null
+          : selectedProjectScope.projectRefs,
     searchQuery: props.searchQuery,
     searchMatches: threadSearchMatchByKey,
     settlementEnvironmentIds,
@@ -673,17 +702,7 @@ function ThreadNavigationSidebarPane(
   const filterIcon = filterCustomized
     ? "line.3.horizontal.decrease.circle.fill"
     : "line.3.horizontal.decrease.circle";
-  const filterMenu = buildHomeListFilterMenu({
-    environments,
-    projects: projectFilterOptions,
-    selectedEnvironmentId: options.selectedEnvironmentId,
-    selectedProjectKey,
-    onEnvironmentChange: setSelectedEnvironmentId,
-    onProjectChange: setSelectedProjectKey,
-  });
   const nativeHeaderItems = createSidebarHeaderItems({
-    filterIcon,
-    filterMenu,
     onOpenSettings: props.onOpenSettings,
   });
   const listEmpty = (
@@ -702,9 +721,11 @@ function ThreadNavigationSidebarPane(
             ? threadSearch.isPending
               ? "Searching thread messages…"
               : "No matching threads"
-            : selectedProjectScope !== null
-              ? `No threads in ${selectedProjectScope.title}`
-              : "No threads yet"}
+            : activeSpace !== null
+              ? `No threads in ${activeSpace.name} yet`
+              : selectedProjectScope !== null
+                ? `No threads in ${selectedProjectScope.title}`
+                : "No threads yet"}
     </Text>
   );
 
@@ -732,7 +753,7 @@ function ThreadNavigationSidebarPane(
                   placeholder: "Search threads",
                   placement: "integratedButton",
                   // A landscape iPhone's tabs sit at the foot of this column, over any toolbar.
-                  allowToolbarIntegration: tabsClearance === undefined,
+                  allowToolbarIntegration: !phoneSidebarTabs,
                   onCancelButtonPress: () => props.onSearchQueryChange(""),
                   onChangeText: ({ nativeEvent }) => props.onSearchQueryChange(nativeEvent.text),
                 }
@@ -762,7 +783,7 @@ function ThreadNavigationSidebarPane(
                   styles.threadListContent,
                   Platform.OS === "android" ? { paddingHorizontal: 0 } : null,
                   {
-                    paddingBottom: tabsClearance ?? Math.max(insets.bottom, 16) + 16,
+                    paddingBottom: spaceBarBottom + SIDEBAR_SPACE_BAR_HEIGHT,
                     paddingTop: 6,
                   },
                 ]}
@@ -777,7 +798,31 @@ function ThreadNavigationSidebarPane(
               />
             </GestureDetector>
           </SwipeableScrollGateProvider>
-          <ThreadUndoNotice visible={props.visible} tabsClearance={tabsClearance} />
+          <View
+            pointerEvents="box-none"
+            style={{
+              position: "absolute",
+              // Lines the capsule up with the tabs at the foot of the column.
+              left: phoneSidebarTabs ? 9 : 0,
+              right: phoneSidebarTabs ? 9 : 0,
+              bottom: spaceBarBottom,
+            }}
+          >
+            <SidebarSpaceBar
+              spaces={spaces}
+              projects={buildHomeProjectScopes({
+                projects,
+                environmentId: null,
+                projectGroupingMode: "repository",
+              })}
+              machines={environments}
+              machineColours={environmentAccentByEnvironmentId}
+            />
+          </View>
+          <ThreadUndoNotice
+            visible={props.visible}
+            tabsClearance={spaceBarBottom + SIDEBAR_SPACE_BAR_HEIGHT}
+          />
         </View>
       </>
     );

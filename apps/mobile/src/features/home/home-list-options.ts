@@ -3,6 +3,7 @@ import { DEFAULT_SIDEBAR_PROJECT_SORT_ORDER } from "@t3tools/contracts";
 import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react";
 import { Atom } from "effect/reactivity";
 import { createContext, createElement, useContext, useState, type PropsWithChildren } from "react";
+import { Platform } from "react-native";
 
 import type { ThreadListFilters } from "../../persistence/mobile-preferences";
 import { updateMobilePreferencesAtom } from "../../state/preferences";
@@ -46,7 +47,10 @@ export function HomeListOptionsProvider({
   readonly savedFilters?: ThreadListFilters | undefined;
 }>) {
   const registry = useContext(RegistryContext);
-  const [optionsAtom] = useState(() => Atom.make(defaultHomeListOptions(savedFilters)));
+  // iOS scopes its list with Spaces; a filter saved earlier would have no control left to clear it.
+  const [optionsAtom] = useState(() =>
+    Atom.make(defaultHomeListOptions(Platform.OS === "ios" ? undefined : savedFilters)),
+  );
   const options = useAtomValue(optionsAtom);
   const savePreferences = useAtomSet(updateMobilePreferencesAtom);
   // Only the scope persists; the sort order is per session. Updates read the

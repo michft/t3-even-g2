@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   selectWorkspaceDetail,
   setNativelyPoppingWorkspaceRoute,
+  spaceMayOpenThread,
   workspaceDetailLinkAction,
   workspaceDetailRouter,
   type WorkspaceDetail,
@@ -121,6 +122,27 @@ describe("selectWorkspaceDetail", () => {
     } finally {
       setNativelyPoppingWorkspaceRoute(null);
     }
+  });
+});
+
+describe("spaceMayOpenThread", () => {
+  const stack = (...names: readonly string[]) => ({
+    index: names.length - 1,
+    routes: names.map((name) => ({ name })),
+  });
+
+  it("lets a Space replace only an empty detail or a thread", () => {
+    expect(spaceMayOpenThread(stack("Home"))).toBe(true);
+    expect(spaceMayOpenThread(stack("Home", "Thread"))).toBe(true);
+    expect(spaceMayOpenThread(stack("Home", "Settings"))).toBe(false);
+    expect(spaceMayOpenThread(stack("Home", "PullRequest"))).toBe(false);
+    expect(spaceMayOpenThread(stack("Home", "Thread", "SettingsEnvironments"))).toBe(false);
+  });
+
+  it("ignores routes above the focused one", () => {
+    expect(spaceMayOpenThread({ index: 0, routes: [{ name: "Home" }, { name: "Settings" }] })).toBe(
+      true,
+    );
   });
 });
 
