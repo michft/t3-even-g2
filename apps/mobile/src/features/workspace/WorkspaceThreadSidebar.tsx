@@ -13,6 +13,7 @@ import { openSettings } from "../settings/settings-navigation";
 import { ThreadNavigationSidebar } from "../threads/ThreadNavigationSidebar";
 import { useOpenThreadPullRequests } from "../threads/use-open-thread-pull-requests";
 import { useSelectWorkspaceDetail } from "./useSelectWorkspaceDetail";
+import { spaceMayOpenThread } from "./workspace-detail-selection";
 
 type Route = { readonly name: string; readonly params?: object };
 
@@ -53,6 +54,7 @@ export function WorkspaceThreadSidebar({ width }: { readonly width?: number } = 
   const selectDetail = useSelectWorkspaceDetail();
   const openThreadPullRequests = useOpenThreadPullRequests();
   const selectedThread = useNavigationState(selectedThreadKey);
+  const spaceMayOpen = useNavigationState(spaceMayOpenThread);
   const selectThreadRoute = (params: ReactNavigation.RootParamList["Thread"]) =>
     selectDetail({ name: "Thread", params });
   const { openPendingTask } = usePendingTaskListActions(selectThreadRoute);
@@ -93,6 +95,7 @@ export function WorkspaceThreadSidebar({ width }: { readonly width?: number } = 
           threadId: String(thread.id),
         })
       }
+      spaceMayOpenThread={spaceMayOpen}
       onClearThread={() => navigation.dispatch(StackActions.popToTop())}
       onOpenThreadPullRequests={openThreadPullRequests}
       onSearchQueryChange={setPrimarySidebarSearchQuery}

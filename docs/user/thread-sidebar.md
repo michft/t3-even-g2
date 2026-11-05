@@ -240,7 +240,7 @@ switch, create, edit, or delete spaces, or swipe sideways on the bar to page bet
 them; thread rows keep their own swipe actions. Use spaces and search to narrow the
 list. These spaces are separate from the spaces on your computer. When the list sits
 beside a conversation, switching spaces restores the last thread opened in that
-space on this device. If it is no longer available, the most recently updated thread
+space on this device; an open Settings or pull request page stays open. If it is no longer available, the most recently updated thread
 opens; an empty space clears the detail. Editing included members also updates the
 open thread. Losing an environment connection leaves navigation alone, so it does not
 dismiss Settings.

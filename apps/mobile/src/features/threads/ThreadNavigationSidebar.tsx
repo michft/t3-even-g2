@@ -113,6 +113,8 @@ interface ThreadNavigationSidebarProps {
   readonly onOpenPendingTask: (pendingTask: PendingNewTask) => void;
   readonly onSearchQueryChange: (query: string) => void;
   readonly onSelectThread: (thread: EnvironmentThreadShell) => void;
+  /** False while Settings or a pull request fills the detail, so a Space leaves that page open. */
+  readonly spaceMayOpenThread: boolean;
   /** Empties the detail column when a Space has no thread to restore. */
   readonly onClearThread: () => void;
   readonly onOpenThreadPullRequests: (
@@ -167,7 +169,7 @@ function ThreadNavigationSidebarPane(
   const threads = useNavigationThreadShells();
   // The retained phone sidebar stays mounted in portrait, where restoring a thread would push it.
   const spaces = useSidebarSpaces(
-    props.nativeChrome && props.usesSplitView
+    props.nativeChrome && props.usesSplitView && props.spaceMayOpenThread
       ? {
           selectedThreadKey: props.selectedThreadKey,
           threads,
@@ -719,9 +721,11 @@ function ThreadNavigationSidebarPane(
             ? threadSearch.isPending
               ? "Searching thread messages…"
               : "No matching threads"
-            : selectedProjectScope !== null
-              ? `No threads in ${selectedProjectScope.title}`
-              : "No threads yet"}
+            : activeSpace !== null
+              ? `No threads in ${activeSpace.name} yet`
+              : selectedProjectScope !== null
+                ? `No threads in ${selectedProjectScope.title}`
+                : "No threads yet"}
     </Text>
   );
 
