@@ -15,6 +15,10 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
   iPad, instead of over the conversation. Hiding the sidebar hides them too. The
   column's rows keep the same width on either side of the Dynamic Island.
 
+- Integrate T3 Nightly `v0.1.8-nightly.20261105.4218` onto current fork main,
+  preserving G2/R1, Spaces, phone landscape/sidebar navigation, host and repo
+  colours, ordinary-composer questions, app identity and GitHub-hosted runners.
+
 - Integrate T3 Nightly `v0.1.8-nightly.20261105.4205` onto current fork main,
   preserving G2/R1, Spaces, phone landscape/sidebar navigation, host and repo
   colours, ordinary-composer questions, app identity and GitHub-hosted runners.
