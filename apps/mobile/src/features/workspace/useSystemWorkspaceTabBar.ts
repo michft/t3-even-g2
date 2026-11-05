@@ -50,16 +50,31 @@ export function useFloatingWorkspaceTabs() {
   );
 }
 
+/** A landscape iPhone keeps its tabs at the foot of a visible sidebar, the way an iPad does. */
+export function usePhoneSidebarWorkspaceTabs() {
+  const { layout, panes } = useAdaptiveWorkspaceLayout();
+  const deviceType = useDeviceType();
+  return (
+    Platform.OS === "ios" &&
+    deviceType === "phone" &&
+    layout.usesSplitView &&
+    panes.primarySidebarVisible
+  );
+}
+
 export function useSystemWorkspaceTabBar() {
   const deviceType = useDeviceType();
   const { layout } = useAdaptiveWorkspaceLayout();
   const sidebarTabs = useSidebarWorkspaceTabs();
   const compactTabs = useCompactWorkspaceTabs();
+  // A landscape iPhone's tabs belong to its sidebar; over a thread they'd cover the composer.
+  const phoneSplit = deviceType === "phone" && layout.usesSplitView;
   return (
     Platform.OS === "ios" &&
     deviceType !== "pad" &&
     layout.variant !== "medium" &&
     sidebarTabs === null &&
-    !compactTabs
+    !compactTabs &&
+    !phoneSplit
   );
 }

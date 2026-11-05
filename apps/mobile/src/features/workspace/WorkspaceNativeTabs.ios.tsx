@@ -21,10 +21,11 @@ import {
 import {
   useCompactWorkspaceTabs,
   useFloatingWorkspaceTabs,
+  usePhoneSidebarWorkspaceTabs,
   useSystemWorkspaceTabBar,
 } from "./useSystemWorkspaceTabBar";
 import { useControlTheme } from "../../components/ui/useControlTheme";
-import { useDeviceType } from "../../native/native-layout-metrics";
+import { useDeviceType, useNativeLayoutMetrics } from "../../native/native-layout-metrics";
 import { WorkspaceSidebarTabs } from "./WorkspaceSidebarTabs";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
 import { useSelectWorkspaceTab } from "./useSelectWorkspaceTab";
@@ -85,7 +86,9 @@ export function WorkspaceNativeTabs(props: {
   const systemTabBar = useSystemWorkspaceTabBar();
   const deviceType = useDeviceType();
   const compactTabs = useCompactWorkspaceTabs();
-  const { layout, panes } = useAdaptiveWorkspaceLayout();
+  const { layout, panes, setSidebarFooter } = useAdaptiveWorkspaceLayout();
+  const phoneSidebarTabs = usePhoneSidebarWorkspaceTabs();
+  const leadingInset = useNativeLayoutMetrics()?.safeArea.left ?? 0;
   // The tabs belong to the sidebar; over a page with the sidebar hidden they'd cover the composer.
   const hiddenWithSidebar =
     deviceType === "pad" &&
@@ -97,6 +100,21 @@ export function WorkspaceNativeTabs(props: {
   const { colors } = useControlTheme();
   const selectedTab = workspace.state.selectedTab;
   const selectedSlot = workspace.settingsOpen ? -1 : primaryTabs.indexOf(selectedTab);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- the iPhone sidebar column sits above this tabs provider, so the bar is handed up with its context
+  useLayoutEffect(() => {
+    if (!phoneSidebarTabs) return;
+    setSidebarFooter(
+      <WorkspaceTabsContext value={workspace}>
+        <View
+          pointerEvents="box-none"
+          style={{ position: "absolute", left: leadingInset, right: 0, bottom: 0, height: 128 }}
+        >
+          <WorkspaceSidebarTabsFooter />
+        </View>
+      </WorkspaceTabsContext>,
+    );
+    return () => setSidebarFooter(null);
+  }, [leadingInset, phoneSidebarTabs, setSidebarFooter, workspace]);
   const request = {
     selectedScreenKey: selectedSlot === -1 ? "settings" : NATIVE_WORKSPACE_TAB_SLOTS[selectedSlot]!,
     baseProvenance: provenance,

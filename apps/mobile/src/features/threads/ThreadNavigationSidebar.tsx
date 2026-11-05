@@ -85,6 +85,8 @@ import {
   type ThreadListV2ListItem,
 } from "./threadListV2";
 import { useSelectWorkspaceDetail } from "../workspace/useSelectWorkspaceDetail";
+import { usePhoneSidebarWorkspaceTabs } from "../workspace/useSystemWorkspaceTabBar";
+import { workspaceDockBottomClearance } from "../workspace/workspace-tabs-state";
 import { NativeScrollView } from "../../native/NativeScrollViewMarker";
 
 type SidebarListItem =
@@ -153,6 +155,9 @@ function ThreadNavigationSidebarPane(
   const drawerColor = materialTheme["--color-drawer"];
 
   const insets = useSafeAreaInsets();
+  const tabsClearance = usePhoneSidebarWorkspaceTabs()
+    ? workspaceDockBottomClearance({ bottomInset: insets.bottom, keyboardHeight: 0 })
+    : undefined;
   const { fabClearance, fabSize } = useAndroidControlSizing();
   const projects = useProjects();
   const threads = useNavigationThreadShells();
@@ -726,7 +731,8 @@ function ThreadNavigationSidebarPane(
                   obscureBackground: false,
                   placeholder: "Search threads",
                   placement: "integratedButton",
-                  allowToolbarIntegration: true,
+                  // A landscape iPhone's tabs sit at the foot of this column, over any toolbar.
+                  allowToolbarIntegration: tabsClearance === undefined,
                   onCancelButtonPress: () => props.onSearchQueryChange(""),
                   onChangeText: ({ nativeEvent }) => props.onSearchQueryChange(nativeEvent.text),
                 }
@@ -756,7 +762,7 @@ function ThreadNavigationSidebarPane(
                   styles.threadListContent,
                   Platform.OS === "android" ? { paddingHorizontal: 0 } : null,
                   {
-                    paddingBottom: Math.max(insets.bottom, 16) + 16,
+                    paddingBottom: tabsClearance ?? Math.max(insets.bottom, 16) + 16,
                     paddingTop: 6,
                   },
                 ]}
@@ -771,7 +777,7 @@ function ThreadNavigationSidebarPane(
               />
             </GestureDetector>
           </SwipeableScrollGateProvider>
-          <ThreadUndoNotice visible={props.visible} />
+          <ThreadUndoNotice visible={props.visible} tabsClearance={tabsClearance} />
         </View>
       </>
     );

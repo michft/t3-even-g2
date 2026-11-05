@@ -1,6 +1,6 @@
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
 import type { WorkspaceTab } from "../workspace/workspace-tabs-state";
-import { createContext, use } from "react";
+import { createContext, use, type ReactNode } from "react";
 import type { InspectorContent } from "./inspector-panes";
 import type {
   WorkspaceDetail,
@@ -42,6 +42,8 @@ interface AdaptiveWorkspaceContextValue {
   /** Shows the sidebar, setting aside the keyboard or an inspector that took its room. */
   readonly revealPrimarySidebar: () => void;
   readonly setPrimarySidebarVisible: (visible: boolean) => void;
+  /** Draws at the foot of the JS sidebar column, for content owned below this layout. */
+  readonly setSidebarFooter: (footer: ReactNode) => void;
   /** Opens a workspace tab with its list and, with columns, the page it last showed. */
   readonly openWorkspaceTab: (
     tab: WorkspaceTab | "settings",
@@ -94,6 +96,7 @@ export const AdaptiveWorkspaceContext = createContext<AdaptiveWorkspaceContextVa
   togglePrimarySidebar: () => undefined,
   revealPrimarySidebar: () => undefined,
   setPrimarySidebarVisible: () => undefined,
+  setSidebarFooter: () => undefined,
   openWorkspaceTab: () => undefined,
   setAuxiliaryPaneWidth: () => undefined,
   nativeInspectorWidth: 0,
