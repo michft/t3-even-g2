@@ -34,7 +34,7 @@ export class MobileSecureStorage extends Context.Service<
     readonly setItem: (key: string, value: string) => Effect.Effect<void, MobileSecureStorageError>;
     readonly removeItem: (key: string) => Effect.Effect<void, MobileSecureStorageError>;
   }
->()("@t3tools/mobile/persistence/MobileSecureStorage") {}
+>()("@t3tools/mobile/persistence/mobile-secure-storage/MobileSecureStorage") {}
 
 /** Await foreground after a protected-data denial, releasing the listener on completion or cancellation. */
 const waitForForeground = Effect.callback<void>((resume) => {
