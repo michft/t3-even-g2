@@ -40,8 +40,11 @@ type SheetState =
   | { readonly mode: "create" }
   | { readonly mode: "edit"; readonly space: SidebarSpace };
 
-/** The room a thread list leaves for the floating bar: its 42-point capsule and an 8-point gap. */
-export const SIDEBAR_SPACE_BAR_HEIGHT = 50;
+// UIKit sizes the tab pill below the bar and doesn't expose its height to JavaScript.
+const SIDEBAR_SPACE_BAR_CAPSULE_HEIGHT = 62;
+
+/** The room a thread list leaves for the floating bar: its capsule and an 8-point gap. */
+export const SIDEBAR_SPACE_BAR_HEIGHT = SIDEBAR_SPACE_BAR_CAPSULE_HEIGHT + 8;
 
 /**
  * Floating control showing the current space. Tap to switch, create, edit, or delete
@@ -111,8 +114,13 @@ export function SidebarSpaceBar(props: {
       <GestureDetector gesture={swipe}>
         <View collapsable={false} className="px-3 pb-2">
           <GlassSurface
-            className="h-[42px] flex-row items-center gap-2 px-2.5"
-            style={{ borderRadius: 21 }}
+            chrome="none"
+            tintColor={null}
+            className="flex-row items-center gap-2 px-3"
+            style={{
+              height: SIDEBAR_SPACE_BAR_CAPSULE_HEIGHT,
+              borderRadius: SIDEBAR_SPACE_BAR_CAPSULE_HEIGHT / 2,
+            }}
           >
             <Menu actions={actions} onPressAction={onAction}>
               <Pressable
@@ -128,13 +136,13 @@ export function SidebarSpaceBar(props: {
                     activeAppearance ? { backgroundColor: activeAppearance.colour } : undefined
                   }
                 />
-                <Text numberOfLines={1} className="shrink text-sm font-t3-medium text-foreground">
+                <Text numberOfLines={1} className="shrink text-base font-t3-medium text-foreground">
                   {active?.name ?? "All projects"}
                   {activeAppearance?.mixed ? " · Mixed" : ""}
                 </Text>
                 <SymbolView
                   name="chevron.down"
-                  size={11}
+                  size={13}
                   tintColorClassName="accent-icon-muted"
                   type="monochrome"
                 />

@@ -87,6 +87,7 @@ import {
 } from "./threadListV2";
 import { useSelectWorkspaceDetail } from "../workspace/useSelectWorkspaceDetail";
 import { usePhoneSidebarWorkspaceTabs } from "../workspace/useSystemWorkspaceTabBar";
+import { useDeviceType } from "../../native/native-layout-metrics";
 import { workspaceDockBottomClearance } from "../workspace/workspace-tabs-state";
 import { NativeScrollView } from "../../native/NativeScrollViewMarker";
 
@@ -161,8 +162,9 @@ function ThreadNavigationSidebarPane(
 
   const insets = useSafeAreaInsets();
   const phoneSidebarTabs = usePhoneSidebarWorkspaceTabs();
+  const phoneSplit = useDeviceType() === "phone" && props.usesSplitView;
   const spaceBarBottom = phoneSidebarTabs
-    ? workspaceDockBottomClearance({ bottomInset: insets.bottom, keyboardHeight: 0 }) - 16
+    ? workspaceDockBottomClearance({ bottomInset: insets.bottom, keyboardHeight: 0 }) - 18
     : Math.max(insets.bottom, 16);
   const { fabClearance, fabSize } = useAndroidControlSizing();
   const projects = useProjects();
@@ -702,9 +704,10 @@ function ThreadNavigationSidebarPane(
   const filterIcon = filterCustomized
     ? "line.3.horizontal.decrease.circle.fill"
     : "line.3.horizontal.decrease.circle";
-  const nativeHeaderItems = createSidebarHeaderItems({
-    onOpenSettings: props.onOpenSettings,
-  });
+  // A landscape iPhone's tabs at the foot of this column already hold Settings.
+  const nativeHeaderItems = phoneSplit
+    ? []
+    : createSidebarHeaderItems({ onOpenSettings: props.onOpenSettings });
   const listEmpty = (
     <Text
       className={
@@ -733,7 +736,7 @@ function ThreadNavigationSidebarPane(
     return (
       <>
         <NativeStackScreenOptions
-          optionsVersion={[nativeHeaderItems, props.width, detailSearch]}
+          optionsVersion={[nativeHeaderItems, props.width, detailSearch, phoneSplit]}
           options={{
             ...getConnectionAwareBrandHeaderOptions({
               headerWidth: props.width,
@@ -741,6 +744,9 @@ function ThreadNavigationSidebarPane(
               onOpenEnvironments: props.onOpenEnvironmentSettings,
               fallbackTitleStyle: { fontSize: 18, fontWeight: "800" },
             }),
+            // Beside this column a landscape iPhone only needs the header for its search button.
+            ...(phoneSplit ? { headerTitle: () => null, title: "" } : null),
+            headerShown: !phoneSplit || detailSearch,
             // Home owns the other search control. With a detail open, keep one
             // compact native Search button here instead of a permanent stacked row.
             headerSearchBarOptions: detailSearch
@@ -794,6 +800,8 @@ function ThreadNavigationSidebarPane(
                 scrollEventThrottle={16}
                 showsVerticalScrollIndicator={false}
                 style={styles.threadList}
+                // With no header above it, the first row must clear the display's corner.
+                ListHeaderComponent={phoneSplit ? <View style={{ height: 18 }} /> : undefined}
                 ListEmptyComponent={listEmpty}
               />
             </GestureDetector>
@@ -803,8 +811,8 @@ function ThreadNavigationSidebarPane(
             style={{
               position: "absolute",
               // Lines the capsule up with the tabs at the foot of the column.
-              left: phoneSidebarTabs ? 9 : 0,
-              right: phoneSidebarTabs ? 9 : 0,
+              left: phoneSidebarTabs ? 10 : 0,
+              right: phoneSidebarTabs ? 10 : 0,
               bottom: spaceBarBottom,
             }}
           >
