@@ -18,7 +18,11 @@ import {
   useThreadUndoNotice,
 } from "./thread-undo-notice";
 
-export function ThreadUndoNotice(props: { readonly visible: boolean }) {
+export function ThreadUndoNotice(props: {
+  readonly visible: boolean;
+  /** Tabs drawn over this column, which sits outside the workspace's own clearance. */
+  readonly tabsClearance?: number;
+}) {
   const floatingTabsEnabled = useAndroidFloatingTabs();
   const notice = useThreadUndoNotice();
   const insets = useSafeAreaInsets();
@@ -65,6 +69,7 @@ export function ThreadUndoNotice(props: { readonly visible: boolean }) {
               insets.bottom,
               columnMetrics?.safeArea.bottom ?? 0,
               (workspace?.bottomClearance ?? 0) - workspacePadding,
+              props.tabsClearance ?? 0,
             ) + 8
       : floatingTabsEnabled && keyboardHeight === 0
         ? Math.max(insets.bottom + 12, workspace?.bottomClearance ?? 0)

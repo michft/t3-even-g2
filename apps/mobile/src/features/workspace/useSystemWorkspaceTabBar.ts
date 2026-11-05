@@ -67,17 +67,14 @@ export function useSystemWorkspaceTabBar() {
   const { layout } = useAdaptiveWorkspaceLayout();
   const sidebarTabs = useSidebarWorkspaceTabs();
   const compactTabs = useCompactWorkspaceTabs();
-  const phoneSidebarTabs = usePhoneSidebarWorkspaceTabs();
-  const page = useWorkspacePage();
-  // Like iPad, a hidden sidebar takes the tabs with it; over a thread they'd cover the composer.
-  const hiddenWithPhoneSidebar = deviceType === "phone" && layout.usesSplitView && !page;
+  // A landscape iPhone's tabs belong to its sidebar; over a thread they'd cover the composer.
+  const phoneSplit = deviceType === "phone" && layout.usesSplitView;
   return (
     Platform.OS === "ios" &&
     deviceType !== "pad" &&
     layout.variant !== "medium" &&
     sidebarTabs === null &&
     !compactTabs &&
-    !phoneSidebarTabs &&
-    !hiddenWithPhoneSidebar
+    !phoneSplit
   );
 }

@@ -155,7 +155,9 @@ function ThreadNavigationSidebarPane(
   const drawerColor = materialTheme["--color-drawer"];
 
   const insets = useSafeAreaInsets();
-  const phoneSidebarTabs = usePhoneSidebarWorkspaceTabs();
+  const tabsClearance = usePhoneSidebarWorkspaceTabs()
+    ? workspaceDockBottomClearance({ bottomInset: insets.bottom, keyboardHeight: 0 })
+    : undefined;
   const { fabClearance, fabSize } = useAndroidControlSizing();
   const projects = useProjects();
   const threads = useNavigationThreadShells();
@@ -759,12 +761,7 @@ function ThreadNavigationSidebarPane(
                   styles.threadListContent,
                   Platform.OS === "android" ? { paddingHorizontal: 0 } : null,
                   {
-                    paddingBottom: phoneSidebarTabs
-                      ? workspaceDockBottomClearance({
-                          bottomInset: insets.bottom,
-                          keyboardHeight: 0,
-                        })
-                      : Math.max(insets.bottom, 16) + 16,
+                    paddingBottom: tabsClearance ?? Math.max(insets.bottom, 16) + 16,
                     paddingTop: 6,
                   },
                 ]}
@@ -779,7 +776,7 @@ function ThreadNavigationSidebarPane(
               />
             </GestureDetector>
           </SwipeableScrollGateProvider>
-          <ThreadUndoNotice visible={props.visible} />
+          <ThreadUndoNotice visible={props.visible} tabsClearance={tabsClearance} />
         </View>
       </>
     );
