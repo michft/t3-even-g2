@@ -57,8 +57,8 @@ its side of the row. Under **Settings → Appearance**, adjust **Left tint** and
 **Right tint** independently; zero removes that wash while keeping its tab.
 Selection and activity indicators remain separate from repository colors.
 
-Long-press a thread and choose **Repository color**, or open its thread settings
-and use **Options → Repository color**. The choice applies to every thread and
+Long-press a thread and choose **More → Repository color**, or open its thread
+settings and use **Options → Repository color**. The choice applies to every thread and
 branch in that repository. **Automatic** gives it a stable palette color;
 choose another color or **None** to hide its right tab and tint. Colors span
 red, orange, yellow, green, cyan, blue, purple, pink, and grey.
