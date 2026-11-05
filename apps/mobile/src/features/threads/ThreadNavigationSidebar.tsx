@@ -702,9 +702,10 @@ function ThreadNavigationSidebarPane(
   const filterIcon = filterCustomized
     ? "line.3.horizontal.decrease.circle.fill"
     : "line.3.horizontal.decrease.circle";
-  const nativeHeaderItems = createSidebarHeaderItems({
-    onOpenSettings: props.onOpenSettings,
-  });
+  // A landscape iPhone's tabs at the foot of this column already hold Settings.
+  const nativeHeaderItems = phoneSidebarTabs
+    ? []
+    : createSidebarHeaderItems({ onOpenSettings: props.onOpenSettings });
   const listEmpty = (
     <Text
       className={
@@ -733,7 +734,7 @@ function ThreadNavigationSidebarPane(
     return (
       <>
         <NativeStackScreenOptions
-          optionsVersion={[nativeHeaderItems, props.width, detailSearch]}
+          optionsVersion={[nativeHeaderItems, props.width, detailSearch, phoneSidebarTabs]}
           options={{
             ...getConnectionAwareBrandHeaderOptions({
               headerWidth: props.width,
@@ -741,6 +742,10 @@ function ThreadNavigationSidebarPane(
               onOpenEnvironments: props.onOpenEnvironmentSettings,
               fallbackTitleStyle: { fontSize: 18, fontWeight: "800" },
             }),
+            // The detail column beside it shows the brand and connection status.
+            ...(phoneSidebarTabs
+              ? { headerShown: detailSearch, headerTitle: () => null, title: "" }
+              : null),
             // Home owns the other search control. With a detail open, keep one
             // compact native Search button here instead of a permanent stacked row.
             headerSearchBarOptions: detailSearch

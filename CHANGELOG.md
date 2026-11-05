@@ -60,6 +60,9 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ### Fixed
 
+- Remove the second T3 Code title and Settings button from the top of the thread
+  column on a landscape iPhone.
+
 - Give the iPhone and iPad Spaces bar the same height, shape, glass, and spacing
   as the navigation tabs beneath it, with thread-title-sized text.
 
