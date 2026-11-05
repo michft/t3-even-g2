@@ -162,7 +162,7 @@ function ThreadNavigationSidebarPane(
   const insets = useSafeAreaInsets();
   const phoneSidebarTabs = usePhoneSidebarWorkspaceTabs();
   const spaceBarBottom = phoneSidebarTabs
-    ? workspaceDockBottomClearance({ bottomInset: insets.bottom, keyboardHeight: 0 }) - 16
+    ? workspaceDockBottomClearance({ bottomInset: insets.bottom, keyboardHeight: 0 }) - 18
     : Math.max(insets.bottom, 16);
   const { fabClearance, fabSize } = useAndroidControlSizing();
   const projects = useProjects();
@@ -803,8 +803,8 @@ function ThreadNavigationSidebarPane(
             style={{
               position: "absolute",
               // Lines the capsule up with the tabs at the foot of the column.
-              left: phoneSidebarTabs ? 9 : 0,
-              right: phoneSidebarTabs ? 9 : 0,
+              left: phoneSidebarTabs ? 10 : 0,
+              right: phoneSidebarTabs ? 10 : 0,
               bottom: spaceBarBottom,
             }}
           >
