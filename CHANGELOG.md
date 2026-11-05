@@ -60,6 +60,9 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ### Fixed
 
+- Give the iPhone and iPad Spaces bar the same height, shape, glass, and spacing
+  as the navigation tabs beneath it, with thread-title-sized text.
+
 - Keep manual PR merging available while auto-merge is pending, preserve unset
   Codex service tiers, and warn when Cursor compaction trims conversation history.
 

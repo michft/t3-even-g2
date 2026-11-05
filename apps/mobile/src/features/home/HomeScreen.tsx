@@ -754,9 +754,9 @@ export function HomeScreen(props: HomeScreenProps) {
       pointerEvents="box-none"
       style={{
         position: "absolute",
-        left: deviceType === "phone" ? 17 : 10,
-        right: deviceType === "phone" ? 11 : 10,
-        bottom: iosBottomClearance - (deviceType === "phone" ? 32 : 16),
+        left: deviceType === "phone" ? 18 : 12,
+        right: 12,
+        bottom: iosBottomClearance - (deviceType === "phone" ? 32 : 25),
       }}
     >
       <SidebarSpaceBar
