@@ -731,7 +731,8 @@ function ThreadNavigationSidebarPane(
                   obscureBackground: false,
                   placeholder: "Search threads",
                   placement: "integratedButton",
-                  allowToolbarIntegration: true,
+                  // A landscape iPhone's tabs sit at the foot of this column, over any toolbar.
+                  allowToolbarIntegration: tabsClearance === undefined,
                   onCancelButtonPress: () => props.onSearchQueryChange(""),
                   onChangeText: ({ nativeEvent }) => props.onSearchQueryChange(nativeEvent.text),
                 }
