@@ -1,3 +1,4 @@
+import { useNavigationState } from "@react-navigation/native";
 import { usePaneRole } from "../../components/ui/Pane";
 import { ScreenContent } from "../../components/ui/ScreenContent";
 import { useActiveNewTask } from "../../state/active-new-task";
@@ -91,6 +92,8 @@ import { createSwipeRowActivation } from "./swipe-row-activation";
 import { SwipeableScrollGateProvider, useSwipeableScrollGate } from "./thread-swipe-actions";
 import { useFabScroll } from "./FabScrollContext";
 import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
+import { spaceMayOpenThread } from "../workspace/workspace-detail-selection";
+import { useAdaptiveWorkspaceLayout } from "../layout/adaptive-workspace-context";
 import { mobileSpaceProjectKeys, spaceRepositoryKey } from "../../lib/sidebarSpaces";
 import { SIDEBAR_SPACE_BAR_HEIGHT, SidebarSpaceBar } from "../threads/SidebarSpaces";
 import { useSidebarSpaces } from "../threads/use-sidebar-spaces";
@@ -261,6 +264,7 @@ export function HomeScreen(props: HomeScreenProps) {
   );
   const columnMetrics = useNativeColumnLayoutMetrics();
   const deviceType = useDeviceType();
+  const { usesSplitView } = useAdaptiveWorkspaceLayout().layout;
   const activeNewTask = useActiveNewTask();
   const selectedThreadKey = activeNewTask ? null : (primaryColumn?.selectedThreadKey ?? null);
   const fullSwipeWidth = primaryColumn && columnMetrics ? columnMetrics.width - 20 : undefined;
@@ -392,9 +396,10 @@ export function HomeScreen(props: HomeScreenProps) {
   })();
 
   const spacesEnabled = Platform.OS === "ios";
-  // Only a column restores a Space's last thread; on the phone list that would push a page.
+  const spaceMayOpen = useNavigationState(spaceMayOpenThread);
+  // Only a list beside a conversation restores a Space's last thread; elsewhere that would push.
   const sidebarSpaces = useSidebarSpaces(
-    spacesEnabled && primaryColumn
+    spacesEnabled && primaryColumn && usesSplitView && spaceMayOpen
       ? {
           selectedThreadKey,
           threads: props.threads,

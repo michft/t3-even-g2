@@ -238,12 +238,14 @@ each device and do not sync, so a work computer can keep only work spaces.
 On iPhone and iPad, the space bar sits at the bottom of the thread list. Tap it to
 switch, create, edit, or delete spaces, or swipe sideways on the bar to page between
 them; thread rows keep their own swipe actions. Use spaces and search to narrow the
-list. These spaces are separate from the spaces on your computer. When the list sits
-beside a conversation, switching spaces restores the last thread opened in that
-space on this device; an open Settings or pull request page stays open. If it is no longer available, the most recently updated thread
-opens; an empty space clears the detail. Editing included members also updates the
-open thread. Losing an environment connection leaves navigation alone, so it does not
-dismiss Settings.
+list. These spaces are separate from the spaces on your computer.
+
+When the list sits beside a conversation, switching spaces restores the last thread
+opened in that space on this device. If that thread is no longer available, the most
+recently updated thread opens; an empty space clears the detail. An open Settings or
+pull request page stays open. Editing included members also updates the open thread.
+Losing an environment connection leaves navigation alone, so it does not dismiss
+Settings.
 
 Each iPhone or iPad space has its own **Group by** choice: **Machine**, **Repo**, or
 **Work type**. Machine spaces include new projects from their selected machines;
