@@ -40,6 +40,7 @@ import {
 import { WorkspaceSidebarTabs } from "./WorkspaceSidebarTabs";
 import {
   useCompactWorkspaceTabs,
+  usePhoneSidebarWorkspaceTabs,
   useSidebarWorkspaceTabs,
   useSystemWorkspaceTabBar,
 } from "./useSystemWorkspaceTabBar";
@@ -84,6 +85,7 @@ function WorkspaceRootContent() {
   const compactTabs = useCompactWorkspaceTabs();
   const enabled = useEnabledNavigationTabs();
   const sidebarTabs = useSidebarWorkspaceTabs();
+  const phoneSidebarTabs = usePhoneSidebarWorkspaceTabs();
   const sidebarPicker = sidebarTabs === "picker" || (deviceType === "pad" && layout.usesSplitView);
   const sidebarNavigation =
     primaryColumn !== null &&
@@ -114,7 +116,7 @@ function WorkspaceRootContent() {
           ? workspaceDockBottomClearance({ bottomInset: insets.bottom, keyboardHeight })
           : Platform.OS === "ios"
             ? Math.max(insets.bottom, keyboardHeight) +
-              (systemTabBar || sidebarTabs || tab.searchMode !== "resting"
+              (systemTabBar || sidebarTabs || phoneSidebarTabs || tab.searchMode !== "resting"
                 ? sidebarPicker
                   ? 80
                   : 16

@@ -46,6 +46,14 @@ describe("iPhone landscape workspace", () => {
     expect(deriveLayout({ ...homeButton, nativeMetrics: homeButton }).usesSplitView).toBe(true);
   });
 
+  it("keeps the thread column's usable width on either side of the Dynamic Island", () => {
+    const beside = (left: number, right: number) => {
+      const window = { ...metrics, safeArea: { top: 0, bottom: 21, left, right } };
+      return deriveLayout({ ...window, nativeMetrics: window }).listPaneWidth;
+    };
+    expect(beside(62, 0)).toBe(beside(0, 62)! + 62);
+  });
+
   it("keeps short landscape iPad windows on the tablet width floor", () => {
     const short = (width: number) => {
       const window = {

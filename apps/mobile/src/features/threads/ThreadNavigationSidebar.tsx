@@ -85,6 +85,8 @@ import {
   type ThreadListV2ListItem,
 } from "./threadListV2";
 import { useSelectWorkspaceDetail } from "../workspace/useSelectWorkspaceDetail";
+import { usePhoneSidebarWorkspaceTabs } from "../workspace/useSystemWorkspaceTabBar";
+import { workspaceDockBottomClearance } from "../workspace/workspace-tabs-state";
 import { NativeScrollView } from "../../native/NativeScrollViewMarker";
 
 type SidebarListItem =
@@ -153,6 +155,7 @@ function ThreadNavigationSidebarPane(
   const drawerColor = materialTheme["--color-drawer"];
 
   const insets = useSafeAreaInsets();
+  const phoneSidebarTabs = usePhoneSidebarWorkspaceTabs();
   const { fabClearance, fabSize } = useAndroidControlSizing();
   const projects = useProjects();
   const threads = useNavigationThreadShells();
@@ -756,7 +759,12 @@ function ThreadNavigationSidebarPane(
                   styles.threadListContent,
                   Platform.OS === "android" ? { paddingHorizontal: 0 } : null,
                   {
-                    paddingBottom: Math.max(insets.bottom, 16) + 16,
+                    paddingBottom: phoneSidebarTabs
+                      ? workspaceDockBottomClearance({
+                          bottomInset: insets.bottom,
+                          keyboardHeight: 0,
+                        })
+                      : Math.max(insets.bottom, 16) + 16,
                     paddingTop: 6,
                   },
                 ]}

@@ -255,6 +255,7 @@ function AdaptiveWorkspaceLayoutContent(
     null,
   );
   const [primarySidebarSearchQuery, setPrimarySidebarSearchQuery] = useState("");
+  const [sidebarFooter, setSidebarFooter] = useState<ReactNode>(null);
   const [railOverlay, setRailOverlay] = useState(false);
   // The compiler can't memoize these derivations: they stay live across later hook calls. Fresh
   // objects here change the workspace context on every render, so every workspace screen
@@ -1031,6 +1032,7 @@ function AdaptiveWorkspaceLayoutContent(
     togglePrimarySidebar,
     revealPrimarySidebar,
     setPrimarySidebarVisible,
+    setSidebarFooter,
     openWorkspaceTab,
     setAuxiliaryPaneWidth: setFileInspectorPreferredWidth,
     nativeInspectorWidth,
@@ -1123,6 +1125,7 @@ function AdaptiveWorkspaceLayoutContent(
                 {sidebar ?? <WorkspaceThreadSidebar width={sidebarContentWidth} />}
               </RenderErrorBoundary>
             </PaneContext>
+            {sidebarFooter}
             {/* Keep the pill under the content throughout the sidebar's clipping animation. */}
             {floatingTabsEnabled && !workspacePage ? (
               <FloatingWorkspaceTabs
