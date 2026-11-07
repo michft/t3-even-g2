@@ -7,6 +7,10 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ### Changed
 
+- Integrate T3 Nightly `v0.1.8-nightly.20261107.4301` onto current fork main,
+  preserving bottom Spaces on iPhone and iPad, the filter-free iOS header,
+  G2/R1 controls and fresh sessions, phone layout, colours and app identity.
+
 - Add Spaces to iPhone in portrait and landscape, and float the space bar at the
   bottom of the thread list on iPhone and iPad in the app's glass style. Remove the
   iOS environment and project filters in favour of Spaces and search.
