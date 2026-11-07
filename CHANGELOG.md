@@ -15,6 +15,10 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
   iPad, instead of over the conversation. Hiding the sidebar hides them too. The
   column's rows keep the same width on either side of the Dynamic Island.
 
+- Integrate T3 Nightly `v0.1.8-nightly.20261106.4288` onto current fork main,
+  preserving G2/R1, Spaces, phone landscape/sidebar navigation, host and repo
+  colours, ordinary-composer questions, app identity and GitHub-hosted runners.
+
 - Integrate T3 Nightly `v0.1.8-nightly.20261105.4234` onto current fork main,
   preserving G2/R1, Spaces, phone landscape/sidebar navigation, host and repo
   colours, ordinary-composer questions, app identity and GitHub-hosted runners.
@@ -63,6 +67,8 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
   creates, edits, and deletes spaces, and pages between them with a sideways swipe.
 
 ### Fixed
+
+- Keep the T3 Code title after rotating an iPhone from landscape back to portrait.
 
 - Remove the second T3 Code title and Settings button from the top of the thread
   column on a landscape iPhone.
