@@ -192,7 +192,10 @@ import { FreshSessionNotice } from "./FreshSessionNotice";
 import { ComposerFeedback } from "./ComposerFeedback";
 import { ComposerUsageLimits } from "./ComposerUsageLimits";
 import { PendingUserInputComposer } from "./PendingUserInputComposer";
-import { derivePendingUserInputMaxHeight } from "./pendingUserInputLayout";
+import {
+  derivePendingUserInputMaxHeight,
+  ESTIMATED_KEYBOARD_HEIGHT,
+} from "./pendingUserInputLayout";
 import { ProviderSubagentBar } from "./ProviderSubagentBar";
 import { ThreadCreationFailedCard } from "./ThreadCreationFailedCard";
 import {
@@ -336,8 +339,6 @@ export interface ThreadDetailScreenProps {
 const ComposerPanels = Platform.OS === "android" ? Animated.ScrollView : Animated.View;
 const USAGE_LIMITS_PANEL_GAP = 12;
 const USAGE_LIMITS_PANEL_MIN_HEIGHT = 44;
-
-const ESTIMATED_KEYBOARD_HEIGHT = 336;
 
 // A scheduled wake can happen without a newer server update, so the tracker
 // is told when one takes effect. The shell's updatedAt ticks while a run

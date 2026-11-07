@@ -809,6 +809,7 @@ export function useThreadComposerState(input: {
     const thread = selectedThreadShell;
     const threadKey = scopedThreadKey(thread.environmentId, thread.id);
     const draft = getComposerDraftSnapshot(threadKey);
+    const freshContext = isFreshSessionPending(threadKey);
     const metadata = makeQueuedMessageMetadata();
     const messageId = MessageId.make(metadata.messageId);
     const modelSelection = draft.modelSelection ?? thread.modelSelection;
@@ -829,10 +830,13 @@ export function useThreadComposerState(input: {
         draft.interactionMode ?? thread.interactionMode,
       ),
       dispatchMode: "queue",
+      ...(freshContext ? { freshContext: true } : {}),
       createdAt: metadata.createdAt,
     });
+    if (freshContext) setFreshSessionPending(threadKey, false);
     enqueuePromise.catch((error: unknown) => {
       void mergeComposerDraftContent(threadKey, { text, attachments: [] });
+      if (freshContext) setFreshSessionPending(threadKey, true);
       setPendingConnectionError(
         error instanceof Error ? error.message : "Failed to save the dictated message.",
       );

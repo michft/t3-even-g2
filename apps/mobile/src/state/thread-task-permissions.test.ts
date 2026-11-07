@@ -284,6 +284,21 @@ describe("mobile task permissions", () => {
     expect(state.setFreshPending).toHaveBeenCalledWith("secondary:thread", false);
   });
 
+  it("spends an armed fresh session on dictation and rearms it when the save fails", async () => {
+    state.grantedEnvironments.add("secondary");
+    state.freshPending = true;
+    const composer = useThreadComposerState(NO_SIDE_CHATS);
+    state.enqueue.mockRejectedValueOnce(new Error("full"));
+    expect(await composer.onSendTextMessage("dictated")).toBe("message");
+    expect(state.enqueue).toHaveBeenLastCalledWith(
+      expect.objectContaining({ dispatchMode: "queue", freshContext: true, text: "dictated" }),
+    );
+    expect(state.setFreshPending).toHaveBeenCalledWith("secondary:thread", false);
+    await vi.waitFor(() =>
+      expect(state.setFreshPending).toHaveBeenLastCalledWith("secondary:thread", true),
+    );
+  });
+
   it("compacts a stale thread before sending unless a fresh session is armed", async () => {
     state.grantedEnvironments.add("secondary");
     state.projection = {

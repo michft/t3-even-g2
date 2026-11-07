@@ -68,6 +68,8 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ### Fixed
 
+- Keep the T3 Code title after rotating an iPhone from landscape back to portrait.
+
 - Remove the second T3 Code title and Settings button from the top of the thread
   column on a landscape iPhone.
 
