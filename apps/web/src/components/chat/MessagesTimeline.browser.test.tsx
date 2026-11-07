@@ -223,7 +223,9 @@ describe("MessagesTimeline work rows", () => {
     const runId = RunId.make("completed-run");
     const navigations: TimelineNavigation[] = [];
     const container = document.createElement("div");
-    container.style.cssText = "height: 600px; width: 900px; display: flex; flex-direction: column;";
+    // Keep the heading on screen so Playwright does not scroll it before clicking.
+    container.style.cssText =
+      "height: min(600px, 100vh); width: 900px; display: flex; flex-direction: column;";
     await using screen = await render(
       <MessagesTimeline
         {...props}
@@ -247,11 +249,13 @@ describe("MessagesTimeline work rows", () => {
     const viewport = props.listRef.current!.getScrollableNode()!;
     await props.listRef.current!.scrollToEnd({ animated: false });
     let measuredTop: number | undefined;
+    // Legend keeps rows transparent and unclickable until its initial scroll settles.
     await vi.waitFor(() => {
       const previousTop = measuredTop;
       measuredTop = heading.element().getBoundingClientRect().top;
       expect(viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop).toBeLessThan(2);
       expect(measuredTop).toBeCloseTo(previousTop ?? Number.NaN, 0);
+      expect(heading.element().checkVisibility({ opacityProperty: true })).toBe(true);
     });
     expect(viewport.scrollTop).toBeGreaterThan(0);
     const top = heading.element().getBoundingClientRect().top;

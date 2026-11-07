@@ -46,6 +46,7 @@
     "measure-renders": "node scripts/measure-renders.mts",
     "generate": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/generate-uniwind-themes.mts",
     "generate:highlights": "node scripts/generate-highlights.mts",
+    "generate:nitro": "cd modules/t3-highlights && nitrogen",
     "eas-build-on-success": "node scripts/upload-sourcemaps.mts build",
     "test": "vp test run --project unit --project react && T3_MOBILE_TEST_PLATFORM=android vp test run --project react src/components/FilePreviewModal.test.tsx",
     "test:g2-native": "clang -std=c11 -fsyntax-only modules/t3-even-g2/tests/T3EvenG2LC3Smoke.c && xcrun swiftc modules/t3-even-g2/ios/T3EvenG2Protocol.swift modules/t3-even-g2/tests/T3EvenG2ProtocolSmoke.swift -o /tmp/t3-even-g2-protocol-smoke && /tmp/t3-even-g2-protocol-smoke",
@@ -152,6 +153,7 @@
     "aws4fetch": "1.0.20",
     "babel-preset-expo": "~58.0.17",
     "jsdom": "^30.0.1",
+    "nitrogen": "0.37.1",
     "tailwindcss": "^4.0.0"
   },
   "enriched-markdown": {

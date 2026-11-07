@@ -1,11 +1,8 @@
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
-import type { WorkspaceTab } from "../workspace/workspace-tabs-state";
+import type { WorkspaceTab } from "./workspace/workspace-tabs-state";
 import { createContext, use, type ReactNode } from "react";
 import type { InspectorContent } from "./inspector-panes";
-import type {
-  WorkspaceDetail,
-  WorkspaceDetailSheet,
-} from "../workspace/workspace-detail-selection";
+import type { WorkspaceDetail, WorkspaceDetailSheet } from "./workspace/workspace-detail-selection";
 import {
   deriveFileInspectorPaneLayout,
   deriveLayout,
