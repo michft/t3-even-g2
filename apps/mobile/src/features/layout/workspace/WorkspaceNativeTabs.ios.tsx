@@ -27,7 +27,7 @@ import {
 import { useControlTheme } from "../../../components/ui/useControlTheme";
 import { useDeviceType, useNativeLayoutMetrics } from "../../../native/native-layout-metrics";
 import { WorkspaceSidebarTabs } from "./WorkspaceSidebarTabs";
-import { useAdaptiveWorkspaceLayout } from "../AdaptiveWorkspaceLayout";
+import { useAdaptiveWorkspaceLayout, useWorkspacePaneState } from "../AdaptiveWorkspaceLayout";
 import { useSelectWorkspaceTab } from "./useSelectWorkspaceTab";
 
 const PULL_REQUEST_ICON = require("../../../../assets/icons/pull-request.png");
@@ -86,7 +86,8 @@ export function WorkspaceNativeTabs(props: {
   const systemTabBar = useSystemWorkspaceTabBar();
   const deviceType = useDeviceType();
   const compactTabs = useCompactWorkspaceTabs();
-  const { layout, panes, setSidebarFooter } = useAdaptiveWorkspaceLayout();
+  const { layout, setSidebarFooter } = useAdaptiveWorkspaceLayout();
+  const { panes } = useWorkspacePaneState();
   const phoneSidebarTabs = usePhoneSidebarWorkspaceTabs();
   const leadingInset = useNativeLayoutMetrics()?.safeArea.left ?? 0;
   // The tabs belong to the sidebar; over a page with the sidebar hidden they'd cover the composer.

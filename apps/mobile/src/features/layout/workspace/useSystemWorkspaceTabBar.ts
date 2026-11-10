@@ -1,7 +1,7 @@
 import { isDuoDevice } from "../../../lib/device-type";
 import { Platform } from "react-native";
 import { NATIVE_LIQUID_GLASS_SUPPORTED } from "../../../native/native-glass";
-import { useAdaptiveWorkspaceLayout } from "../adaptive-workspace-context";
+import { useAdaptiveWorkspaceLayout, useWorkspacePaneState } from "../adaptive-workspace-context";
 import { useDeviceType, useNativeLayoutMetrics } from "../../../native/native-layout-metrics";
 import { useWorkspaceTabs } from "./WorkspaceTabsContext";
 import { workspaceUsesColumns } from "./workspace-tabs-state";
@@ -52,7 +52,8 @@ export function useFloatingWorkspaceTabs() {
 
 /** A landscape iPhone keeps its tabs at the foot of a visible sidebar, the way an iPad does. */
 export function usePhoneSidebarWorkspaceTabs() {
-  const { layout, panes } = useAdaptiveWorkspaceLayout();
+  const { layout } = useAdaptiveWorkspaceLayout();
+  const { panes } = useWorkspacePaneState();
   const deviceType = useDeviceType();
   return (
     Platform.OS === "ios" &&
