@@ -417,6 +417,9 @@ jobs:
           fi
 
       - name: Test
+        env:
+          # Attribute unexpected browser exits without changing test behavior.
+          DEBUG: pw:browser
         run: vp run --filter @t3tools/web test --shard ${{ matrix.shard }}/${{ strategy.job-total }} --maxWorkers=1
 
   # apps/server sets `fileParallelism: false`, so its test files run strictly
