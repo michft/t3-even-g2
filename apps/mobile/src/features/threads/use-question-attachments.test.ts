@@ -1,4 +1,5 @@
 import { beforeEach, expect, it, vi } from "vite-plus/test";
+import { Alert } from "react-native";
 import { PROVIDER_SEND_TURN_MAX_ATTACHMENTS, type UserInputQuestion } from "@t3tools/contracts";
 import type {
   DraftComposerAttachment,
@@ -186,7 +187,7 @@ function begin(kind: "files" | "media" | "paste") {
     resolve: () => {
       if (kind === "files") files.resolve({ files: [file], error: null });
       else if (kind === "media") media.resolve({ attachments: [image], error: null });
-      else paste.resolve([image]);
+      else paste.resolve({ attachments: [image], error: null });
     },
   };
 }
@@ -232,3 +233,20 @@ it.each(["files", "media", "paste"] as const)(
     expect(fixture.preparations[operation.key]).toBe(0);
   },
 );
+
+it("reports partial paste conversion errors without discarding prepared images", async () => {
+  fixture.paste.mockResolvedValueOnce({
+    attachments: [image],
+    error: "Could not read a pasted image.",
+  });
+  const hook = render();
+  await hook.onPasteImages([image.fileUri]);
+  expect(fixture.append).toHaveBeenCalledWith(hook.key, [image], {
+    maxAttachments: PROVIDER_SEND_TURN_MAX_ATTACHMENTS,
+  });
+  expect(Alert.alert).toHaveBeenCalledWith(
+    "Could not paste image",
+    "Could not read a pasted image.",
+  );
+  expect(fixture.preparations[hook.key]).toBe(0);
+});

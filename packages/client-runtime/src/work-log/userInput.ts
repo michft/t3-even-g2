@@ -3,6 +3,7 @@ import {
   type OrchestrationV2UserInputQuestion,
   type UserInputAttachmentAnswerPayload,
 } from "@t3tools/contracts";
+import { composerContextProviderTextForDisplay } from "@t3tools/shared/composerContextReferences";
 
 function record(value: unknown): Record<string, unknown> | undefined {
   return value !== null && typeof value === "object" && !Array.isArray(value)
@@ -11,7 +12,8 @@ function record(value: unknown): Record<string, unknown> | undefined {
 }
 
 export function getQuestionAnswerText(value: unknown): string {
-  if (typeof value === "string") return value;
+  // Answers holding context chips are stored in provider form.
+  if (typeof value === "string") return composerContextProviderTextForDisplay(value);
   if (Array.isArray(value)) return value.map(getQuestionAnswerText).filter(Boolean).join(", ");
   const nested = record(value);
   return nested ? getQuestionAnswerText(nested.answers) : "";
@@ -69,8 +71,15 @@ export function formatUserInputQuestions(
               /** Number display labels without repeating identical option descriptions. */ (
                 option,
                 optionIndex,
-              ) =>
-                `${optionIndex + 1}. ${option.label}${option.description && option.description !== option.label ? `: ${option.description}` : ""}`,
+              ) => {
+                const label = `${optionIndex + 1}. ${option.label}${option.description && option.description !== option.label ? `: ${option.description}` : ""}`;
+                if (!option.preview?.trim()) return label;
+                const indent = " ".repeat(String(optionIndex + 1).length + 2);
+                return `${label}\n\n${option.preview
+                  .split("\n")
+                  .map((line) => `${indent}${line}`)
+                  .join("\n")}`;
+              },
             ),
           );
           if (question.allowCustomAnswer !== false)

@@ -7,6 +7,10 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ### Changed
 
+- Integrate T3 Nightly `v0.1.10-nightly.20261114.4695` onto refreshed fork main,
+  preserving G2/R1, fresh sessions, ordinary-composer questions, bottom Spaces,
+  phone navigation, origin colours, signing identity and GitHub-hosted CI.
+
 - Integrate T3 Nightly `v0.1.9-nightly.20261110.4478` onto current fork main,
   retaining bottom Spaces, phone navigation, G2/R1 and fresh-session dictation,
   ordinary-composer questions, origin colours and existing signed app identity.
