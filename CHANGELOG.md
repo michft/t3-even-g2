@@ -7,6 +7,10 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ### Changed
 
+- Integrate T3 Nightly `v0.1.9-nightly.20261110.4478` onto current fork main,
+  retaining bottom Spaces, phone navigation, G2/R1 and fresh-session dictation,
+  ordinary-composer questions, origin colours and existing signed app identity.
+
 - Integrate T3 Nightly `v0.1.8-nightly.20261107.4301` onto current fork main,
   preserving bottom Spaces on iPhone and iPad, the filter-free iOS header,
   G2/R1 controls and fresh sessions, phone layout, colours and app identity.
