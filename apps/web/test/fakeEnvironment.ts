@@ -34,6 +34,8 @@ import {
   type OrchestrationV2ThreadStreamItem,
   type OrchestrationV2TurnItem,
   type TerminalMetadataStreamEvent,
+  type ResolvedKeybindingsConfig,
+  type ServerConfigStreamSnapshotEvent,
 } from "@t3tools/contracts";
 import type {
   ConnectionAttemptError,
@@ -431,6 +433,20 @@ const subscribe = <A>(first: ReadonlyArray<A>, register?: (queue: Queue.Queue<A>
     }),
   );
 
+const serverConfigSubscribers = new Set<Queue.Queue<ServerConfigStreamSnapshotEvent>>();
+
+/** Keep connected fake clients current when the next scenario replaces its configuration. */
+const subscribeServerConfig = () =>
+  subscribe<ServerConfigStreamSnapshotEvent>(
+    [{ version: 1, type: "snapshot", config: serverConfig() }],
+    (queue) => {
+      serverConfigSubscribers.add(queue);
+      return () => {
+        serverConfigSubscribers.delete(queue);
+      };
+    },
+  );
+
 const handlers: Record<string, (input: never) => unknown> = {
   // Recorded, and accepted only when the scenario asks, since a pending command holds every
   // later command on its thread. Accepted commands' events never arrive.
@@ -506,8 +522,7 @@ const handlers: Record<string, (input: never) => unknown> = {
         if (vcsStatusSubscriber === queue) vcsStatusSubscriber = null;
       };
     }),
-  [WS_METHODS.subscribeServerConfig]: () =>
-    subscribe([{ version: 1 as const, type: "snapshot" as const, config: serverConfig() }]),
+  [WS_METHODS.subscribeServerConfig]: subscribeServerConfig,
 };
 
 // Unanswered calls stay pending, like a server that has not replied yet.
@@ -523,8 +538,7 @@ const client = new Proxy(handlers, {
 const session: EnvironmentConnectionLease["session"] = {
   client: client as unknown as WsRpcProtocolClient,
   initialConfig: Effect.sync(serverConfig),
-  subscribeServerConfig: () =>
-    subscribe([{ version: 1 as const, type: "snapshot" as const, config: serverConfig() }]),
+  subscribeServerConfig,
   ready: Effect.void,
   probe: Effect.void,
   inboundFrames: Effect.succeed(0),
@@ -562,6 +576,7 @@ export function installFakeEnvironment(
   fixtures: ReadonlyArray<FakeThread>,
   options?: {
     readonly acceptCommands?: boolean;
+    readonly keybindings?: ResolvedKeybindingsConfig;
     readonly extraProjects?: ReadonlyArray<Pick<OrchestrationProjectShell, "id" | "title">>;
     /** Commands left unanswered even when accepting, until `rejectPendingCommand`. */
     readonly holdCommand?: (command: OrchestrationV2Command) => boolean;
@@ -569,7 +584,10 @@ export function installFakeEnvironment(
   },
 ): Disposable {
   threads = fixtures;
-  baseServerConfig = makeServerConfig(options?.providers ?? [CODEX_PROVIDER]);
+  baseServerConfig = {
+    ...makeServerConfig(options?.providers ?? [CODEX_PROVIDER]),
+    keybindings: options?.keybindings ?? DEFAULT_RESOLVED_KEYBINDINGS,
+  };
   dispatched = [];
   acceptCommands = options?.acceptCommands === true;
   projects = [
@@ -581,6 +599,8 @@ export function installFakeEnvironment(
     })),
   ];
   holdCommand = options?.holdCommand ?? (() => false);
+  for (const queue of serverConfigSubscribers)
+    Queue.offerUnsafe(queue, { version: 1, type: "snapshot", config: serverConfig() });
   globalThis.fetch = async (input, init) => {
     const url = new URL(input instanceof Request ? input.url : String(input), window.location.href);
     if (url.origin !== window.location.origin) return realFetch(input, init);
@@ -650,6 +670,18 @@ export function dispatchedCommands(): ReadonlyArray<OrchestrationV2Command> {
 }
 
 type ThreadEvent = Extract<OrchestrationV2ThreadStreamItem, { readonly kind: "event" }>["event"];
+
+/** Answers one RPC method with `handler` until disposed. */
+export function answerRpc(method: string, handler: (input: never) => unknown): Disposable {
+  const previous = handlers[method];
+  handlers[method] = handler;
+  return {
+    [Symbol.dispose]: () => {
+      if (previous) handlers[method] = previous;
+      else delete handlers[method];
+    },
+  };
+}
 
 export async function emitTerminalMetadata(event: TerminalMetadataStreamEvent): Promise<void> {
   if (terminalMetadataSubscriber === null) throw new Error("No terminal metadata subscription");
