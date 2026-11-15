@@ -104,16 +104,18 @@ export function useQuestionAttachments(props: {
       existingCount: appAtomRegistry.get(composerDraftsAtom)[key]?.attachments.length ?? 0,
     })
       .then(
-        /** Append converted images if the question is still active; otherwise release unused files. */ async (
-          images,
-        ) => {
+        /** Append converted images if the question is still active; otherwise release unused files. */ async ({
+          attachments: images,
+          error,
+        }) => {
           if (
             scope?.active &&
             !disabledRef.current &&
             (appAtomRegistry.get(questionAttachmentPreparationAtom)[key] ?? 0) > 0
           ) {
-            if (append(key, images) > 0)
-              Alert.alert("Could not paste image", "Too many attachments.");
+            const dropped = append(key, images);
+            if (error) Alert.alert("Could not paste image", error);
+            else if (dropped > 0) Alert.alert("Could not paste image", "Too many attachments.");
           } else await releaseUnusedComposerAttachmentFiles(images);
         },
       )

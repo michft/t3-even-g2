@@ -71,6 +71,7 @@ source alone does not explain. Most code changes do not need an internal documen
 - [Development and local builds](./operations/development.md)
 - [Even G2 native builds and diagnostics](./operations/even-g2.md)
 - [Even G2 issue triage and maintainer workflow](./operations/even-g2-triage.md)
+- [Scenarios: real-app proof for a fix](./operations/scenarios.md)
 - [T3 Connect setup](./operations/connect-setup.md)
 - [Release](./operations/release.md)
 - [Observability](./operations/observability.md)
