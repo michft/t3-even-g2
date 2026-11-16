@@ -7,6 +7,16 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ### Changed
 
+- Integrate T3 Nightly `v0.1.10-nightly.20261116.4787` onto refreshed fork main,
+  carrying the reviewed Nightly4736 stack into main and retaining bottom Spaces,
+  actual conversation memory, phone sidebar tabs and sensor-side safe areas with
+  incoming tab prewarming and shared column measurements. Hidden tab visibility
+  events no longer reveal the phone dock over the portrait composer.
+
+- Integrate T3 Nightly `v0.1.10-nightly.20261115.4736` on top of Nightly4695,
+  retaining fork features while adopting current worktree preparation and
+  pending-question draft ownership.
+
 - Integrate T3 Nightly `v0.1.10-nightly.20261114.4695` onto refreshed fork main,
   preserving G2/R1, fresh sessions, ordinary-composer questions, bottom Spaces,
   phone navigation, origin colours, signing identity and GitHub-hosted CI.
