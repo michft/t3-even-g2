@@ -7,6 +7,11 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ### Changed
 
+- Integrate T3 Nightly `v0.1.10-nightly.20261116.4787` onto refreshed fork main,
+  carrying the reviewed Nightly4736 stack into main and retaining bottom Spaces,
+  actual conversation memory, phone sidebar tabs and sensor-side safe areas with
+  incoming tab prewarming and shared column measurements.
+
 - Integrate T3 Nightly `v0.1.10-nightly.20261115.4736` on top of Nightly4695,
   retaining fork features while adopting current worktree preparation and
   pending-question draft ownership.

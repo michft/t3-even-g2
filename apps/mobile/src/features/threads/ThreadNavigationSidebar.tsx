@@ -12,7 +12,7 @@ import type {
 } from "@t3tools/client-runtime/state/shell";
 import { threadSearchMatchKey } from "@t3tools/client-runtime/state/thread-search";
 import { AnimatedLegendList } from "@legendapp/list/reanimated";
-import { THREAD_SIDEBAR_ROW_LAYOUT } from "./threadListAnimations";
+import { THREAD_LIST_ROW_LAYOUT } from "./threadListAnimations";
 import { useAtomValue } from "@effect/atom-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Platform, StyleSheet, View } from "react-native";
@@ -44,11 +44,15 @@ import { useQueuedThreadKeys } from "../../state/use-thread-outbox";
 import { useWorkspaceState } from "../../state/workspace";
 import { useSavedRemoteConnections } from "../../state/use-remote-environment-registry";
 import { useThreadListV2 } from "./useThreadListV2";
+import { useSidebarRowThreadKey } from "./useSidebarRowThreadKey";
 import { useThreadJumpShortcuts } from "../keyboard/threadKeyboardShortcuts";
 import { requestThreadMessageJump } from "./threadMessageJump";
 import { useThreadListSearchMatches } from "./useThreadListSearchMatches";
 import { useHomeListOptions } from "../home/home-list-options";
-import { buildHomeListFilterMenuItems } from "../home/home-list-filter-menu";
+import {
+  buildHomeListFilterMenuItems,
+  homeListFilterEnvironments,
+} from "../home/home-list-filter-menu";
 import {
   buildHomeProjectScopes,
   resolveHomeProjectFilterScope,
@@ -161,6 +165,7 @@ function ThreadNavigationSidebarPane(props: ThreadNavigationSidebarProps) {
   );
   const activeSpace = spacesEnabled ? spaces.activeSpace : null;
   const activeSpaceKeys = mobileSpaceProjectKeys(activeSpace, projects, spaces.preferences);
+  const selectedThreadKey = useSidebarRowThreadKey(props.selectedThreadKey);
   const { environments: workspaceEnvironments, state: catalogState } = useWorkspaceState();
   const { savedConnectionsById } = useSavedRemoteConnections();
   const searchBarRef = useRef<SearchBarCommands>(null);
@@ -188,12 +193,7 @@ function ThreadNavigationSidebarPane(props: ThreadNavigationSidebarProps) {
   const { confirmDeletePendingTask } = usePendingTaskListActions((params) =>
     selectDetail({ name: "Thread", params }),
   );
-  const environments = Object.values(savedConnectionsById)
-    .map((connection) => ({
-      environmentId: connection.environmentId,
-      label: connection.environmentLabel,
-    }))
-    .sort((left, right) => left.label.localeCompare(right.label));
+  const environments = homeListFilterEnvironments(workspaceEnvironments);
   const availableEnvironmentIds = new Set(
     environments.map((environment) => environment.environmentId),
   );
@@ -339,7 +339,7 @@ function ThreadNavigationSidebarPane(props: ThreadNavigationSidebarProps) {
     workingShelfExpanded,
     snoozedShelfExpanded,
     settledShelfExpanded,
-    selectedThreadKey: props.selectedThreadKey ?? null,
+    selectedThreadKey,
   });
   const listItems: readonly SidebarListItem[] =
     settledShelfExpanded && threadListV2Layout.hiddenSettledCount > 0
@@ -402,7 +402,7 @@ function ThreadNavigationSidebarPane(props: ThreadNavigationSidebarProps) {
   // Recycle equality needs project/search data for titles and favicons; keep the minute clock on items to limit updates.
   const listExtraData = {
     activeNewTask,
-    selectedThreadKey: props.selectedThreadKey ?? "",
+    selectedThreadKey: selectedThreadKey ?? "",
     projectByKey,
     projectTitleByProjectKey,
     savedConnectionsById,
@@ -448,7 +448,7 @@ function ThreadNavigationSidebarPane(props: ThreadNavigationSidebarProps) {
                 scopedThreadKey(
                   item.pendingTask.environmentId,
                   item.pendingTask.message.threadId,
-                ) === props.selectedThreadKey)
+                ) === selectedThreadKey)
             }
             project={projectByKey.get(pendingScopeKey) ?? null}
             environmentLabel={
@@ -517,7 +517,7 @@ function ThreadNavigationSidebarPane(props: ThreadNavigationSidebarProps) {
             pane="sidebar"
             selected={
               !activeNewTask &&
-              scopedThreadKey(thread.environmentId, thread.id) === props.selectedThreadKey
+              scopedThreadKey(thread.environmentId, thread.id) === selectedThreadKey
             }
             fullSwipeWidth={props.width - 20}
             onSelectThread={handleSelectThread}
@@ -711,7 +711,7 @@ function ThreadNavigationSidebarPane(props: ThreadNavigationSidebarProps) {
             <GestureDetector gesture={sidebarScrollGesture}>
               <AnimatedLegendList
                 renderScrollComponent={NativeScrollView}
-                itemLayoutAnimation={THREAD_SIDEBAR_ROW_LAYOUT}
+                itemLayoutAnimation={THREAD_LIST_ROW_LAYOUT}
                 data={listItems}
                 drawDistance={500}
                 estimatedItemSize={64}
@@ -794,7 +794,7 @@ function ThreadNavigationSidebarPane(props: ThreadNavigationSidebarProps) {
             <GestureDetector gesture={sidebarScrollGesture}>
               {/* oxlint-disable-next-line t3code/require-registered-list-scroll -- The Android sidebar has no native header to register with. */}
               <AnimatedLegendList
-                itemLayoutAnimation={THREAD_SIDEBAR_ROW_LAYOUT}
+                itemLayoutAnimation={THREAD_LIST_ROW_LAYOUT}
                 data={listItems}
                 drawDistance={500}
                 estimatedItemSize={64}
