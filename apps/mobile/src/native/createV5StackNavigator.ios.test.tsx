@@ -33,6 +33,7 @@ vi.mock("./NativeScrollViewMarker", () => ({
 }));
 
 import { V5CardStackView, type V5StackViewProps } from "./createV5StackNavigator.ios";
+import { NativeWorkspaceTabActivityContext } from "./v5-workspace-context";
 
 const home = { key: "home", name: "Home" };
 const thread = { key: "thread", name: "Thread" };
@@ -43,7 +44,7 @@ function fire(key: string, event: "onWillAppear" | "onWillDisappear" | "onDidDis
   act(() => handler());
 }
 
-it("forgets native Back when a full-screen presentation covers the top card", () => {
+it("keeps root visibility and native Back tied to the visible tab", () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const state: StackNavigationState<ParamListBase> = {
     key: "stack",
@@ -62,21 +63,39 @@ it("forgets native Back when a full-screen presentation covers the top card", ()
     render: () => null,
   });
   const onNativePopChange = vi.fn();
+  const onRootVisibilityChange = vi.fn();
+  let active = true;
   const root = createRoot(document.createElement("div"));
   try {
     act(() =>
       root.render(
-        <V5CardStackView
-          {...({
-            state,
-            navigation,
-            descriptors: { home: descriptor(home), thread: descriptor(thread) },
-            describe: () => descriptor(home),
-          } as unknown as V5StackViewProps)}
-          onNativePopChange={onNativePopChange}
-        />,
+        <NativeWorkspaceTabActivityContext
+          value={{ active, isActive: () => active, headerOnly: false }}
+        >
+          <V5CardStackView
+            {...({
+              state,
+              navigation,
+              descriptors: { home: descriptor(home), thread: descriptor(thread) },
+              describe: () => descriptor(home),
+            } as unknown as V5StackViewProps)}
+            onNativePopChange={onNativePopChange}
+            onRootVisibilityChange={onRootVisibilityChange}
+          />
+        </NativeWorkspaceTabActivityContext>,
       ),
     );
+
+    // Prewarmed and retained hidden tabs must not reveal the active tab's dock.
+    active = false;
+    fire("home", "onWillAppear");
+    fire("home", "onWillDisappear");
+    expect(onRootVisibilityChange).not.toHaveBeenCalled();
+    active = true;
+    fire("home", "onWillAppear");
+    expect(onRootVisibilityChange).toHaveBeenLastCalledWith(true);
+    fire("home", "onWillDisappear");
+    expect(onRootVisibilityChange).toHaveBeenLastCalledWith(false);
 
     // A presentation covers the thread: nothing in the stack appears beneath it.
     fire("thread", "onWillDisappear");
