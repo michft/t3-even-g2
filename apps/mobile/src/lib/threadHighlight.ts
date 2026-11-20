@@ -1,18 +1,20 @@
+import { msg } from "gt-react-native";
+import { m, type MessageResolver } from "../i18n/messages";
 import type { MenuAction } from "@react-native-menu/menu";
 
 export type ThreadHighlightOverride = "none" | `#${string}`;
 export type ThreadHighlights = Readonly<Record<string, ThreadHighlightOverride>>;
 
 export const THREAD_HIGHLIGHT_COLORS = [
-  { title: "Red", color: "#ef4444" },
-  { title: "Orange", color: "#f97316" },
-  { title: "Amber", color: "#eab308" },
-  { title: "Green", color: "#22c55e" },
-  { title: "Cyan", color: "#06b6d4" },
-  { title: "Blue", color: "#3b82f6" },
-  { title: "Purple", color: "#a855f7" },
-  { title: "Pink", color: "#ec4899" },
-  { title: "Grey", color: "#94a3b8" },
+  { title: msg("Red"), color: "#ef4444" },
+  { title: msg("Orange"), color: "#f97316" },
+  { title: msg("Amber"), color: "#eab308" },
+  { title: msg("Green"), color: "#22c55e" },
+  { title: msg("Cyan"), color: "#06b6d4" },
+  { title: msg("Blue"), color: "#3b82f6" },
+  { title: msg("Purple"), color: "#a855f7" },
+  { title: msg("Pink"), color: "#ec4899" },
+  { title: msg("Grey"), color: "#94a3b8" },
 ] as const;
 
 /** Accepts stored colour choices or an explicit hidden marker. */
@@ -46,17 +48,22 @@ export function updateThreadHighlight(
 export function highlightMenuActions(
   override: ThreadHighlightOverride | undefined,
   options: { readonly prefix: string; readonly defaultTitle: string },
+  resolve: MessageResolver = m,
 ): MenuAction[] {
   const { prefix, defaultTitle } = options;
   return [
-    { id: `${prefix}server`, title: defaultTitle, state: override === undefined ? "on" : "off" },
+    {
+      id: `${prefix}server`,
+      title: resolve(defaultTitle),
+      state: override === undefined ? "on" : "off",
+    },
     ...THREAD_HIGHLIGHT_COLORS.map(({ title, color }) => ({
       id: `${prefix}${color}`,
-      title,
+      title: resolve(title),
       image: "circle.fill",
       imageColor: color,
       state: override?.toLowerCase() === color ? ("on" as const) : ("off" as const),
     })),
-    { id: `${prefix}none`, title: "None", state: override === "none" ? "on" : "off" },
+    { id: `${prefix}none`, title: resolve(msg("None")), state: override === "none" ? "on" : "off" },
   ];
 }

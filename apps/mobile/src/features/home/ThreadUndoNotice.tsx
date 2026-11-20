@@ -2,6 +2,7 @@ import { useAndroidFloatingTabs } from "../settings/appearance/AppearancePrefere
 import { useState } from "react";
 import { useKeyboardState } from "react-native-keyboard-controller";
 import { Platform, View } from "react-native";
+import { useGT } from "gt-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Toast } from "../../components/ui/Toast";
 import {
@@ -23,6 +24,7 @@ export function ThreadUndoNotice(props: {
   /** Tabs drawn over this column, which sits outside the workspace's own clearance. */
   readonly tabsClearance?: number;
 }) {
+  const gt = useGT();
   const floatingTabsEnabled = useAndroidFloatingTabs();
   const notice = useThreadUndoNotice();
   const insets = useSafeAreaInsets();
@@ -87,9 +89,15 @@ export function ThreadUndoNotice(props: {
       pointerEvents="box-none"
     >
       <Toast
-        message={`${notice.action} thread`}
+        message={
+          notice.action === "Settled"
+            ? gt("Settled thread")
+            : notice.action === "Snoozed"
+              ? gt("Snoozed thread")
+              : gt("Unpinned thread")
+        }
         action={{
-          label: "Undo",
+          label: gt("Undo"),
           onPress: () => {
             void notice.undo();
           },

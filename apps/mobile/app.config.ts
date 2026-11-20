@@ -332,6 +332,8 @@ const config: ExpoConfig = {
       },
       NSLocalNetworkUsageDescription:
         "Allow T3 Code to connect to T3 Code servers on your local network or tailnet.",
+      // Built with the iOS 27 SDK, only view controllers can hide or style the status bar.
+      UIViewControllerBasedStatusBarAppearance: true,
       NSPhotoLibraryAddUsageDescription: "Allow T3 Code to save images to your photo library.",
       NSBluetoothAlwaysUsageDescription:
         "Allow T3 Code to connect directly to your Even G2 glasses for dictation and display.",

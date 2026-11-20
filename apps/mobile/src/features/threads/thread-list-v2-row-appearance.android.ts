@@ -1,4 +1,7 @@
+import { msg } from "gt-react-native";
 import type { ViewStyle } from "react-native";
+
+import { m, type MessageResolver } from "../../i18n/messages";
 import type { MobileThemeVariables } from "../../lib/mobileTheme";
 import type { ThreadOriginColorMode } from "@t3tools/contracts";
 import { getThreadListV2OriginAppearance } from "./thread-list-v2-origin-appearance";
@@ -25,8 +28,8 @@ export const selectedThreadRowColors = {
   mutedIconTintClassName: "accent-thread-selected-foreground-muted",
 };
 
-export function getThreadListV2NewBranchMenuTitle(branch: string) {
-  return `New thread on ${branch}`;
+export function getThreadListV2NewBranchMenuTitle(branch: string, resolve: MessageResolver = m) {
+  return resolve(msg("New thread on {branch}", { branch }));
 }
 
 export function getThreadListV2RowAppearance(

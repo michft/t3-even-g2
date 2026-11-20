@@ -167,8 +167,14 @@ export function deriveLayout(input: {
     usesSplitView: true,
     listPaneWidth:
       division?.x ??
-      clamp(Math.round(width * 0.32), SPLIT_SIDEBAR_MIN_WIDTH, SPLIT_SIDEBAR_DEFAULT_MAX_WIDTH) +
-        // The Dynamic Island's inset comes out of a landscape iPhone's sidebar, not its rows.
+      (input.nativeWorkspace === true && variant === "medium"
+        ? 350
+        : clamp(
+            Math.round(width * 0.32),
+            SPLIT_SIDEBAR_MIN_WIDTH,
+            SPLIT_SIDEBAR_DEFAULT_MAX_WIDTH,
+          )) +
+        // The sensor inset comes out of the landscape phone sidebar, not its rows.
         (shortLandscape && !input.isPad ? (metrics?.safeArea.left ?? 0) : 0),
     ...(division ? { listPaneGap: division.width } : {}),
     shellPadding: 0,

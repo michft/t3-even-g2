@@ -1,3 +1,4 @@
+import { T, useGT } from "gt-react-native";
 import type { MenuAction } from "@react-native-menu/menu";
 import {
   SIDEBAR_SPACE_COLORS,
@@ -57,6 +58,7 @@ export function SidebarSpaceBar(props: {
   readonly machines: readonly { readonly environmentId: string; readonly label: string }[];
   readonly machineColours: ReadonlyMap<string, string | null>;
 }) {
+  const gt = useGT();
   const { spaces } = props;
   const [sheet, setSheet] = useState<SheetState | null>(null);
   // oxlint-disable-next-line react/capitalized-calls -- Gesture.Pan is a gesture factory, not a React component.
@@ -76,7 +78,7 @@ export function SidebarSpaceBar(props: {
     spaceMemberColour(space, spaces.preferences, spaces.projects, props.machineColours);
   const activeAppearance = active ? appearance(active) : null;
   const actions: MenuAction[] = [
-    { id: "space:all", title: "All projects", state: active === null ? "on" : "off" },
+    { id: "space:all", title: gt("All projects"), state: active === null ? "on" : "off" },
     ...spaces.spaces.map((space): MenuAction => ({
       id: `space:${space.id}`,
       title: space.name,
@@ -87,17 +89,17 @@ export function SidebarSpaceBar(props: {
       : [
           {
             id: "edit",
-            title: `Edit “${active.name}”…`,
+            title: gt("Edit “{name}”…", { name: active.name }),
             image: "pencil",
           } satisfies MenuAction,
           {
             id: "delete",
-            title: "Delete space",
+            title: gt("Delete space"),
             image: "trash",
             attributes: { destructive: true },
           } satisfies MenuAction,
         ]),
-    { id: "new", title: "New space…", image: "plus" },
+    { id: "new", title: gt("New space…"), image: "plus" },
   ];
   const onAction = ({ nativeEvent }: { readonly nativeEvent: { readonly event: string } }) => {
     const event = nativeEvent.event;
@@ -125,8 +127,12 @@ export function SidebarSpaceBar(props: {
             <Menu actions={actions} onPressAction={onAction}>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`Space: ${active?.name ?? "All projects"}`}
-                accessibilityHint="Switch, create, edit, or delete spaces. Swipe sideways to page."
+                accessibilityLabel={
+                  active ? gt("Space: {name}", { name: active.name }) : gt("Space: All projects")
+                }
+                accessibilityHint={gt(
+                  "Switch, create, edit, or delete spaces. Swipe sideways to page.",
+                )}
                 disabled={!spaces.loaded}
                 className="min-w-0 shrink flex-row items-center gap-1.5 rounded-lg px-2 py-1.5 active:opacity-70"
               >
@@ -137,8 +143,9 @@ export function SidebarSpaceBar(props: {
                   }
                 />
                 <Text numberOfLines={1} className="shrink text-base font-t3-medium text-foreground">
-                  {active?.name ?? "All projects"}
-                  {activeAppearance?.mixed ? " · Mixed" : ""}
+                  {activeAppearance?.mixed
+                    ? gt("{name} · Mixed", { name: active?.name ?? gt("All projects") })
+                    : (active?.name ?? gt("All projects"))}
                 </Text>
                 <SymbolView
                   name="chevron.down"
@@ -209,6 +216,7 @@ function SidebarSpaceSheet(props: {
     applyColour: boolean,
   ) => void;
 }) {
+  const gt = useGT();
   const insets = useSafeAreaInsets();
   const [name, setName] = useState(props.initial?.name ?? "");
   const [color, setColor] = useState(props.initial?.color ?? props.defaultColor);
@@ -305,10 +313,12 @@ function SidebarSpaceSheet(props: {
         <View className="flex-1 bg-screen" style={{ paddingBottom: insets.bottom }}>
           <SheetHeader
             presentation="inline"
-            title={props.initial ? "Edit space" : "New space"}
+            title={props.initial ? gt("Edit space") : gt("New space")}
             onCancel={props.onCancel}
             confirm={{
-              label: props.initial ? "Save" : "Create",
+              label: props.initial
+                ? gt("Save", { $context: "verb, saves a space" })
+                : gt("Create", { $context: "verb, creates a space" }),
               disabled: trimmedName.length === 0 || !validTypes,
               onPress: save,
             }}
@@ -318,26 +328,26 @@ function SidebarSpaceSheet(props: {
             keyboardShouldPersistTaps="handled"
           >
             <Text className="text-sm text-foreground-muted">
-              A space shows only its projects' threads. Spaces are saved on this device.
+              <T>A space shows only its projects' threads. Spaces are saved on this device.</T>
             </Text>
-            <ListSection title="Name">
+            <ListSection title={gt("Name")}>
               <TextInput
-                accessibilityLabel="Space name"
+                accessibilityLabel={gt("Space name")}
                 autoFocus={props.initial === null}
                 className="h-12 px-4 text-base text-foreground"
                 onChangeText={setName}
-                placeholder="Work"
+                placeholder={gt("Work")}
                 returnKeyType="done"
                 value={name}
               />
             </ListSection>
-            <ListSection title="Group by">
+            <ListSection title={gt("Group by")}>
               <Menu
                 actions={(
                   [
-                    ["machine", "Machine"],
-                    ["repo", "Repo"],
-                    ["work_type", "Work type"],
+                    ["machine", gt("Machine")],
+                    ["repo", gt("Repo")],
+                    ["work_type", gt("Work type")],
                   ] as const
                 ).map(([id, title]) => ({ id, title, state: groupBy === id ? "on" : "off" }))}
                 onPressAction={({ nativeEvent }) => {
@@ -347,15 +357,22 @@ function SidebarSpaceSheet(props: {
               >
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Group by: ${groupBy === "work_type" ? "Work type" : groupBy === "machine" ? "Machine" : "Repo"}`}
+                  accessibilityLabel={gt("Group by: {group}", {
+                    group:
+                      groupBy === "work_type"
+                        ? gt("Work type")
+                        : groupBy === "machine"
+                          ? gt("Machine")
+                          : gt("Repo"),
+                  })}
                   className="flex-row items-center justify-between px-4 py-3"
                 >
                   <Text className="text-base text-foreground">
                     {groupBy === "work_type"
-                      ? "Work type"
+                      ? gt("Work type")
                       : groupBy === "machine"
-                        ? "Machine"
-                        : "Repo"}
+                        ? gt("Machine")
+                        : gt("Repo")}
                   </Text>
                   <SymbolView
                     name="chevron.down"
@@ -366,16 +383,18 @@ function SidebarSpaceSheet(props: {
               </Menu>
             </ListSection>
             <Text className="text-sm text-foreground-muted">
-              Review members when changing grouping. Colour edits apply to these members everywhere
-              on this device.
+              <T>
+                Review members when changing grouping. Colour edits apply to these members
+                everywhere on this device.
+              </T>
             </Text>
-            <ListSection title="Color">
+            <ListSection title={gt("Color")}>
               <View className="flex-row flex-wrap gap-3 p-4">
                 {SIDEBAR_SPACE_COLORS.map((swatch) => (
                   <Pressable
                     key={swatch}
                     accessibilityRole="radio"
-                    accessibilityLabel={`Color ${swatch}`}
+                    accessibilityLabel={gt("Color {color}", { color: swatch })}
                     accessibilityState={{ checked: color === swatch }}
                     onPress={() => {
                       setColor(swatch);
@@ -392,7 +411,7 @@ function SidebarSpaceSheet(props: {
               </View>
             </ListSection>
             {groupBy === "machine" ? (
-              <ListSection title="Machines">
+              <ListSection title={gt("Machines")}>
                 {props.machines.map((machine) => (
                   <ListToggleRow
                     key={machine.environmentId}
@@ -407,8 +426,8 @@ function SidebarSpaceSheet(props: {
             ) : null}
             {groupBy === "work_type" ? (
               <>
-                <ListSection title="Included work types">
-                  {[{ id: "unclassified", name: "Unclassified" }, ...workTypes].map((type) => (
+                <ListSection title={gt("Included work types")}>
+                  {[{ id: "unclassified", name: gt("Unclassified") }, ...workTypes].map((type) => (
                     <ListToggleRow
                       key={type.id}
                       label={type.name}
@@ -419,11 +438,11 @@ function SidebarSpaceSheet(props: {
                     />
                   ))}
                 </ListSection>
-                <ListSection title="Manage work types">
+                <ListSection title={gt("Manage work types")}>
                   {workTypes.map((type) => (
                     <View key={type.id} className="flex-row items-center gap-3 px-4 py-2">
                       <TextInput
-                        accessibilityLabel={`Work type name: ${type.name}`}
+                        accessibilityLabel={gt("Work type name: {name}", { name: type.name })}
                         value={type.name}
                         onChangeText={(value) =>
                           setWorkTypes((current) =>
@@ -436,27 +455,29 @@ function SidebarSpaceSheet(props: {
                       />
                       <Pressable
                         accessibilityRole="button"
-                        accessibilityLabel={`Delete work type ${type.name}`}
+                        accessibilityLabel={gt("Delete work type {name}", { name: type.name })}
                         onPress={() =>
                           setWorkTypes((current) => current.filter((item) => item.id !== type.id))
                         }
                         className="p-3"
                       >
-                        <Text className="text-sm text-danger-foreground">Delete</Text>
+                        <Text className="text-sm text-danger-foreground">
+                          <T>Delete</T>
+                        </Text>
                       </Pressable>
                     </View>
                   ))}
                   <View className="flex-row items-center gap-3 px-4 py-3">
                     <TextInput
-                      accessibilityLabel="New work type"
-                      placeholder="Work type name"
+                      accessibilityLabel={gt("New work type")}
+                      placeholder={gt("Work type name")}
                       value={newType}
                       onChangeText={setNewType}
                       className="min-w-0 flex-1 text-base text-foreground"
                     />
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel="Add work type"
+                      accessibilityLabel={gt("Add work type")}
                       disabled={
                         !newType.trim() ||
                         workTypes.some(
@@ -472,16 +493,18 @@ function SidebarSpaceSheet(props: {
                       }}
                       className="p-3"
                     >
-                      <Text className="text-sm text-foreground">Add</Text>
+                      <Text className="text-sm text-foreground">
+                        <T>Add</T>
+                      </Text>
                     </Pressable>
                   </View>
                 </ListSection>
                 {!validTypes ? (
                   <Text className="text-sm text-danger-foreground">
-                    Work type names must be unique and nonempty.
+                    <T>Work type names must be unique and nonempty.</T>
                   </Text>
                 ) : null}
-                <ListSection title="Assign repositories">
+                <ListSection title={gt("Assign repositories")}>
                   {props.projects.map((project) => {
                     const keys = keysFor(project);
                     const selected = new Set(keys.map((key) => assignments[key] ?? "unclassified"));
@@ -492,7 +515,7 @@ function SidebarSpaceSheet(props: {
                         actions={[
                           {
                             id: "unclassified",
-                            title: "Unclassified",
+                            title: gt("Unclassified"),
                             state: id === "unclassified" ? "on" : "off",
                           },
                           ...workTypes.map((type) => ({
@@ -510,14 +533,17 @@ function SidebarSpaceSheet(props: {
                       >
                         <Pressable
                           accessibilityRole="button"
-                          accessibilityLabel={`Work type for ${project.title}`}
+                          accessibilityLabel={gt("Work type for {project}", {
+                            project: project.title,
+                          })}
                           className="gap-1 px-4 py-3"
                         >
                           <Text className="text-base text-foreground">{project.title}</Text>
                           <Text className="text-sm text-foreground-muted">
                             {id === undefined
-                              ? "Mixed"
-                              : (workTypes.find((type) => type.id === id)?.name ?? "Unclassified")}
+                              ? gt("Mixed", { $context: "mixed work types" })
+                              : (workTypes.find((type) => type.id === id)?.name ??
+                                gt("Unclassified"))}
                           </Text>
                         </Pressable>
                       </Menu>
@@ -527,9 +553,11 @@ function SidebarSpaceSheet(props: {
               </>
             ) : null}
             {groupBy === "repo" ? (
-              <ListSection title="Repositories">
+              <ListSection title={gt("Repositories")}>
                 {props.projects.length === 0 ? (
-                  <Text className="p-4 text-sm text-foreground-muted">No projects yet</Text>
+                  <Text className="p-4 text-sm text-foreground-muted">
+                    <T>No projects yet</T>
+                  </Text>
                 ) : (
                   props.projects.map((project) => (
                     <ListToggleRow

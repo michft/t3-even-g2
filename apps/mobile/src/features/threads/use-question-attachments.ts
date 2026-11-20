@@ -1,3 +1,5 @@
+import { msg } from "gt-react-native";
+import { m } from "../../i18n/messages";
 import { convertPastedImagesToAttachments } from "../../lib/composerImages";
 import { PROVIDER_SEND_TURN_MAX_ATTACHMENTS, type UserInputQuestion } from "@t3tools/contracts";
 import { useAtomValue } from "@effect/atom-react";
@@ -91,7 +93,7 @@ export function useQuestionAttachments(props: {
       props.question.allowCustomAnswer === false ||
       !configs.get(selectedThread.environmentId)?.environment.capabilities.questionAttachments
     )
-      return;
+      return false;
     const key = questionAttachmentDraftKey(
       selectedThread.environmentId,
       selectedThread.id,
@@ -99,7 +101,7 @@ export function useQuestionAttachments(props: {
       props.question.id,
     );
     changeQuestionAttachmentPreparation(key, 1);
-    await convertPastedImagesToAttachments({
+    return convertPastedImagesToAttachments({
       uris,
       existingCount: appAtomRegistry.get(composerDraftsAtom)[key]?.attachments.length ?? 0,
     })
@@ -114,17 +116,25 @@ export function useQuestionAttachments(props: {
             (appAtomRegistry.get(questionAttachmentPreparationAtom)[key] ?? 0) > 0
           ) {
             const dropped = append(key, images);
-            if (error) Alert.alert("Could not paste image", error);
-            else if (dropped > 0) Alert.alert("Could not paste image", "Too many attachments.");
-          } else await releaseUnusedComposerAttachmentFiles(images);
+            if (error) Alert.alert(m(msg("Could not paste image")), error);
+            else if (dropped > 0)
+              Alert.alert(m(msg("Could not paste image")), m(msg("Too many attachments.")));
+            return !error && dropped === 0 && images.length > 0;
+          }
+          await releaseUnusedComposerAttachmentFiles(images);
+          return false;
         },
       )
       .catch(
-        /** Report a rejected paste operation using its error message when available. */ (error) =>
+        /** Report a rejected paste operation using its error message when available. */ (
+          error,
+        ) => {
           Alert.alert(
-            "Could not paste image",
-            error instanceof Error ? error.message : "Try again.",
-          ),
+            m(msg("Could not paste image")),
+            error instanceof Error ? error.message : m(msg("Try again.")),
+          );
+          return false;
+        },
       )
       .finally(
         /** Release the preparation reservation after either paste success or failure. */ () =>
@@ -175,7 +185,10 @@ export function useQuestionAttachments(props: {
           }
           const rejected = append(key, picked);
           if (result.error || rejected > 0)
-            Alert.alert("Could not attach file", result.error ?? "Too many attachments.");
+            Alert.alert(
+              m(msg("Could not attach file")),
+              result.error ?? m(msg("Too many attachments.")),
+            );
         },
       )
       .catch(
@@ -183,8 +196,8 @@ export function useQuestionAttachments(props: {
           error,
         ) =>
           Alert.alert(
-            "Could not attach file",
-            error instanceof Error ? error.message : "Try again.",
+            m(msg("Could not attach file")),
+            error instanceof Error ? error.message : m(msg("Try again.")),
           ),
       )
       .finally(

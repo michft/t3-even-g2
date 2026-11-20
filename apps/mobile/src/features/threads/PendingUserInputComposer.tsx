@@ -1,3 +1,4 @@
+import { T, useGT } from "gt-react-native";
 import { useState, useEffect } from "react";
 import { View, Pressable } from "react-native";
 import { AppText as Text } from "../../components/ui/AppText";
@@ -52,6 +53,7 @@ function PendingQuestionComposer(
     onNext: () => void;
   },
 ) {
+  const gt = useGT();
   const question = props.request.questions[props.questionIndex]!;
   const draft = props.drafts[question.id];
   const selectedOptionsText = question.options
@@ -102,22 +104,28 @@ function PendingQuestionComposer(
           accessibilityLiveRegion="polite"
         >
           {props.request.responseCapability === "not_resumable"
-            ? "This question is no longer available. Stop or restart the turn to continue."
-            : `Answer question ${props.questionIndex + 1} of ${props.request.questions.length}: ${question.header}`}
+            ? gt("This question is no longer available. Stop or restart the turn to continue.")
+            : gt("Answer question {current} of {total}: {header}", {
+                current: props.questionIndex + 1,
+                total: props.request.questions.length,
+                header: question.header,
+              })}
         </Text>
         {props.questionIndex > 0 ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Previous question"
+            accessibilityLabel={gt("Previous question")}
             onPress={props.onPrevious}
           >
-            <Text className="font-sans text-sm text-foreground-secondary">Previous</Text>
+            <Text className="font-sans text-sm text-foreground-secondary">
+              <T>Previous</T>
+            </Text>
           </Pressable>
         ) : null}
         {props.request.dismissible ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Dismiss question without answering"
+            accessibilityLabel={gt("Dismiss question without answering")}
             disabled={!props.composer.canOperateThread || responding || disconnected}
             onPress={
               /** Dismiss the active request through its existing user-input callback. */ () => {
@@ -126,7 +134,9 @@ function PendingQuestionComposer(
               }
             }
           >
-            <Text className="font-sans text-sm text-foreground-secondary">Dismiss</Text>
+            <Text className="font-sans text-sm text-foreground-secondary">
+              <T>Dismiss</T>
+            </Text>
           </Pressable>
         ) : null}
       </View>
@@ -142,12 +152,12 @@ function PendingQuestionComposer(
         draftAttachments={attachments.attachments}
         placeholder={
           question.initialAnswer !== undefined
-            ? "Edit the proposed answer…"
+            ? gt("Edit the proposed answer…")
             : question.multiSelect
-              ? "Reply with numbers, separated by commas…"
+              ? gt("Reply with numbers, separated by commas…")
               : question.allowCustomAnswer === false
-                ? "Reply with an option number…"
-                : "Reply with a number or your own words…"
+                ? gt("Reply with an option number…")
+                : gt("Reply with a number or your own words…")
         }
         activeThreadBusy={false}
         queuedEdit={null}
@@ -155,12 +165,12 @@ function PendingQuestionComposer(
         sendBlockedReason={
           disabled
             ? disconnected
-              ? "Reconnect to send answers"
+              ? gt("Reconnect to send answers")
               : responding
-                ? "Sending answers…"
-                : "Question unavailable"
+                ? gt("Sending answers…")
+                : gt("Question unavailable")
             : !activeAnswer
-              ? "Enter an answer"
+              ? gt("Enter an answer")
               : null
         }
         onChangeDraftMessage={changeText}

@@ -2,6 +2,9 @@ import {
   alternateComposerDispatchAction,
   type ActiveTurnComposerAction,
 } from "@t3tools/client-runtime/state/composer-dispatch";
+import { msg } from "gt-react-native";
+
+import { m, type MessageResolver } from "../../i18n/messages";
 
 import type { FollowUpBehavior } from "../../lib/followUpBehavior";
 
@@ -19,23 +22,26 @@ export interface ComposerSendPresentation {
 }
 
 const ACTION_LABEL: Record<ActiveTurnComposerAction, string> = {
-  queue: "Queue",
-  steer: "Steer",
-  restart: "Restart",
+  queue: msg("Queue", { $context: "verb, sends the message after the current turn" }),
+  steer: msg("Steer", { $context: "verb, sends the message into the running turn" }),
+  restart: msg("Restart", { $context: "verb, restarts the turn with the message" }),
 };
 
-export function resolveComposerSendPresentation(input: {
-  /** Runtime answers use a direct response command rather than the prompt outbox. */
-  readonly answeringQuestion?: boolean;
-  readonly editingQueuedMessage: boolean;
-  readonly running: boolean;
-  readonly canSteer: boolean;
-  readonly followUpBehavior: FollowUpBehavior;
-  readonly deliveryDeferred: boolean;
-}): ComposerSendPresentation {
+export function resolveComposerSendPresentation(
+  input: {
+    /** Runtime answers bypass the prompt outbox. */
+    readonly answeringQuestion?: boolean;
+    readonly editingQueuedMessage: boolean;
+    readonly running: boolean;
+    readonly canSteer: boolean;
+    readonly followUpBehavior: FollowUpBehavior;
+    readonly deliveryDeferred: boolean;
+  },
+  resolve: MessageResolver = m,
+): ComposerSendPresentation {
   if (input.editingQueuedMessage) {
     return {
-      label: "Update queued message",
+      label: resolve(msg("Update queued message")),
       icon: "checkmark",
       action: null,
       alternate: null,
@@ -44,7 +50,10 @@ export function resolveComposerSendPresentation(input: {
   }
   if (!input.running || input.answeringQuestion) {
     return {
-      label: input.deliveryDeferred && !input.answeringQuestion ? "Queue" : "Send",
+      label:
+        input.deliveryDeferred && !input.answeringQuestion
+          ? resolve(ACTION_LABEL.queue)
+          : resolve(msg("Send", { $context: "verb, sends the message" })),
       icon: input.deliveryDeferred && !input.answeringQuestion ? "tray.and.arrow.up" : "arrow.up",
       action: null,
       alternate: null,
@@ -54,7 +63,7 @@ export function resolveComposerSendPresentation(input: {
   const action: ActiveTurnComposerAction = input.canSteer ? input.followUpBehavior : "queue";
   const alternate = alternateComposerDispatchAction(action);
   return {
-    label: ACTION_LABEL[action],
+    label: resolve(ACTION_LABEL[action]),
     icon: action === "steer" ? "arrow.turn.left.up" : "list.number",
     action,
     alternate: input.canSteer ? alternate : null,

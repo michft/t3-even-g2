@@ -1,3 +1,4 @@
+import { T, useGT, Var } from "gt-react";
 import { ChevronUpIcon, LayoutGridIcon, PlusIcon } from "lucide-react";
 import { type TouchEvent, type WheelEvent, useRef, useState } from "react";
 
@@ -95,6 +96,7 @@ export function SidebarSpaceSwitcher({
 }: {
   readonly projects: readonly SpaceProjectOption[];
 }) {
+  const gt = useGT();
   const spaces = useSidebarSpacesStore((state) => state.spaces);
   const setActiveSpace = (id: string | null) => changeSpaces((store) => store.setActiveSpace(id));
   const activeSpace = useActiveSidebarSpace();
@@ -104,7 +106,7 @@ export function SidebarSpaceSwitcher({
     <div className="flex min-w-0 items-center justify-end gap-1">
       <div className="flex min-w-0 items-center gap-0.5 overflow-hidden">
         <SpacePageButton
-          label="All projects"
+          label={gt("All projects")}
           active={activeSpace === null}
           onClick={() => setActiveSpace(null)}
         >
@@ -126,7 +128,7 @@ export function SidebarSpaceSwitcher({
           render={
             <button
               type="button"
-              aria-label="Space options"
+              aria-label={gt("Space options")}
               className="inline-flex h-7 min-w-0 max-w-28 cursor-pointer items-center gap-1 rounded-md px-1.5 text-xs font-medium text-sidebar-foreground hover:bg-sidebar-row-hover"
             />
           }
@@ -137,7 +139,9 @@ export function SidebarSpaceSwitcher({
               style={{ backgroundColor: activeSpace.color }}
             />
           ) : null}
-          <span className="truncate">{activeSpace?.name ?? "All"}</span>
+          <span className="truncate">
+            {activeSpace?.name ?? gt("All", { $context: "all projects, sidebar space" })}
+          </span>
           <ChevronUpIcon className="size-3 shrink-0 text-muted-foreground" />
         </MenuTrigger>
         <MenuPopup side="top" align="end">
@@ -150,7 +154,7 @@ export function SidebarSpaceSwitcher({
           >
             <MenuRadioItem value={ALL_SPACES_VALUE} closeOnClick>
               <LayoutGridIcon />
-              All projects
+              <T>All projects</T>
             </MenuRadioItem>
             {spaces.map((space) => (
               <MenuRadioItem key={space.id} value={space.id} closeOnClick>
@@ -163,20 +167,22 @@ export function SidebarSpaceSwitcher({
           {activeSpace ? (
             <>
               <MenuItem onClick={() => setEditing(activeSpace)}>
-                Edit “{activeSpace.name}”…
+                <T>
+                  Edit “<Var>{activeSpace.name}</Var>”…
+                </T>
               </MenuItem>
               <MenuItem
                 variant="destructive"
                 onClick={() => changeSpaces((store) => store.deleteSpace(activeSpace.id))}
               >
-                Delete space
+                <T>Delete space</T>
               </MenuItem>
               <MenuSeparator />
             </>
           ) : null}
           <MenuItem onClick={() => setEditing("new")}>
             <PlusIcon />
-            New space…
+            <T>New space…</T>
           </MenuItem>
         </MenuPopup>
       </Menu>
@@ -226,6 +232,7 @@ function SidebarSpaceDialog(props: {
   readonly projects: readonly SpaceProjectOption[];
   readonly onClose: () => void;
 }) {
+  const gt = useGT();
   const spaceCount = useSidebarSpacesStore((state) => state.spaces.length);
   const existing = props.space !== null && props.space !== "new" ? props.space : null;
   const [name, setName] = useState(existing?.name ?? "");
@@ -254,10 +261,12 @@ function SidebarSpaceDialog(props: {
     >
       <DialogPopup className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{existing ? "Edit space" : "New space"}</DialogTitle>
+          <DialogTitle>{existing ? gt("Edit space") : gt("New space")}</DialogTitle>
           <DialogDescription>
-            A space shows only its projects' threads. Swipe sideways on the thread list to move
-            between spaces. Spaces are saved on this device.
+            <T>
+              A space shows only its projects' threads. Swipe sideways on the thread list to move
+              between spaces. Spaces are saved on this device.
+            </T>
           </DialogDescription>
         </DialogHeader>
         <DialogPanel>
@@ -269,23 +278,27 @@ function SidebarSpaceDialog(props: {
             }}
           >
             <div className="grid gap-1.5">
-              <Label htmlFor="sidebar-space-name">Name</Label>
+              <Label htmlFor="sidebar-space-name">
+                <T>Name</T>
+              </Label>
               <Input
                 id="sidebar-space-name"
-                placeholder="Work"
+                placeholder={gt("Work", { $context: "example name for a project space" })}
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 autoFocus
               />
             </div>
             <div className="grid gap-1.5">
-              <Label>Color</Label>
+              <Label>
+                <T>Color</T>
+              </Label>
               <div className="flex gap-2">
                 {SIDEBAR_SPACE_COLORS.map((option) => (
                   <button
                     key={option}
                     type="button"
-                    aria-label={`Color ${option}`}
+                    aria-label={gt("Color {color}", { color: option })}
                     aria-pressed={color === option}
                     onClick={() => setColor(option)}
                     className={cn(
@@ -298,10 +311,14 @@ function SidebarSpaceDialog(props: {
               </div>
             </div>
             <div className="grid gap-1.5">
-              <Label>Projects</Label>
+              <Label>
+                <T>Projects</T>
+              </Label>
               <div className="grid max-h-56 gap-2 overflow-y-auto">
                 {props.projects.length === 0 ? (
-                  <span className="text-sm text-muted-foreground">No projects yet.</span>
+                  <span className="text-sm text-muted-foreground">
+                    <T>No projects yet.</T>
+                  </span>
                 ) : null}
                 {props.projects.map((project) => (
                   <label
@@ -334,10 +351,12 @@ function SidebarSpaceDialog(props: {
         </DialogPanel>
         <DialogFooter variant="bare">
           <Button variant="outline" onClick={props.onClose}>
-            Cancel
+            <T>Cancel</T>
           </Button>
           <Button onClick={save} disabled={!canSave}>
-            {existing ? "Save" : "Create space"}
+            {existing
+              ? gt("Save", { $context: "save changes to a project space" })
+              : gt("Create space")}
           </Button>
         </DialogFooter>
       </DialogPopup>

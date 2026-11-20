@@ -1,3 +1,4 @@
+import { msg, useGT, useMessages } from "gt-react-native";
 import { useEffect } from "react";
 import { Platform } from "react-native";
 
@@ -15,18 +16,20 @@ import {
 } from "./evenG2Native";
 
 const statusLabels = {
-  disconnected: "Not connected",
-  scanning: "Scanning",
-  connecting: "Connecting",
-  starting: "Starting",
-  ready: "Connected",
-  paused: "Display paused",
-  error: "Retry",
-  unsupported: "Unavailable",
+  disconnected: msg("Not connected"),
+  scanning: msg("Scanning"),
+  connecting: msg("Connecting"),
+  starting: msg("Starting"),
+  ready: msg("Connected"),
+  paused: msg("Display paused"),
+  error: msg("Retry"),
+  unsupported: msg("Unavailable"),
 } as const;
 
 /** Shows Even G2 controls in their own iOS settings section. */
 export function EvenG2SettingsRows() {
+  const gt = useGT();
+  const m = useMessages();
   const status = useEvenG2Status();
 
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- starts the native G2 auto-connect session once Settings shows its controls
@@ -55,20 +58,22 @@ export function EvenG2SettingsRows() {
       <SettingsRow
         icon="eye"
         label="G2 + R1"
-        value={statusLabels[status.status]}
+        value={m(statusLabels[status.status])}
         disabled={status.status === "unsupported"}
         onPress={toggleConnection}
       />
       <Text className="px-2 text-sm text-foreground-muted">
         {status.detail ||
-          "Quit the Even app first. Tap R1 to open a thread, dictate, or send. Tap the right G2 arm to open a selected thread or jump to its latest reply; right-arm taps do nothing during dictation. Tap the left G2 arm to go back or cancel dictation. Swipes scroll only; they never cancel dictation."}
+          gt(
+            "Quit the Even app first. Tap R1 to open a thread, dictate, or send. Tap the right G2 arm to open a selected thread or jump to its latest reply; right-arm taps do nothing during dictation. Tap the left G2 arm to go back or cancel dictation. Swipes scroll only; they never cancel dictation.",
+          )}
       </Text>
       {status.status === "paused" && (
-        <SettingsRow icon="eye" label="Resume T3 display" onPress={resumeEvenG2Display} />
+        <SettingsRow icon="eye" label={gt("Resume T3 display")} onPress={resumeEvenG2Display} />
       )}
       <SettingsSwitchRow
         icon="eye"
-        label="Natural G2 scrolling"
+        label={gt("Natural G2 scrolling")}
         value={status.naturalScrolling}
         disabled={status.status === "unsupported"}
         onValueChange={setEvenG2NaturalScrolling}
