@@ -1,8 +1,10 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react";
+import { useMessages } from "gt-react-native";
+import { useAtomCommand } from "../../state/use-atom-command";
+import { useAtomValue } from "@effect/atom-react";
 import { Atom, AsyncResult } from "effect/reactivity";
 import { useCallback, useMemo } from "react";
 import { repositoryHighlightMenuActions } from "../../lib/repositoryHighlight";
-import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
+import { mobilePreferencesAtom, saveMobilePreferences } from "../../state/preferences";
 import { isThreadHighlightOverride, updateThreadHighlight } from "../../lib/threadHighlight";
 import { resolveSpaceWorkType } from "../../lib/sidebarSpaces";
 
@@ -47,10 +49,11 @@ const overrideAtom = Atom.family((key: string) =>
 
 /** Share one repository override across its rows, preserving unrelated device preferences. */
 export function useRepositoryHighlight(key: string) {
+  const m = useMessages();
   const loaded = useAtomValue(loadedAtom);
   const override = useAtomValue(overrideAtom(key));
-  const save = useAtomSet(updateMobilePreferencesAtom);
-  const actions = useMemo(() => repositoryHighlightMenuActions(override), [override]);
+  const save = useAtomCommand(saveMobilePreferences);
+  const actions = useMemo(() => repositoryHighlightMenuActions(override, m), [override, m]);
   /** Update only the selected repository record through the serialized preference transform. */
   const handleAction = useCallback(
     (event: string) => {
@@ -58,7 +61,7 @@ export function useRepositoryHighlight(key: string) {
       const value = event.slice("repository-highlight:".length);
       if (value !== "server" && !isThreadHighlightOverride(value)) return false;
       if (loaded)
-        save({
+        void save({
           transform: (current) => ({
             repositoryHighlights: updateThreadHighlight(
               current.repositoryHighlights,

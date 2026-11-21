@@ -1,3 +1,4 @@
+import { msg, useMessages } from "gt-react-native";
 import { requireOptionalNativeModule } from "expo";
 import { Platform } from "react-native";
 import { useSyncExternalStore } from "react";
@@ -103,8 +104,8 @@ const unavailableStatus: EvenG2Status = {
   status: "unsupported",
   detail:
     Platform.OS === "ios"
-      ? "Install a native T3 Code build containing the Even G2 module."
-      : "Even G2 direct mode is available on iOS 26 or later.",
+      ? msg("Install a native T3 Code build containing the Even G2 module.")
+      : msg("Even G2 direct mode is available on iOS 26 or later."),
   connected: false,
   listening: false,
   autoConnect: false,
@@ -168,7 +169,13 @@ export function subscribeEvenG2Status(subscriber: () => void): () => void {
 
 /** Reads native status as a React external store, with an unsupported server snapshot. */
 export function useEvenG2Status(): EvenG2Status {
-  return useSyncExternalStore(subscribeEvenG2Status, getEvenG2Status, () => unavailableStatus);
+  const m = useMessages();
+  const status = useSyncExternalStore(
+    subscribeEvenG2Status,
+    getEvenG2Status,
+    () => unavailableStatus,
+  );
+  return status === unavailableStatus ? { ...status, detail: m(status.detail) } : status;
 }
 
 /** Subscribes to speech results from the native dictation session. */

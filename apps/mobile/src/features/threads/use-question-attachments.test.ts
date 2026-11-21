@@ -211,7 +211,8 @@ it.each(["files", "media", "paste"] as const)(
     expect(fixture.preparations[operation.key]).toBe(1);
     render(true);
     operation.resolve();
-    await operation.completion;
+    const succeeded = await operation.completion;
+    if (kind === "paste") expect(succeeded).toBe(false);
     expect(fixture.append).not.toHaveBeenCalled();
     expect(fixture.release).toHaveBeenCalledExactlyOnceWith(operation.result);
     expect(fixture.preparations[operation.key]).toBe(0);
@@ -225,7 +226,8 @@ it.each(["files", "media", "paste"] as const)(
     expect(fixture.preparations[operation.key]).toBe(1);
     render();
     operation.resolve();
-    await operation.completion;
+    const succeeded = await operation.completion;
+    if (kind === "paste") expect(succeeded).toBe(true);
     expect(fixture.append).toHaveBeenCalledExactlyOnceWith(operation.key, operation.result, {
       maxAttachments: PROVIDER_SEND_TURN_MAX_ATTACHMENTS,
     });
@@ -240,7 +242,7 @@ it("reports partial paste conversion errors without discarding prepared images",
     error: "Could not read a pasted image.",
   });
   const hook = render();
-  await hook.onPasteImages([image.fileUri]);
+  expect(await hook.onPasteImages([image.fileUri])).toBe(false);
   expect(fixture.append).toHaveBeenCalledWith(hook.key, [image], {
     maxAttachments: PROVIDER_SEND_TURN_MAX_ATTACHMENTS,
   });

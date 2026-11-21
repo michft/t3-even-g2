@@ -1,3 +1,4 @@
+import { useGT } from "gt-react";
 import { type RuntimeRequestId } from "@t3tools/contracts";
 import { memo } from "react";
 import { type PendingUserInput } from "../../session-logic";
@@ -19,6 +20,7 @@ function ComposerPendingUserInputPanel({
   questionIndex,
   onDismiss,
 }: PendingUserInputPanelProps) {
+  const gt = useGT();
   const request = pendingUserInputs[0];
   const question = request?.questions[questionIndex];
   if (!request || !question) return null;
@@ -27,15 +29,19 @@ function ComposerPendingUserInputPanel({
       <ComposerBanner.Content>
         <span className="text-sm text-secondary-label" role="status">
           {request.responseCapability === "not_resumable"
-            ? "This question is no longer available. Stop or restart the turn to continue."
-            : `Answer question ${questionIndex + 1} of ${request.questions.length}: ${question.header}`}
+            ? gt("This question is no longer available. Stop or restart the turn to continue.")
+            : gt("Answer question {current} of {total}: {header}", {
+                current: questionIndex + 1,
+                total: request.questions.length,
+                header: question.header,
+              })}
         </span>
       </ComposerBanner.Content>
       {request.dismissible ? (
         <ComposerBanner.Actions>
           <ComposerBanner.Dismiss
-            aria-label="Dismiss question without answering"
-            title="Dismiss question without answering"
+            aria-label={gt("Dismiss question without answering")}
+            title={gt("Dismiss question without answering")}
             disabled={disabled || respondingRequestIds.includes(request.requestId)}
             onClick={
               /** Dismiss this asynchronous request without submitting an answer. */ () =>

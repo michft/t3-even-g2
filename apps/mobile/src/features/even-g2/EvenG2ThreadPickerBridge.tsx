@@ -1,3 +1,4 @@
+import { useGT } from "gt-react-native";
 import { useEffect, useEffectEvent, useMemo } from "react";
 import { Platform } from "react-native";
 import { sortThreads } from "@t3tools/client-runtime/state/thread-sort";
@@ -22,6 +23,7 @@ export function EvenG2ThreadPickerBridge() {
 
 /** Keeps the native picker current and routes R1 selections into the workspace. */
 function ThreadPickerContent() {
+  const gt = useGT();
   const threads = useThreadShells();
   const projects = useProjects();
   const { savedConnectionsById } = useSavedRemoteConnections();
@@ -38,7 +40,7 @@ function ThreadPickerContent() {
       "updated_at",
     ).map((thread) => ({
       key: scopedThreadKey(thread.environmentId, thread.id),
-      title: thread.title.trim() || "Untitled",
+      title: thread.title.trim() || gt("Untitled"),
       subtitle: [
         savedConnectionsById[thread.environmentId]?.environmentLabel,
         projectNames.get(scopedProjectKey(thread.environmentId, thread.projectId)),
@@ -46,7 +48,7 @@ function ThreadPickerContent() {
         .filter(Boolean)
         .join(" · "),
     }));
-  }, [threads, projects, savedConnectionsById]);
+  }, [threads, projects, savedConnectionsById, gt]);
 
   /** Opens a current thread selection or refreshes the picker if that thread vanished. */
   const chooseThread = useEffectEvent(({ key }: { readonly key: string }) => {

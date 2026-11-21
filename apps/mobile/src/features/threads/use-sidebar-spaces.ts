@@ -1,4 +1,5 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react";
+import { useAtomCommand } from "../../state/use-atom-command";
+import { useAtomValue } from "@effect/atom-react";
 import type {
   EnvironmentProject,
   EnvironmentThreadShell,
@@ -10,7 +11,7 @@ import * as Crypto from "expo-crypto";
 import { useEffect, useRef } from "react";
 
 import { scopedProjectKey, scopedThreadKey } from "../../lib/scopedEntities";
-import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
+import { mobilePreferencesAtom, saveMobilePreferences } from "../../state/preferences";
 import { type SidebarSpacesChange, sidebarSpaceChanges } from "./sidebar-space-changes";
 
 import {
@@ -37,7 +38,7 @@ export function useSidebarSpaces(
   projects: readonly EnvironmentProject[] = [],
 ) {
   const preferencesResult = useAtomValue(mobilePreferencesAtom);
-  const savePreferences = useAtomSet(updateMobilePreferencesAtom);
+  const savePreferences = useAtomCommand(saveMobilePreferences);
   const loaded = AsyncResult.isSuccess(preferencesResult);
   const preferences: Preferences = loaded ? preferencesResult.value : {};
   const state =
@@ -126,7 +127,7 @@ export function useSidebarSpaces(
     const selected = available.find((thread) => threadKey(thread) === selection.selectedThreadKey);
     if (selected && lastThreadKeys?.[memoryKey] !== selection.selectedThreadKey) {
       const selectedKey = threadKey(selected);
-      savePreferences({
+      void savePreferences({
         transform: (current) => ({
           sidebarSpaceLastThreadKeys: {
             ...current.sidebarSpaceLastThreadKeys,
@@ -145,7 +146,7 @@ export function useSidebarSpaces(
     applyColour = false,
   ) => {
     if (!loaded) return;
-    savePreferences({
+    void savePreferences({
       transform: (current) => {
         const before = current.sidebarSpaces ?? EMPTY_SIDEBAR_SPACES_STATE;
         const next = change(before);

@@ -1,3 +1,4 @@
+import { useGT } from "gt-react-native";
 import { memo, useId } from "react";
 import { View } from "react-native";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
@@ -12,6 +13,7 @@ export const ThreadRowColors = memo(function ThreadRowColors(props: {
   readonly rightStrength: number;
   readonly workType?: { readonly name: string; readonly colour: string | null } | null;
 }) {
+  const gt = useGT();
   const id = useId().replaceAll(":", "");
   const left = props.mode === "tint" && props.serverColor && props.leftStrength > 0;
   const right = props.mode === "tint" && props.repositoryColor && props.rightStrength > 0;
@@ -20,7 +22,7 @@ export const ThreadRowColors = memo(function ThreadRowColors(props: {
       {props.workType?.colour ? (
         <View
           accessible
-          accessibilityLabel={`Work type: ${props.workType.name}`}
+          accessibilityLabel={gt("Work type: {name}", { name: props.workType.name })}
           pointerEvents="none"
           className="absolute bottom-0 left-4 right-4 h-0.5"
           style={{ backgroundColor: props.workType.colour }}

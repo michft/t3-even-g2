@@ -16,12 +16,12 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@effect/atom-react", () => ({
   useAtomValue: () => AsyncResult.success(mocks.preferences),
-  useAtomSet: () => mocks.save,
 }));
 vi.mock("../../state/preferences", () => ({
   mobilePreferencesAtom: "preferences",
-  updateMobilePreferencesAtom: "update",
+  saveMobilePreferences: "update",
 }));
+vi.mock("../../state/use-atom-command", () => ({ useAtomCommand: () => mocks.save }));
 vi.mock("expo-crypto", () => ({ randomUUID: () => "new-space" }));
 
 import { useSidebarSpaces, type SidebarSpaceThreadSelection } from "./use-sidebar-spaces";

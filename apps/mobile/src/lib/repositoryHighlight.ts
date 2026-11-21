@@ -1,3 +1,5 @@
+import { msg } from "gt-react-native";
+import { m, type MessageResolver } from "../i18n/messages";
 import {
   repositoryGroupingKeyOf,
   type RepositoryIdentity,
@@ -39,9 +41,14 @@ export function resolveRepositoryHighlight(
 /** Repository colour menu, with events kept distinct from legacy per-thread events. */
 export function repositoryHighlightMenuActions(
   override: ThreadHighlightOverride | undefined,
+  resolve: MessageResolver = m,
 ): MenuAction[] {
-  return highlightMenuActions(override, {
-    prefix: "repository-highlight:",
-    defaultTitle: "Automatic",
-  });
+  return highlightMenuActions(
+    override,
+    {
+      prefix: "repository-highlight:",
+      defaultTitle: msg("Automatic"),
+    },
+    resolve,
+  );
 }

@@ -7,6 +7,11 @@ Changes maintained by the Even G2 fork. Upstream release history remains in
 
 ### Changed
 
+- Integrate T3 Nightly `v0.1.12-nightly.20261120.5009`, preserving G2/R1,
+  bottom Spaces, phone navigation, appearance, ordinary-composer question replies,
+  existing iOS identity and GitHub-hosted runners. Adapt fork preferences,
+  native image paste and presentation text to the incoming client APIs.
+
 - Integrate T3 Nightly `v0.1.10-nightly.20261116.4787` onto refreshed fork main,
   carrying the reviewed Nightly4736 stack into main and retaining bottom Spaces,
   actual conversation memory, phone sidebar tabs and sensor-side safe areas with
