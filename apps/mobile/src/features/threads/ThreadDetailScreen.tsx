@@ -1636,6 +1636,7 @@ function ThreadDetailBody(
                         position: "absolute",
                         bottom: controlInsets.bottom,
                         left: controlInsets.left,
+                        paddingTop: FLOATING_WORKING_CONTROL_COVERAGE,
                       },
                       columnComposerWidthStyle,
                     ]
@@ -1645,6 +1646,7 @@ function ThreadDetailBody(
                         bottom: controlInsets.bottom,
                         left: controlInsets.left,
                         right: controlInsets.right,
+                        paddingTop: FLOATING_WORKING_CONTROL_COVERAGE,
                       },
                       composerWidthStyle,
                     ]
