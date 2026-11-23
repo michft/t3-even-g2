@@ -8,7 +8,7 @@ import {
   appendOrchestrationProtocol,
   orchestrationProtocolCompatibilityError,
 } from "./compatibility.ts";
-import { BearerConnectionTarget } from "./model.ts";
+import { BearerConnectionTarget, ConnectionBlockedError } from "./model.ts";
 import { fetchRemoteEnvironmentDescriptor } from "../environment/descriptor.ts";
 import { deriveWsBaseUrl } from "../environment/endpoint.ts";
 import { make as makeRpcSessionFactory } from "../rpc/session.ts";
@@ -95,15 +95,21 @@ export const checkServerConnection = Effect.fn("deployment.checkServerConnection
         Effect.fail(
           new SmokeFailure({
             stage,
-            schemaRejected: cause.reasons.some((reason) =>
-              Schema.isSchemaError(
-                Cause.isDieReason(reason)
-                  ? reason.defect
-                  : Cause.isFailReason(reason)
-                    ? reason.error
-                    : undefined,
-              ),
-            ),
+            // The RPC session reports an unreadable initial config as a blocked
+            // "unsupported" connection rather than surfacing the SchemaError.
+            schemaRejected: cause.reasons.some((reason) => {
+              const error = Cause.isDieReason(reason)
+                ? reason.defect
+                : Cause.isFailReason(reason)
+                  ? reason.error
+                  : undefined;
+              return (
+                Schema.isSchemaError(error) ||
+                (stage === "config" &&
+                  error instanceof ConnectionBlockedError &&
+                  error.reason === "unsupported")
+              );
+            }),
           }),
         ),
       ),
