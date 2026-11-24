@@ -1,8 +1,8 @@
 # Domain documentation
 
-Read the [glossary](../internals/glossary.md) for terms such as environment,
+Read the [glossary](../internals/00_glossary.md) for terms such as environment,
 project, thread, provider, and client. Read the relevant parts of the
-[architecture overview](../internals/overview.md) when investigating behavior
+[architecture overview](../internals/01_architecture.md) when investigating behavior
 that crosses components. Keep R1, left-arm, and right-arm input distinct.
 
 This checkout uses these existing documents rather than a `CONTEXT.md` or
