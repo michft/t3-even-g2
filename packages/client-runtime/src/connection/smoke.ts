@@ -30,6 +30,8 @@ export function validateSmokeOrigin(value: string): string {
   return url.origin;
 }
 
+const isConnectionBlockedError = Schema.is(ConnectionBlockedError);
+
 export class SmokeFailure extends Schema.TaggedError<SmokeFailure>()("SmokeFailure", {
   stage: Schema.Literals(["descriptor", "permissions", "ticket", "config"]),
   schemaRejected: Schema.Boolean,
@@ -106,7 +108,7 @@ export const checkServerConnection = Effect.fn("deployment.checkServerConnection
               return (
                 Schema.isSchemaError(error) ||
                 (stage === "config" &&
-                  error instanceof ConnectionBlockedError &&
+                  isConnectionBlockedError(error) &&
                   error.reason === "unsupported")
               );
             }),
