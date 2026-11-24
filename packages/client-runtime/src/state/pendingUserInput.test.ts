@@ -85,6 +85,8 @@ describe("resolvePendingUserInputAnswer", () => {
       resolvePendingUserInputAnswer(labels, { customAnswer: "node.js, orchestration-first" }),
     ).toEqual(["Node.js", "Orchestration-first"]);
     expect(resolvePendingUserInputAnswer(multiple, { customAnswer: "2, unknown" })).toBeNull();
+    expect(resolvePendingUserInputAnswer(multiple, { customAnswer: " " })).toEqual([]);
+    expect(resolvePendingUserInputAnswer({ ...multiple, required: true }, undefined)).toBeNull();
   });
 
   it("accepts a typed option number whose exact provider value is empty", () => {

@@ -83,10 +83,11 @@ export function resolvePendingUserInputAnswer(
     customAnswer ??
     (question.allowCustomAnswer !== false && (draft?.attachmentCount ?? 0) > 0 ? "" : null);
   if (question.multiSelect) {
-    // Checking nothing answers "none of these" unless the provider requires a choice.
+    const canSubmitEmptySelection =
+      !question.required && normalizeDraftAnswer(draft?.customAnswer) === null;
     return selectedOptionValues.length > 0
       ? selectedOptionValues
-      : (fallback ?? (question.required ? null : []));
+      : (fallback ?? (canSubmitEmptySelection ? [] : null));
   }
   return selectedOptionValues[0] ?? fallback;
 }
