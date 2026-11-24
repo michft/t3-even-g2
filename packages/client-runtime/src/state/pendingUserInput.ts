@@ -79,17 +79,17 @@ export function resolvePendingUserInputAnswer(
   }
 
   const selectedOptionValues = normalizeSelectedOptionValues(question, draft?.selectedOptionValues);
+  const fallback =
+    customAnswer ??
+    (question.allowCustomAnswer !== false && (draft?.attachmentCount ?? 0) > 0 ? "" : null);
   if (question.multiSelect) {
+    const canSubmitEmptySelection =
+      !question.required && normalizeDraftAnswer(draft?.customAnswer) === null;
     return selectedOptionValues.length > 0
       ? selectedOptionValues
-      : (customAnswer ??
-          (question.allowCustomAnswer !== false && (draft?.attachmentCount ?? 0) > 0 ? "" : null));
+      : (fallback ?? (canSubmitEmptySelection ? [] : null));
   }
-  return (
-    selectedOptionValues[0] ??
-    customAnswer ??
-    (question.allowCustomAnswer !== false && (draft?.attachmentCount ?? 0) > 0 ? "" : null)
-  );
+  return selectedOptionValues[0] ?? fallback;
 }
 
 /** Preserve the typed draft; constrained questions still reject unmatched text at submission. */
