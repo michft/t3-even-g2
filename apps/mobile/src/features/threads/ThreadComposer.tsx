@@ -479,6 +479,7 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
     label: props.selectedThread.title || gt("Untitled thread"),
     readDraftMessage: () => getComposerDraftSnapshot(composerDraftKey).text,
     selection: composerMenu.selection,
+    hidden: props.hidden,
     /** Save dictated text in the current prompt or question draft before notifying its owner. */
     onChangeDraftMessage: (text) => {
       setComposerDraftText(composerDraftKey, text);
